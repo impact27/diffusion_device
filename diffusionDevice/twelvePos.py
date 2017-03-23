@@ -7,7 +7,9 @@ Created on Fri Mar 17 10:26:20 2017
 import numpy as np
 import background_rm as rmbg
 import image_registration.image as ir
+import image_registration.channel as cr
 import diffusionDevice.profiles as dp
+import scipy
 import warnings
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
@@ -106,4 +108,137 @@ def defaultReadingPos():
                      88.7,
                      90.5])*1e-3    
     
+def outChannelMask(im, chAngle=0):
+    """Creates a mask that excludes the channel
+    
+    Parameters
+    ----------
+    im: 2d array
+        The image
+    chAngle: number
+        The angle of the channel in radians
+    
+    Returns
+    -------
+    mask: 2d array
+        the mask excluding the channel
+        
+    Notes
+    -----
+    The channel should be clear(ish) on the image. 
+    The angle should be aligned with the channel
+    
+
+    """
+    im=np.array(im,dtype='float32')
+    #Remove clear dust
+    mask=rmbg.backgroundMask(im, nstd=6)
+    im[~mask]=np.nan
+    
+    #get edge
+    scharr=cr.Scharr_edge(im)
+    #Orientate image along x if not done
+    if chAngle !=0:
+        scharr= ir.rotate_scale(scharr, -chAngle,1,np.nan)
+        
+    #get profile
+    prof=np.nanmean(scharr,1)
+    #get threshold
+    threshold=np.nanmean(prof)+3*np.nanstd(prof)
+    mprof=prof>threshold
+    edgeargs=np.flatnonzero(mprof)
+    
+    if edgeargs.size > 2:
+        mask=np.zeros(im.shape)
+        mask[edgeargs[0]-5:edgeargs[-1]+5,:]=2
+        if chAngle !=0:
+            mask= ir.rotate_scale(mask, chAngle,1,np.nan)
+        mask=np.logical_and(mask<1, np.isfinite(im))
+    else:
+        mask= None
+    return mask
+    
+def outGaussianBeamMask(data, chAngle=0):
+    """
+    A single, straight, protein beam is present. It is "Sinking" the profile 
+    such as the sides are leaning toward the center
+    """
+    data=np.asarray(data)
+    
+    #Filter to be used
+    gfilter=scipy.ndimage.filters.gaussian_filter1d
+    
+    #get profile
+    if chAngle!=0:
+        data=ir.rotate_scale(data, -chAngle,1,np.nan)
+    profile=np.nanmean(data,1)
+    
+    #guess position of max
+    amax= profile.size//2
+    
+    #get X and Y
+    X0=np.arange(profile.size)-amax
+    Y0=profile
+    
+    #The cutting values are when the profiles goes below zero
+    rlim=np.flatnonzero(np.logical_and(Y0<0,X0>0))[0]
+    llim=np.flatnonzero(np.logical_and(Y0<0,X0<0))[-1]
+    
+    #We can now detect the true center
+    fil=gfilter(profile,21)
+    X0=X0-X0[np.nanargmax(fil[llim:rlim])]-llim
+    
+    #restrict to the correct limits
+    X=X0[llim:rlim]
+    Y=Y0[llim:rlim]-np.nanmin(Y0)
+    
+    #Fit the log, which should be a parabola
+    c=np.polyfit(X,np.log(Y),2)
+    
+    #Deduce the variance
+    var=-1/(2*c[0])
+    
+    #compute the limits (3std, restricted to half the image)
+    mean=np.nanargmax(fil[llim:rlim])+llim
+    dist=int(3*np.sqrt(var))
+    if dist > profile.size//4:
+        dist = profile.size//4
+    llim=mean-dist
+    if llim < 0:
+        return None
+    rlim=mean+dist
+    if rlim>profile.size:
+        return None
+    
+    #get mask
+    mask=np.ones(data.shape)
+    
+    if chAngle!=0:
+        idx=np.indices(mask.shape)
+        
+        
+        idx[1]-=mask.shape[1]//2
+        idx[0]-=mask.shape[0]//2
+        X=np.cos(chAngle)*idx[1]+np.sin(chAngle)*idx[0]
+        Y=np.cos(chAngle)*idx[0]-np.sin(chAngle)*idx[1]
+        
+        mask[np.abs(Y-mean+mask.shape[0]//2)<dist]=0
+        
+    else:    
+        mask[llim:rlim,:]=0
+    
+    #mask=np.logical_and(mask>.5, np.isfinite(data))
+    mask=mask>.5
+    return mask
+    
+    """
+    import matplotlib.pyplot as plt
+    plt.figure()
+    #plot profile and fit
+    valmax=np.nanmax(Y)
+    plt.plot(X0,Y0)
+    plt.plot(X0,valmax*np.exp(-(X0**2)/(2*var))+np.nanmin(Y0))
+    plt.plot([llim-mean,llim-mean],[np.nanmin(Y0),np.nanmax(Y0)],'r')
+    plt.plot([rlim-mean,rlim-mean],[np.nanmin(Y0),np.nanmax(Y0)],'r')
+    #"""
     

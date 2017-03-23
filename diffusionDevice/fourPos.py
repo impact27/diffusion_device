@@ -57,7 +57,7 @@ def channels_edges(im, angle=None,pixs=.847,std=10):
     #label wall position
     label,n=msr.label(gwalls>.1*gwalls.max())
     
-    #'''
+    '''
     from matplotlib.pyplot import plot, figure
     figure()
     plot(edges)
@@ -118,19 +118,31 @@ def remove_bg(im,bg,edgesOut=None,bgIOut=None):
     
     """
     #Get bg angle (the other images are the same)
-    tmpout=rmbg.remove_curve_background(im,bg)
+    infoDict={}
+    tmpout=rmbg.remove_curve_background(im,bg,infoDict=infoDict,bgCoord=True)
     angle=-dp.image_angle(np.rot90(tmpout))
     #Get the mask
-    mask=channels_mask(bg,angle,edgesOut)
+    maskbg=channels_mask(bg,angle,edgesOut)
     #rotate and flatten the bg
     bg=ir.rotate_scale(bg,-angle,1,borderValue=np.nan)
     if bgIOut is None:
         bgIOut=np.empty(bg.shape,dtype=float)
-    bgIOut[:]=bg/rmbg.polyfit2d(bg,mask=mask)
-    #rotate
-    im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
+    bgIOut[:]=bg/rmbg.polyfit2d(bg,mask=maskbg)
+    maskim=ir.rotate_scale_shift(maskbg, infoDict['diffAngle']+angle,
+                                         infoDict['diffScale'],
+                                         infoDict['offset'], borderValue=np.nan)
+    
+    #"""
+    from matplotlib.pyplot import imshow, figure
+    figure()
+    imshow(bg)
+    imshow(maskbg,alpha=.5)
+    figure()
+    imshow(im)
+    imshow(maskim,alpha=.5)
+    #"""
     #Get Intensity
-    ret=rmbg.remove_curve_background(im,bg,mask=mask)
+    ret=rmbg.remove_curve_background(im,bg,maskbg=maskbg,maskim=maskim,bgCoord=True)
     return ret
 
 def extract_profiles(im,bg):
