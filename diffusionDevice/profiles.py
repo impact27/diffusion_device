@@ -9,7 +9,7 @@ from diffusionDevice.basisgenerate import getprofiles
 
 def fit_monodisperse_radius(profiles,flowRate,Wz=50e-6,
                Zgrid=11,
-               ignore=10,
+               ignore=10e-6,
                pixs=.847e-6,
                Rs=np.arange(.5,10,.5)*1e-6,
                readingpos=np.array([ 0.004183,  0.021446,  0.055879])):
@@ -33,25 +33,12 @@ def fit_monodisperse_radius(profiles,flowRate,Wz=50e-6,
     radii: float
         The best radius fit
     """
-    #Get basis function
-    initprof=profiles[0].copy()
     
-    #Remove noise on side
-    x=np.arange(len(initprof))
-    valid=initprof>.5*initprof.max()
-    Y=np.log(initprof[valid])
-    X=x[valid]
-    F=np.poly1d(np.polyfit(X,Y,2))
-    fit=np.exp(F(x))
-    remove=fit<.01*fit.max()
-    initprof[remove]=0
-
-#    from matplotlib.pyplot import figure, plot
-#    figure(0)
-#    plot(initprof/initprof.sum())
+    ignore=int(ignore/pixs)
     
-    Wy=pixs*len(initprof)
-    Basis=getprofiles(initprof,flowRate,Rs,Wy=Wy,Wz=Wz,
+    #Get basis function    
+    Wy=pixs*np.shape(profiles)[1]
+    Basis=getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
                       Zgrid=Zgrid,readingpos=readingpos)
     #Compute residues
     p=profiles[1:]
@@ -91,7 +78,15 @@ def center(prof):
     prof=prof.copy()
     prof[np.isnan(prof)]=0
     Yi=prof[::-1]
-    center=np.correlate(prof,Yi, mode='same').argmax()/2+len(prof)/4
+    corr=np.correlate(prof,Yi, mode='full')
+    Y=corr
+    X=np.arange(len(Y))
+    args=np.argsort(Y)
+    x=X[args[-7:]]
+    y=Y[args[-7:]]
+    coeffs=np.polyfit(x,np.log(y),2)
+    center=-coeffs[1]/(2*coeffs[0])
+    center=(center-(len(corr)-1)/2)/2+(len(prof)-1)/2
     return center
 
 def baseline(prof, frac=.05):
@@ -152,12 +147,12 @@ def flat_baseline(prof, frac=.05):
 
 def image_angle(image, maxAngle=np.pi/7):
     """
-    Analyse an image with x invariance to extract a small angle.
+    Analyse an image with y invariance to extract a small angle.
     
     Parameters
     ----------
     image:  2d array
-        image with x invariance 
+        image with y invariance 
     maxAngle: float, defaults np.pi/7
         Maximal rotation angle 
         
@@ -169,16 +164,16 @@ def image_angle(image, maxAngle=np.pi/7):
     """
     #Difference left 50% with right 50%
     #We want to slice in two where we have data
-    argvalid=np.argwhere(np.isfinite(np.nanmean(image,0)))
+    argvalid=np.argwhere(np.isfinite(np.nanmean(image,1)))
     lims=np.squeeze([argvalid[0],argvalid[-1]])
     #should we flatten this?
-    left=np.nanmean(image[:,lims[0]:np.mean(lims,dtype=int)] ,1)
-    right=np.nanmean(image[:,np.mean(lims,dtype=int):lims[1]],1)
+    top=np.nanmean(image[lims[0]:np.mean(lims,dtype=int)] ,0)
+    bottom=np.nanmean(image[np.mean(lims,dtype=int):lims[1]],0)
     #Remouve nans
-    left[np.isnan(left)]=0
-    right[np.isnan(right)]=0
+    top[np.isnan(top)]=0
+    bottom[np.isnan(bottom)]=0
     #correlate
-    C=np.correlate(left,right, mode='same')
+    C=np.correlate(top,bottom, mode='same')
     X=np.arctan((np.arange(len(C))-len(C)/2)/((lims[1]-lims[0])/2))
     valid=np.abs(X)<maxAngle
     x=X[valid]
@@ -197,3 +192,16 @@ def image_angle(image, maxAngle=np.pi/7):
         angle=0
     return angle
 
+def initprocess(profile, mode):
+    if mode == 'none':
+        return profile
+    elif mode == 'gaussian' or mode == 'tails':
+        Y=profile
+        X=np.arange(len(Y))
+        valid=Y>.5*Y.max()
+        gauss=np.exp(np.poly1d(np.polyfit(X[valid],np.log(Y[valid]),2))(X))
+        if mode=='gaussian':
+            return gauss
+        remove=gauss<.01*gauss.max()
+        profile[remove]=0
+        return profile

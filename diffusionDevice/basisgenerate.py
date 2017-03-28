@@ -52,7 +52,7 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     #Normalize
     V*=Q/(np.mean(V)* Wy *Wz)
     return V
-    
+#%%    
 def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     """
     Compute the step matrix and corresponding position step
@@ -119,9 +119,20 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dxtD
 
+def dxtDd(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
+    
+    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
+    #% Get The step matrix
+    dy=Wy/Ygrid
+    dz=Wz/Zgrid    
+
+    dxtD=np.min((dy,dz))**2*V.min()/2
+    return dxtD
+
+
 #@profile
-def getprofiles(Cinit,Q, Rs,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
-                *,fullGrid=False, outV=None,readingpos=None):
+def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
+                *,fullGrid=False, outV=None):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -154,17 +165,34 @@ def getprofiles(Cinit,Q, Rs,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     -----
     Depending if Q or Rs are small, a small dx is required to maintain stability
     """
-
+    
+    def getF(Fdir,NSteps):
+        if NSteps not in Fdir:
+            print('Newstep')
+            Fdir[NSteps]=np.dot(Fdir[NSteps//2],Fdir[NSteps//2])
+        return Fdir[NSteps]  
+    
+    def initF(Zgrid,Ygrid,Wz,Wy,Q,outV):
+        key=(Zgrid,Ygrid,Wz,Wy)
+        if not hasattr(getprofiles,'dirFList') :
+            getprofiles.dirFList = {}
+        #Create dictionnary if doesn't exist
+        if key in getprofiles.dirFList:
+            return getprofiles.dirFList[key], dxtDd(*key,Q,outV)
+        else:
+            print('new F!')
+            Fdir={}
+            Fdir[1],dxtd=stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV)
+            getprofiles.dirFList[key]=Fdir
+            return Fdir,dxtd
+        
     
     # Settings that are unlikly to change    
     kT = 1.38e-23*295;
     eta = 1e-3;
     
     #Prepare input and Initialize arrays
-    if readingpos is None:
-        readingpos=defaultReadingPos()
-    else:
-        readingpos=np.asarray(readingpos)
+    readingpos=np.asarray(readingpos)
     
     Cinit=np.asarray(Cinit,dtype=float)
     if len(Cinit.shape)<2:
@@ -176,11 +204,8 @@ def getprofiles(Cinit,Q, Rs,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     profilespos=np.tile(np.ravel(Cinit),(NRs*Nrp,1))
     
     #get step matrix
-    F,dxtD=stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV)
-    
-    
-    
-            
+    Fdir,dxtD=initF(Zgrid,Ygrid,Wz,Wy,Q,outV)
+#    F,dxtD=stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV)        
 
     #Get Nsteps for each radius and position
     Nsteps=np.empty((NRs*Nrp,),dtype=int)         
@@ -199,9 +224,10 @@ def getprofiles(Cinit,Q, Rs,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     
     #for each unit
     for i,bsUnit in enumerate(binSteps):
-        if i>0:#The oth step is just F
-            #Compute next F
-            F=np.dot(F,F)
+        F=getF(Fdir,2**i)
+#        if i>0:#The oth step is just F
+#            #Compute next F
+#            F=np.dot(F,F)
             
         print("NSteps=%d" % 2**i)
         #save previous number
@@ -225,7 +251,85 @@ def getprofiles(Cinit,Q, Rs,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     if not fullGrid:
         return np.mean(profilespos,-2)
     return profilespos
+#%%        
+def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
+    """
+    Compute the step matrix and corresponding position step
+    
+    Parameters
+    ----------
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    Wz: float
+        Channel height [m]
+    Wy: float 
+        Channel width [m]
+    Q:  float
+        The flux in the channel in [ul/h]
+    outV: 2d float array
+        array to use for the return
+    Returns
+    -------
+    F:  2d array
+        The step matrix (independent on Q)
+    dxtD: float 
+        The position step multiplied by the diffusion coefficient
+    """
+    Vx=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
+    #% Get The step matrix
+    dy=Wy/Ygrid
+    dz=Wz/Zgrid
+    #flatten V
+    Vx=np.ravel(Vx)
+    
+    
+    #get Dyy
+    line=np.zeros(Ygrid*Zgrid)
+    line[:2]=[-2,1]
+    Dyy=toeplitz(line,line) #toeplitz creation of matrice which repeat in diagonal 
+    for i in range(0,Ygrid*Zgrid,Ygrid):
+        Dyy[i,i]=-1
+        Dyy[i-1+Ygrid,i-1+Ygrid]=-1
+        if i>0 :
+            Dyy[i-1,i]=0
+            Dyy[i,i-1]=0
+    #get Dzz
+    Dzz=0
+    if Zgrid>1:
+        line=np.zeros(Ygrid*Zgrid)
+        line[0]=-2
+        line[Ygrid]=1
+        Dzz=toeplitz(line,line)
+        for i in range(Ygrid):
+            Dzz[i,i]=-1
+            Dzz[Ygrid*Zgrid-i-1,Ygrid*Zgrid-i-1]=-1
+            
+    #get Dy
+    if muE>0:
+        Dy=np.diag(np.ones(Ygrid*Zgrid),0)+np.diag(-np.ones(Ygrid*Zgrid-1),-1)
+    else:
+        Dy=np.diag(np.ones(Ygrid*Zgrid-1),1)+np.diag(-np.ones(Ygrid*Zgrid),0)
         
+    for i in range(0,Ygrid*Zgrid,Ygrid):
+        Dy[i,i]=0
+        Dy[i-1+Ygrid,i-1+Ygrid]=0
+    Dy/=(dy)
+    #get F
+    #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
+    #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
+    F=1/dy**2*Dyy+1/dz**2*Dzz
+    dx=Vx.min()/(2*D/(np.min((dy,dz))**2)+muE/(dy))/2
+    I=np.eye(Ygrid*Zgrid, dtype=float)
+    F=I+dx*np.dot(np.diagflat(1/Vx), D*F-muE*Dy)
+    #The maximal eigenvalue should be <=1! otherwhise no stability
+    #The above dx should put it to 1
+#    from numpy.linalg import eigvals
+#    assert(np.max(np.abs(eigvals(F)))<=1.)
+    return F, dx
+
+
         
 #%%
 if __name__ == "__main__": #__name__==" __main__" means that part is read only if it run directly and not if it is imported

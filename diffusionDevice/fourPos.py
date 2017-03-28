@@ -13,6 +13,7 @@ import background_rm as rmbg
 import diffusionDevice.profiles as dp
 import scipy
 gfilter=scipy.ndimage.filters.gaussian_filter1d
+from scipy.ndimage.morphology import binary_erosion
 
 
 def channels_edges(im, angle=None,pixs=.847,std=10):
@@ -96,7 +97,11 @@ def channels_mask(im, angle=None, edgesOut=None):
         mask[:,maxpos[2*i]:maxpos[2*i+1]]=0
     return mask
 
-def remove_bg(im,bg,edgesOut=None,bgIOut=None):
+def bg_angle(im,bg,infoDict=None):
+    tmpout=rmbg.remove_curve_background(im,bg,infoDict=infoDict,bgCoord=True)
+    return -dp.image_angle(tmpout)
+
+def remove_bg(im,bg,edgesOut=None):
     """
     Flatten and background subtract images
     
@@ -119,30 +124,24 @@ def remove_bg(im,bg,edgesOut=None,bgIOut=None):
     """
     #Get bg angle (the other images are the same)
     infoDict={}
-    tmpout=rmbg.remove_curve_background(im,bg,infoDict=infoDict,bgCoord=True)
-    angle=-dp.image_angle(np.rot90(tmpout))
+    angle=bg_angle(im,bg,infoDict)
     #Get the mask
     maskbg=channels_mask(bg,angle,edgesOut)
     #rotate and flatten the bg
     bg=ir.rotate_scale(bg,-angle,1,borderValue=np.nan)
-    if bgIOut is None:
-        bgIOut=np.empty(bg.shape,dtype=float)
-    bgIOut[:]=bg/rmbg.polyfit2d(bg,mask=maskbg)
-    maskim=ir.rotate_scale_shift(maskbg, infoDict['diffAngle']+angle,
-                                         infoDict['diffScale'],
-                                         infoDict['offset'], borderValue=np.nan)
+    im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
     
-    #"""
-    from matplotlib.pyplot import imshow, figure
-    figure()
-    imshow(bg)
-    imshow(maskbg,alpha=.5)
-    figure()
-    imshow(im)
-    imshow(maskim,alpha=.5)
+    maskim=ir.rotate_scale_shift(maskbg, infoDict['diffAngle'],
+                                         infoDict['diffScale'],
+                                         infoDict['offset'], 
+                                         borderValue=np.nan)>.5   
+                                 
+    maskim=binary_erosion(maskim,iterations=15)
+    """
     #"""
     #Get Intensity
-    ret=rmbg.remove_curve_background(im,bg,maskbg=maskbg,maskim=maskim,bgCoord=True)
+    ret=rmbg.remove_curve_background(im,bg,maskbg=maskbg,maskim=maskim,
+                                     bgCoord=True,reflatten=True)
     return ret
 
 def extract_profiles(im,bg):
@@ -200,7 +199,7 @@ def extract_profiles(im,bg):
         profiles=profiles[::-1]
     return profiles
 
-def apparent_pixel_size(bg):
+def apparent_pixel_size(bg,im=None):
     """
     Compute the apparent pixel size
     
@@ -214,8 +213,12 @@ def apparent_pixel_size(bg):
     pixsize: float
         The apparent pixel size
     """
-    a=ir.orientation_angle(bg)-np.pi/2
+    if im is None:
+        a=ir.orientation_angle(bg)-np.pi/2
+    else:
+        a=bg_angle(im,bg)
     edges=channels_edges(bg,a)
+    #2000 is (channel width + gap ) *10
     return np.mean([2000/np.mean(np.diff(edges[::2])),
                     2000/np.mean(np.diff(edges[1::2]))])
     

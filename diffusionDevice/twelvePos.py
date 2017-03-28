@@ -10,11 +10,80 @@ import image_registration.image as ir
 import image_registration.channel as cr
 import diffusionDevice.profiles as dp
 import scipy
+import matplotlib.image as mpimg
 import warnings
+import cv2
+import diffusionDevice.basisgenerate as ddbg
+from scipy import interpolate
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
-def extract_profile(im,bg, chanWidth=300e-6, pixsize=2*8.47e-6/10,
-               outim=None):
+def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
+                Zgrid=11,ignore=10e-6,normalize_profiles=True,initmode='none',
+                data_dict=None,rebin=2):
+    #Check images is numpy array
+    images=np.asarray(images)
+    
+    #Fill missing arguments
+    if readingpos is None:
+        readingpos=defaultReadingPos()
+    if Rs is None:
+        Rs=np.arange(.5,10,.5)*1e-9
+    
+    #load images if string
+    if images.dtype.type==np.str_:
+        if len(np.shape(images))==1:
+            images=np.asarray(
+                    [mpimg.imread(im) for im in images])
+        elif len(np.shape(images))==2:
+            images=np.asarray(
+                    [[mpimg.imread(im) for im in ims] for ims in images])
+    #Get flat images
+    if len(np.shape(images))==3:
+        #Single images
+        flatimages=np.asarray(
+                [flat_image(im,pixsize, chanWidth) 
+                for im in images])
+    elif len(np.shape(images))==4 and np.shape(images)[0]==2:
+        #images and background
+        flatimages=np.asarray(
+                [remove_bg(im,bg,pixsize, chanWidth) 
+                for im,bg in zip(images[0],images[1])])
+    
+    if rebin>1:   
+        size=tuple(np.array(np.shape(flatimages)[1:])//rebin)
+        flatimages=np.array([cv2.resize(im,size,interpolation=cv2.INTER_AREA)
+                                for im in flatimages])
+        pixsize*=rebin  
+        
+    #get profiles
+    profiles=np.asarray(
+            [extract_profile(fim,pixsize, chanWidth) for fim in flatimages])
+    
+    #normalize if needed
+    if normalize_profiles:
+        for p in profiles:
+            p/=np.sum(p)
+    
+    #treat init profile
+    profiles[0]=dp.initprocess(profiles[0],initmode)
+
+    #Get best fit
+    r=dp.fit_monodisperse_radius(profiles,flowRate=Q,Wz=Wz,
+                   Zgrid=Zgrid,
+                   ignore=ignore,
+                   pixs=pixsize,
+                   Rs=Rs,
+                   readingpos=readingpos)
+    
+    #fill data if needed
+    if data_dict is not None:
+        data_dict['profiles']=profiles
+        data_dict['fits']=ddbg.getprofiles(profiles[0],Q=Q, Rs=[r], 
+                             Wy = len(profiles[0])*pixsize, Wz= Wz, Zgrid=11,
+                             readingpos=readingpos)[0]
+    return r
+
+def remove_bg(im,bg, pixsize, chanWidth=300e-6):
     """
     Extract profile from image
     
@@ -45,10 +114,10 @@ def extract_profile(im,bg, chanWidth=300e-6, pixsize=2*8.47e-6/10,
     bg=np.asarray(bg,dtype=float)
     #remove dust peaks on images
     bg[rmbg.getPeaks(bg, maxsize=50*50)]=np.nan
-    im[rmbg.getPeaks(im, maxsize=50*50)]=np.nan   
-       
+    im[rmbg.getPeaks(im, maxsize=50*50)]=np.nan  
+    
     #Get the X positions (perpendicular to alignent axis) and check wide enough
-    X=np.arange(im.shape[0])*pixsize
+    X=np.arange(im.shape[1])*pixsize
     assert(1.2*chanWidth<X[-1])
     
     #Get the approximate expected channel position
@@ -56,40 +125,95 @@ def extract_profile(im,bg, chanWidth=300e-6, pixsize=2*8.47e-6/10,
     
     #Create mask to ignore channel when flattening image
     mask=np.ones(im.shape,dtype=bool)
-    mask[channel,:]=False
+    mask[:,channel]=False
     
     #Get data
-    output=rmbg.remove_curve_background(im,bg, method='mask',mask=mask)
-        
-    output=ir.rotate_scale(output,dp.image_angle(output)
+    return rmbg.remove_curve_background(im,bg,maskim=mask)
+
+def flat_image(im, pixsize, chanWidth=300e-6):
+    
+    im=np.asarray(im,dtype=float)
+    #remove peaks
+    im[rmbg.getPeaks(im, maxsize=20*20)]=np.nan
+    #straighten
+    angle=dp.image_angle(im-np.nanmedian(im))
+    im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
+    
+    #Get center
+    prof=np.nanmean(im,0)
+    flatprof=prof-np.nanmedian(prof)
+    flatprof[np.isnan(flatprof)]=0
+    x=np.arange(len(prof))-dp.center(flatprof)
+    x=x*pixsize
+    
+    #Create mask
+    channel=np.abs(x)<chanWidth/2
+    mask=np.ones(np.shape(im))
+    mask[:,channel]=0
+    
+    #Flatten
+    im=im/rmbg.polyfit2d(im,mask=mask)-1
+    
+    """
+    from matplotlib.pyplot import figure, imshow,plot
+    figure()
+    imshow(im)
+    imshow(mask,alpha=.5,cmap='Reds')
+#    plot(x,flatprof)
+#    plot(x,np.correlate(flatprof,flatprof[::-1],mode='same'))
+    #"""
+    
+    return im
+
+def extract_profile(flatim, pixsize, chanWidth=300e-6,ignore=10,reflatten=True):
+    
+    #Orientate
+    flatim=ir.rotate_scale(flatim,-dp.image_angle(flatim)
                             ,1, borderValue=np.nan)
-    prof=np.nanmean(output,1)
+    #get profile
+    prof=np.nanmean(flatim,0)
     
     #Center X
+    X=np.arange(len(prof))*pixsize
     center=dp.center(prof)*pixsize
     inchannel=np.abs(X-center)<.45*chanWidth
     X=X-(dp.center(prof[inchannel])+np.argmax(inchannel))*pixsize
     
     #get what is out
     out=np.logical_and(np.abs(X)>.55*chanWidth,np.isfinite(prof))
-    #fit ignoring extreme 10 pix
-    fit=np.polyfit(X[out][10:-10],prof[out][10:-10],2)
-    bgfit=fit[0]*X**2+fit[1]*X+fit[2]
-    #Flatten the profile
-    prof=(prof+1)/(bgfit+1)-1
-    if outim is not None:
-        outim[:]=output[:]
-    #We restrict the profile to channel width - widthcut
-    Npix=int(chanWidth//pixsize)
-    c=np.argmin(np.abs(X))
-    print(Npix,c)
-    assert(Npix//2<c)
-    assert(len(prof)-c>Npix//2)
-    channel=slice(c-Npix//2,c+Npix//2+Npix%2)
     
-    prof=prof[channel]
-    X=X[channel]
-    return X, prof
+    if reflatten:
+        #fit ignoring extreme 10 pix
+        fit=np.polyfit(X[out][ignore:-ignore],prof[out][ignore:-ignore],2)
+        bgfit=fit[0]*X**2+fit[1]*X+fit[2]
+        
+        #Flatten the profile
+        prof=(prof+1)/(bgfit+1)-1
+
+    #We restrict the profile to channel width - widthcut
+    Npix=int(chanWidth//pixsize)+1
+    
+    Xc=np.arange(Npix)-(Npix-1)/2
+    Xc*=pixsize
+    
+    finterp=interpolate.interp1d(X, prof)
+    return finterp(Xc)
+    
+    
+    """
+    from matplotlib.pyplot import figure, imshow,plot
+    figure()
+    imshow(flatim)
+    plot([c-Npix//2,c-Npix//2],[5,np.shape(flatim)[0]-5],'r')
+    plot([c+Npix//2,c+Npix//2],[5,np.shape(flatim)[0]-5],'r')
+    figure()
+    pr=np.nanmean(flatim,0)
+    plot(pr)
+    plot([c-Npix//2,c-Npix//2],[np.nanmin(pr),np.nanmax(pr)],'r')
+    plot([c+Npix//2,c+Npix//2],[np.nanmin(pr),np.nanmax(pr)],'r')
+    #"""  
+    
+#    return prof[channel]
  
 def defaultReadingPos():
     '''
@@ -241,4 +365,4 @@ def outGaussianBeamMask(data, chAngle=0):
     plt.plot([llim-mean,llim-mean],[np.nanmin(Y0),np.nanmax(Y0)],'r')
     plt.plot([rlim-mean,rlim-mean],[np.nanmin(Y0),np.nanmax(Y0)],'r')
     #"""
-    
+
