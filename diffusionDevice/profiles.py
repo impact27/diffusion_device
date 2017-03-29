@@ -7,12 +7,11 @@ Created on Fri Mar 17 10:25:47 2017
 import numpy as np
 from diffusionDevice.basisgenerate import getprofiles
 
-def fit_monodisperse_radius(profiles,flowRate,Wz=50e-6,
-               Zgrid=11,
-               ignore=10e-6,
-               pixs=.847e-6,
-               Rs=np.arange(.5,10,.5)*1e-6,
-               readingpos=np.array([ 0.004183,  0.021446,  0.055879])):
+def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
+                                Wz=50e-6,
+                                Zgrid=11,
+                                ignore=10e-6,
+                                Rs=np.arange(.5,10,.5)*1e-9,):
     """
     Find the best monodisperse radius
     
@@ -40,12 +39,22 @@ def fit_monodisperse_radius(profiles,flowRate,Wz=50e-6,
     Wy=pixs*np.shape(profiles)[1]
     Basis=getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
                       Zgrid=Zgrid,readingpos=readingpos)
+    
+#    for basisrad in Basis:
+#        for b in basisrad:
+#            b*=np.mean(profiles[0])/np.mean(b)
     #Compute residues
     p=profiles[1:]
     res=np.empty(len(Rs),dtype=float)
     for i,b in enumerate(Basis):
         res[i]=np.sqrt(np.mean(np.square(b-p)[:,ignore:-ignore]))
 
+    '''
+    from matplotlib.pyplot import figure, plot
+    figure()
+    plot(Rs,res)
+    #'''
+    
     #Use linear combination between the two smallest results
     i,j=np.argsort(res)[:2]
     b1=Basis[i,:,ignore:-ignore]

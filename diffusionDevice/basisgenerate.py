@@ -112,7 +112,8 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
     F=1/dy**2*Cyy+1/dz**2*Czz
     dxtD=np.min((dy,dz))**2*V.min()/2
-    F=np.eye(Ygrid*Zgrid, dtype=float)+dxtD*np.dot(np.diagflat(1/V), F)
+    I=np.eye(Ygrid*Zgrid, dtype=float)
+    F=I+dxtD*np.dot(np.diagflat(1/V),F)
     #The maximal eigenvalue should be <=1! otherwhise no stability
     #The above dx should put it to 1
 #    from numpy.linalg import eigvals
@@ -277,13 +278,14 @@ def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
     dxtD: float 
         The position step multiplied by the diffusion coefficient
     """
-    Vx=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
+    
     #% Get The step matrix
     dy=Wy/Ygrid
-    dz=Wz/Zgrid
+#    dz=Wz/Zgrid
     #flatten V
-    Vx=np.ravel(Vx)
-    
+    Vx=Q/(3600*1e9)/Wy/Wz
+#    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
+#    Vx=np.ravel(V)
     
     #get Dyy
     line=np.zeros(Ygrid*Zgrid)
@@ -295,34 +297,41 @@ def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
         if i>0 :
             Dyy[i-1,i]=0
             Dyy[i,i-1]=0
-    #get Dzz
-    Dzz=0
-    if Zgrid>1:
-        line=np.zeros(Ygrid*Zgrid)
-        line[0]=-2
-        line[Ygrid]=1
-        Dzz=toeplitz(line,line)
-        for i in range(Ygrid):
-            Dzz[i,i]=-1
-            Dzz[Ygrid*Zgrid-i-1,Ygrid*Zgrid-i-1]=-1
+
             
     #get Dy
     if muE>0:
         Dy=np.diag(np.ones(Ygrid*Zgrid),0)+np.diag(-np.ones(Ygrid*Zgrid-1),-1)
     else:
         Dy=np.diag(np.ones(Ygrid*Zgrid-1),1)+np.diag(-np.ones(Ygrid*Zgrid),0)
-        
+#    Dy=np.diag(np.ones(Ygrid*Zgrid-1),1)+np.diag(-np.ones(Ygrid*Zgrid-1),-1)
+#    Dy=Dy/2    
     for i in range(0,Ygrid*Zgrid,Ygrid):
         Dy[i,i]=0
         Dy[i-1+Ygrid,i-1+Ygrid]=0
+        if i>0 :
+            Dy[i-1,i]=0
+            Dy[i,i-1]=0
     Dy/=(dy)
     #get F
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    F=1/dy**2*Dyy+1/dz**2*Dzz
-    dx=Vx.min()/(2*D/(np.min((dy,dz))**2)+muE/(dy))/2
+    F=1/dy**2*Dyy#+1/dz**2*Dzz
+#    dx=Vx.min()/(2*D/(np.min((dy,dz))**2)+muE/(dy))/2
+    dx=np.nanmin([dy*np.min(Vx)/muE,np.min(Vx)*dy**2/D/2])/2
+
     I=np.eye(Ygrid*Zgrid, dtype=float)
-    F=I+dx*np.dot(np.diagflat(1/Vx), D*F-muE*Dy)
+#    F=I+dx*np.dot(np.diagflat(1/Vx), D*F-muE*Dy)
+#    F=I+dx*np.dot(np.diagflat(1/Vx), -muE*Dy)
+    #F=I+dx*np.dot(np.diagflat(1/Vx), D*F-muE*Dy)
+    F=I+dx*1/Vx*(D*F-muE*Dy)#
+    
+#
+    #
+#    F=np.dot(I+dx*D/Vx*1/dy**2*Dyy,I-dx*muE/Vx*Dy)
+    
+    
+
     #The maximal eigenvalue should be <=1! otherwhise no stability
     #The above dx should put it to 1
 #    from numpy.linalg import eigvals
