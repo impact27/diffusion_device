@@ -34,15 +34,14 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     """
     
     ignore=int(ignore/pixs)
+    if ignore ==0:
+        ignore=1
     
     #Get basis function    
     Wy=pixs*np.shape(profiles)[1]
     Basis=getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
                       Zgrid=Zgrid,readingpos=readingpos)
     
-#    for basisrad in Basis:
-#        for b in basisrad:
-#            b*=np.mean(profiles[0])/np.mean(b)
     #Compute residues
     p=profiles[1:]
     res=np.empty(len(Rs),dtype=float)
@@ -53,6 +52,9 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     from matplotlib.pyplot import figure, plot
     figure()
     plot(Rs,res)
+    figure()
+    plot(np.ravel(profiles[1:]))
+    plot(np.ravel(Basis[np.argmin(res)]))
     #'''
     
     #Use linear combination between the two smallest results

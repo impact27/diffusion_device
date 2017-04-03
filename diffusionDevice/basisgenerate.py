@@ -6,12 +6,13 @@ Created on Mon Jan  9 09:32:10 2017
 """
 import numpy as np
 from scipy.linalg import toeplitz
+import scipy.linalg as la
 
 #%%
 
     
     
-def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
+def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,get_interface=False):
     """
     Compute the poiseuille flow profile
     
@@ -36,11 +37,7 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     """
         
     #Poiseuille flow
-    if outV is not None:
-        assert(outV.shape==(Zgrid,Ygrid))
-        V=outV
-    else:
-        V=np.zeros((Zgrid,Ygrid),dtype='float64')
+    V=np.zeros((Zgrid,Ygrid),dtype='float64')    
     for j in range(Ygrid):
         for i in range(Zgrid):
             nz=np.arange(1,100,2)[:,None]
@@ -50,8 +47,32 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
                        np.sin(ny*np.pi*(j+.5)/Ygrid)))
     Q/=3600*1e9 #transorm in m^3/s
     #Normalize
-    V*=Q/(np.mean(V)* Wy *Wz)
-    return V
+    normfactor=Q/(np.mean(V)* Wy *Wz)
+    V*=normfactor
+    
+    if not get_interface:
+        return V
+    Viy=np.zeros((Zgrid,Ygrid-1),dtype='float64')    
+    for j in range(1,Ygrid):
+        for i in range(Zgrid):
+            nz=np.arange(1,100,2)[:,None]
+            ny=np.arange(1,100,2)[None,:]
+            Viy[i,j-1]=np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
+                      (np.sin(nz*np.pi*(i+.5)/Zgrid)*
+                       np.sin(ny*np.pi*(j)/Ygrid)))
+    Viy*=normfactor
+            
+    Viz=np.zeros((Zgrid-1,Ygrid),dtype='float64')    
+    for j in range(Ygrid):
+        for i in range(1,Zgrid):
+            nz=np.arange(1,100,2)[:,None]
+            ny=np.arange(1,100,2)[None,:]
+            Viz[i-1,j]=np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
+                      (np.sin(nz*np.pi*(i)/Zgrid)*
+                       np.sin(ny*np.pi*(j+.5)/Ygrid)))
+            
+    Viz*=normfactor
+    return V,Viy,Viz
 #%%    
 def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     """
@@ -78,42 +99,42 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     dxtD: float 
         The position step multiplied by the diffusion coefficient
     """
-    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
+    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q)
+    
+    if outV is not None:
+        outV[:]=V
+        
+    
     #% Get The step matrix
     dy=Wy/Ygrid
     dz=Wz/Zgrid
     #flatten V
     V=np.ravel(V)
     
+
+        
+   
+    udiag=np.ones(Ygrid*Zgrid-1)
+    udiag[Ygrid::Ygrid]=0
+    Cyy=np.diag(udiag,1)+np.diag(udiag,-1)
+    Cyy-=np.diag(np.sum(Cyy,0))
+    Cyy/=dy**2
     
-    #get Cyy
-    line=np.zeros(Ygrid*Zgrid)
-    line[:2]=[-2,1]
-    Cyy=toeplitz(line,line) #toeplitz creation of matrice which repeat in diagonal 
-    for i in range(0,Ygrid*Zgrid,Ygrid):
-        Cyy[i,i]=-1
-        Cyy[i-1+Ygrid,i-1+Ygrid]=-1
-        if i>0 :
-            Cyy[i-1,i]=0
-            Cyy[i,i-1]=0
     #get Czz
     Czz=0
     if Zgrid>1:
-        line=np.zeros(Ygrid*Zgrid)
-        line[0]=-2
-        line[Ygrid]=1
-        Czz=toeplitz(line,line)
-        for i in range(Ygrid):
-            Czz[i,i]=-1
-            Czz[Ygrid*Zgrid-i-1,Ygrid*Zgrid-i-1]=-1
-    
+        udiag=np.ones(Ygrid*(Zgrid-1))
+        Czz=np.diag(udiag,-Ygrid)+np.diag(udiag,Ygrid)
+        Czz-=np.diag(np.sum(Czz,0))
+        Czz/=dz**2
+        
+    Lapl=np.dot(np.diag(1/V),Cyy+Czz)
     #get F
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    F=1/dy**2*Cyy+1/dz**2*Czz
     dxtD=np.min((dy,dz))**2*V.min()/2
     I=np.eye(Ygrid*Zgrid, dtype=float)
-    F=I+dxtD*np.dot(np.diagflat(1/V),F)
+    F=I+dxtD*Lapl
     #The maximal eigenvalue should be <=1! otherwhise no stability
     #The above dx should put it to 1
 #    from numpy.linalg import eigvals
@@ -169,7 +190,6 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     
     def getF(Fdir,NSteps):
         if NSteps not in Fdir:
-            print('Newstep')
             Fdir[NSteps]=np.dot(Fdir[NSteps//2],Fdir[NSteps//2])
         return Fdir[NSteps]  
     
@@ -226,9 +246,6 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     #for each unit
     for i,bsUnit in enumerate(binSteps):
         F=getF(Fdir,2**i)
-#        if i>0:#The oth step is just F
-#            #Compute next F
-#            F=np.dot(F,F)
             
         print("NSteps=%d" % 2**i)
         #save previous number
@@ -250,7 +267,9 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     
     #Take mean unless asked for
     if not fullGrid:
-        return np.mean(profilespos,-2)
+        profilespos=np.mean(profilespos,-2)
+        profilespos/=np.sum(profilespos,-1)[:,:,None]/np.sum(np.mean(Cinit,0))
+        return profilespos
     return profilespos
 #%%        
 def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
