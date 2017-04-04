@@ -15,17 +15,23 @@ import scipy
 gfilter=scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.morphology import binary_erosion
 
+umChannelWidth=100
 
-def channels_edges(im, angle=None,pixs=.847,std=10):
+
+def channels_edges(bg, pixs,angle=None,std=10e-6):
     """
     Get the position of the edges
     
     Parameters
     ----------
-    im:  2d array
+    bg:  2d array
         image containning the 4 channels 
+    pixs: float
+        The pixel size in [m]
     angle: float
         if given, angle at which the edges are 
+    std: float
+        Tolerence on wall position in [m]
         
     Returns
     -------
@@ -34,18 +40,18 @@ def channels_edges(im, angle=None,pixs=.847,std=10):
     
     """
     
-    im=im/rmbg.polyfit2d(im)
+    bg=bg/rmbg.polyfit2d(bg)
     if angle is not None:
-        im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
+        bg=ir.rotate_scale(bg,-angle,1,borderValue=np.nan)
         
 
-    prof=gfilter(np.nanmean(im,0),3)
+    prof=gfilter(np.nanmean(bg,0),3)
     edges=np.abs(np.diff(prof))
     edges[np.isnan(edges)]=0
     #create approximate walls
     x=np.arange(len(edges))*pixs
     gwalls=np.zeros(len(edges),dtype=float)
-    for center in np.arange(100,801,100):
+    for center in np.arange(1,9)*umChannelWidth*1e-6:
         gwalls+=edges.max()*np.exp(-(x-center)**2/(2*std**2))
     #Get best fit for approximate walls
     c=int(np.correlate(edges,gwalls,mode='same').argmax()-len(gwalls)/2)
@@ -68,14 +74,16 @@ def channels_edges(im, angle=None,pixs=.847,std=10):
     edges=np.squeeze(msr.maximum_position(edges,label,range(1,n+1)))
     return edges
 
-def channels_mask(im, angle=None, edgesOut=None):
+def channels_mask(bg, pixs, angle=None, edgesOut=None):
     """
     Get the mask from the image
     
     Parameters
     ----------
-    im:  2d array
+    bg:  2d array
         image containning the 4 channels 
+    pixs: float
+        The pixel size in [m]
     angle: float
         if given, angle at which the edges are 
     edgesOut: 1d array
@@ -88,20 +96,37 @@ def channels_mask(im, angle=None, edgesOut=None):
     
     """
     #Find edges position
-    maxpos=channels_edges(im,angle)
+    maxpos=channels_edges(bg,pixs,angle)
     if edgesOut is not None:
         edgesOut[:]=maxpos
     #Fill mask
-    mask=np.ones(im.shape)
+    mask=np.ones(bg.shape)
     for i in range(len(maxpos)//2):
         mask[:,maxpos[2*i]:maxpos[2*i+1]]=0
     return mask
 
 def bg_angle(im,bg,infoDict=None):
+    """
+    get the angle by remove_curve_background
+    
+    Parameters
+    ----------
+    im:  2d array
+        image containning the 4 channels
+    bg:  2d array
+        background 
+    infoDict: dict
+        infos out
+        
+    Returns
+    -------
+    angle: float
+        the image orientation angle
+    """
     tmpout=rmbg.remove_curve_background(im,bg,infoDict=infoDict,bgCoord=True)
     return -dp.image_angle(tmpout)
 
-def remove_bg(im,bg,edgesOut=None):
+def remove_bg(im,bg, pixs,edgesOut=None):
     """
     Flatten and background subtract images
     
@@ -111,22 +136,22 @@ def remove_bg(im,bg,edgesOut=None):
         list of images containning the 4 channels 
     bg: 2d array
         Background corresponding to the list
+    pixs: float
+        The pixel size in [m]
     edgesOut: 1d array
         output for the edges
-    bgIOut: 2d array
-        output for the flattened background image
         
     Returns
     -------
-    flatIms: 3d array
-        list of flattened images 
+    flatIm: 2d array
+        Flattened image
     
     """
     #Get bg angle (the other images are the same)
     infoDict={}
     angle=bg_angle(im,bg,infoDict)
     #Get the mask
-    maskbg=channels_mask(bg,angle,edgesOut)
+    maskbg=channels_mask(bg,pixs,angle,edgesOut)
     #rotate and flatten the bg
     bg=ir.rotate_scale(bg,-angle,1,borderValue=np.nan)
     im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
@@ -144,7 +169,7 @@ def remove_bg(im,bg,edgesOut=None):
                                      bgCoord=True,reflatten=True)
     return ret
 
-def extract_profiles(im,bg):
+def extract_profiles(im,bg,pixs):
     """
     Extract diffusion profiles
     
@@ -155,6 +180,8 @@ def extract_profiles(im,bg):
         image containning the 4 channels 
     bg: 2d array
         Background image
+    pixs: float
+        The pixel size in [m]
         
     Returns
     -------
@@ -164,7 +191,7 @@ def extract_profiles(im,bg):
     #get edges 
     edges=np.empty(8,dtype=int)
     #Get flattened image
-    flat_im=remove_bg(im,bg,edges)
+    flat_im=remove_bg(im,bg,pixs,edges)
     #Get channel width
     width=int(np.mean(np.diff(edges)[::2]))
     #Profile
@@ -199,7 +226,7 @@ def extract_profiles(im,bg):
         profiles=profiles[::-1]
     return profiles
 
-def apparent_pixel_size(bg,im=None):
+def apparent_pixel_size(bg,estimated_pix_size,im=None):
     """
     Compute the apparent pixel size
     
@@ -207,6 +234,8 @@ def apparent_pixel_size(bg,im=None):
     ----------
     bg: 2d array
         Background image
+    estimated_pix_size: float
+        The estimated pixel size in [m]
         
     Returns
     -------
@@ -217,13 +246,7 @@ def apparent_pixel_size(bg,im=None):
         a=ir.orientation_angle(bg)-np.pi/2
     else:
         a=bg_angle(im,bg)
-    edges=channels_edges(bg,a)
+    edges=channels_edges(bg,estimated_pix_size,a)
     #2000 is (channel width + gap ) *10
-    return np.mean([2000/np.mean(np.diff(edges[::2])),
-                    2000/np.mean(np.diff(edges[1::2]))])
-    
-def defaultReadingPos():
-    '''
-    Get the default reading positions for the 4 points diffusion device
-    '''
-    return np.array([  4183, 21446, 55879])*1e-6
+    return np.mean([20*umChannelWidth/np.mean(np.diff(edges[::2])),
+                    20*umChannelWidth/np.mean(np.diff(edges[1::2]))])

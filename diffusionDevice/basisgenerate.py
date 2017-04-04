@@ -28,12 +28,17 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,get_interface=False):
         Channel width [m]
     Q:  float
         The flux in the channel in [ul/h]
-    outV: 2d float array
-        array to use for thr return
+    get_interface: Bool, defaults False
+        Also returns poisuille flow between pixels
     Returns
     -------
     V: 2d array
         The poiseuille flow
+    if get_interface is True:
+    Viy: 2d array
+        The poiseuille flow between y pixels
+    Viz: 2d array
+        The poiseuille flow between z pixels
     """
         
     #Poiseuille flow
@@ -52,6 +57,7 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,get_interface=False):
     
     if not get_interface:
         return V
+    #Y interface
     Viy=np.zeros((Zgrid,Ygrid-1),dtype='float64')    
     for j in range(1,Ygrid):
         for i in range(Zgrid):
@@ -61,7 +67,7 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,get_interface=False):
                       (np.sin(nz*np.pi*(i+.5)/Zgrid)*
                        np.sin(ny*np.pi*(j)/Ygrid)))
     Viy*=normfactor
-            
+    #Z interface       
     Viz=np.zeros((Zgrid-1,Ygrid),dtype='float64')    
     for j in range(Ygrid):
         for i in range(1,Zgrid):
@@ -110,12 +116,10 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     dz=Wz/Zgrid
     #flatten V
     V=np.ravel(V)
-    
-
-        
    
+    #get Cyy
     udiag=np.ones(Ygrid*Zgrid-1)
-    udiag[Ygrid::Ygrid]=0
+    udiag[Ygrid-1::Ygrid]=0
     Cyy=np.diag(udiag,1)+np.diag(udiag,-1)
     Cyy-=np.diag(np.sum(Cyy,0))
     Cyy/=dy**2
@@ -142,7 +146,28 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     return F, dxtD
 
 def dxtDd(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
+    """
+    Compute the position step
     
+    Parameters
+    ----------
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    Wz: float
+        Channel height [m]
+    Wy: float 
+        Channel width [m]
+    Q:  float
+        The flux in the channel in [ul/h]
+    outV: 2d float array
+        array to use for the return
+    Returns
+    -------
+    dxtD: float 
+        The position step multiplied by the diffusion coefficient
+    """
     V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
     #% Get The step matrix
     dy=Wy/Ygrid
@@ -166,6 +191,8 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         The flux in the channel in [ul/h]
     Rs: 1d array
         The simulated radius. Must be in increasing order [m]
+    readingpos: 1d array float
+        Position to read at
     Wy: float, defaults 300e-6 
         Channel width [m]
     Wz: float, defaults 50e-6
@@ -176,23 +203,18 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         Should return full grid?
     outV: 2d float array
         array to use for the poiseuiile flow
-    readingpos: 1d array float
-        Position to read at
+
     Returns
     -------
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
-        
-    Notes
-    -----
-    Depending if Q or Rs are small, a small dx is required to maintain stability
-    """
     
+    """
+    #Functions to access F
     def getF(Fdir,NSteps):
         if NSteps not in Fdir:
             Fdir[NSteps]=np.dot(Fdir[NSteps//2],Fdir[NSteps//2])
         return Fdir[NSteps]  
-    
     def initF(Zgrid,Ygrid,Wz,Wy,Q,outV):
         key=(Zgrid,Ygrid,Wz,Wy)
         if not hasattr(getprofiles,'dirFList') :
@@ -218,15 +240,14 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     Cinit=np.asarray(Cinit,dtype=float)
     if len(Cinit.shape)<2:
         Cinit=np.tile(Cinit[:,np.newaxis],(1,Zgrid)).T
+        
     Ygrid = Cinit.shape[1];
-    
     NRs=len(Rs)
     Nrp=len(readingpos)
     profilespos=np.tile(np.ravel(Cinit),(NRs*Nrp,1))
     
     #get step matrix
-    Fdir,dxtD=initF(Zgrid,Ygrid,Wz,Wy,Q,outV)
-#    F,dxtD=stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV)        
+    Fdir,dxtD=initF(Zgrid,Ygrid,Wz,Wy,Q,outV)       
 
     #Get Nsteps for each radius and position
     Nsteps=np.empty((NRs*Nrp,),dtype=int)         
@@ -268,8 +289,7 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     #Take mean unless asked for
     if not fullGrid:
         profilespos=np.mean(profilespos,-2)
-        profilespos/=np.sum(profilespos,-1)[:,:,None]/np.sum(np.mean(Cinit,0))
-        return profilespos
+        profilespos/=np.sum(profilespos,-1)/np.sum(Cinit/Zgrid)
     return profilespos
 #%%        
 def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
@@ -288,14 +308,18 @@ def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
         Channel width [m]
     Q:  float
         The flux in the channel in [ul/h]
+    D:  float
+        The diffusion coefficient
+    muE: float
+        the convective speed
     outV: 2d float array
         array to use for the return
     Returns
     -------
     F:  2d array
         The step matrix (independent on Q)
-    dxtD: float 
-        The position step multiplied by the diffusion coefficient
+    dx: float 
+        The position step 
     """
     
     #% Get The step matrix
@@ -340,15 +364,7 @@ def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
     dx=np.nanmin([dy*np.min(Vx)/muE,np.min(Vx)*dy**2/D/2])/2
 
     I=np.eye(Ygrid*Zgrid, dtype=float)
-#    F=I+dx*np.dot(np.diagflat(1/Vx), D*F-muE*Dy)
-#    F=I+dx*np.dot(np.diagflat(1/Vx), -muE*Dy)
-    #F=I+dx*np.dot(np.diagflat(1/Vx), D*F-muE*Dy)
     F=I+dx*1/Vx*(D*F-muE*Dy)#
-    
-#
-    #
-#    F=np.dot(I+dx*D/Vx*1/dy**2*Dyy,I-dx*muE/Vx*Dy)
-    
     
 
     #The maximal eigenvalue should be <=1! otherwhise no stability
@@ -357,78 +373,3 @@ def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dx
 
-
-        
-#%%
-if __name__ == "__main__": #__name__==" __main__" means that part is read only if it run directly and not if it is imported
-    #if the script
-    from glob import glob
-    from natsort import natsorted
-    import matplotlib
-    import matplotlib.pyplot as plt
-    from matplotlib.pyplot import figure, plot, imshow
-    cmap = matplotlib.cm.get_cmap('inferno')
-    
-    Yinit=np.loadtxt('basis200ulph_1to10nmLin_height50um_12prof/init.dat')
-    Rs=np.arange(1,10.1,.5)*1e-9
-    Np=11
-    profilespos=np.empty((Np,len(Rs),12,len(Yinit)),dtype=float)  
-    for i, profpos in enumerate(profilespos):
-        profilespos[i]= getprofiles(Yinit,200, Rs,Zgrid=i+1)     
-    
-    #%%
-
-    figure()
-    for i in [0,8,17]:
-        fns=natsorted(glob('basis200ulph_1to10nmLin_height50um_12prof/basis*_%03d.dat'%i))
-        B=np.array([np.loadtxt(fn) for fn in fns])
-        #basis is upside down
-        B=B[::-1]
-        errors=[]
-        for irp in range(0,12,11):
-            a=B[irp,:]
-            figure()
-            plot(a/np.sum(a))
-            for b in profilespos[:,i,irp,:]:
-                plot(b/np.sum(b))
-            plt.legend(['basis',*[str(i) for i in range(Np)] ])
-    #%%
-    f=figure()
-    handle=imshow(Rs[:,np.newaxis],cmap=cmap)
-    f.clear()
-    args=np.empty(len(Rs))
-    for i in range(19):
-        
-        fns=natsorted(glob('basis200ulph_1to10nmLin_height50um_12prof/basis*_%03d.dat'%i))
-        B=np.array([np.loadtxt(fn) for fn in fns])
-        #basis is upside down
-        B=B[::-1]
-        errors=np.zeros((Np,),dtype=float)
-        for irp in range(12):
-            a=B[irp,:]
-            a=a/np.sum(a)
-            for j,b in enumerate(profilespos[:,i,irp,:]):
-                b=b/np.sum(b)
-                errors[j]+=np.mean((a-b)**2)
-        X=np.arange(Np)    
-        RMS=np.sqrt(errors/Np)
-        plt.plot(X,RMS,'x-',c=cmap(i/19))
-        argFlip=np.argwhere(RMS<1.01*RMS[-1])[0][0]
-        args[i]=np.poly1d(np.polyfit(RMS[argFlip-1:argFlip+1],
-                         [argFlip-1,argFlip],1))(1.01*RMS[-1])
-        
-    
-        
-        
-    plt.colorbar(handle).set_label('Radii')
-    plt.xlabel('Zgrid')
-    plt.ylabel('Least square error')
-    plt.savefig('RMS.pdf')
-    #%
-    F=np.poly1d(np.polyfit(np.log(Rs),args,1))    
-    figure()
-    plt.semilogx(Rs,args,'x')
-    plt.semilogx(Rs,F(np.log(Rs)))
-    plt.xlabel('Radius')
-    plt.ylabel('1% error Zgrid')
-    plt.savefig('1prct.pdf')

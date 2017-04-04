@@ -20,6 +20,48 @@ warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
                 Zgrid=11,ignore=10e-6,normalize_profiles=True,initmode='none',
                 data_dict=None,rebin=2):
+    """
+    Get the hydrodynamic radius from the images
+    
+    Parameters
+    ----------
+    images: 1d list of images or file name OR 2x 1d list
+        If this is a string, it will be treated like a path
+        If one list, treated like regular fluorescence images
+        If two list, treated like images and backgrounds
+    Q: float
+        Flow rate in [ul/h]
+    Wz: float
+        Height of the channel in [m]
+    pixsize: float
+        Pixel size in [m]
+    readingpos: 1d float array, defaults None
+        Position at which the images are taken. If None, take the defaults
+    Rs: 1d array, defaults None
+        Hydrodimamic radii to simulate in [m].
+        If None: between .5 and 10 nm
+    chanWidth: float, default 300e-6
+        The channel width in [m]
+    Zgrid: int, defaults 11
+        Number of Z slices
+    ignore: float, defaults 10e-6
+        Distance to sides to ignore
+    normalize_profiles: Bool, defaults True
+        Should the profiles be normalized?
+    initmode: str, defaults 'none'
+        The processing mode for the initial profile (See profiles.py)
+    data_dict: dict, defaults None
+        Output to get the profiles and fits
+    rebin: int, defaults 2
+        Rebin factor to speed up code
+        
+    Returns
+    -------
+    r: float
+        Radius in [m]
+    
+    """
+    
     #Check images is numpy array
     images=np.asarray(images)
     
@@ -79,13 +121,13 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
     if data_dict is not None:
         data_dict['profiles']=profiles
         data_dict['fits']=ddbg.getprofiles(profiles[0],Q=Q, Rs=[r], 
-                             Wy = len(profiles[0])*pixsize, Wz= Wz, Zgrid=11,
+                             Wy = len(profiles[0])*pixsize, Wz= Wz, Zgrid=Zgrid,
                              readingpos=readingpos)[0]
     return r
 
 def remove_bg(im,bg, pixsize, chanWidth=300e-6):
     """
-    Extract profile from image
+    Remove background from image
     
     Parameters
     ----------
@@ -93,21 +135,15 @@ def remove_bg(im,bg, pixsize, chanWidth=300e-6):
         image 
     bg: 2d array
         background
+    pixsize: float
+        pixel size in [m]
     chanWidth: float, defaults 300e-6
         channel width  in [m]
-    pixsize: float, defaults 2*8.47e-6/10
-        pixel size in [m]
-    widthcut: integer,0
-        number of pixel to cut from the side (TO REMOVE) 
-    outim: 2d array, defaults None
-        Get processed image if needed
         
     Returns
     -------
-    X: 1d array
-        X position of the profile
-    prof: 1d array
-        The profile
+    im: 2d array
+        The processed image
     
     """
     im=np.asarray(im,dtype=float)
@@ -131,6 +167,23 @@ def remove_bg(im,bg, pixsize, chanWidth=300e-6):
     return rmbg.remove_curve_background(im,bg,maskim=mask)
 
 def flat_image(im, pixsize, chanWidth=300e-6):
+    """
+    Flatten the image
+    
+    Parameters
+    ----------
+    im: 2d array
+        image 
+    pixsize: float
+        pixel size in [m]
+    chanWidth: float, defaults 300e-6
+        channel width  in [m]
+        
+    Returns
+    -------
+    im: 2d array
+        The flattened image
+    """
     
     im=np.asarray(im,dtype=float)
     #remove peaks
@@ -165,7 +218,28 @@ def flat_image(im, pixsize, chanWidth=300e-6):
     
     return im
 
-def extract_profile(flatim, pixsize, chanWidth=300e-6,ignore=10,reflatten=True):
+def extract_profile(flatim, pixsize, chanWidth=300e-6,*,reflatten=True,ignore=10):
+    """
+    Get profile from a flat image
+    
+    Parameters
+    ----------
+    flatim: 2d array
+        flat image 
+    pixsize: float
+        pixel size in [m]
+    chanWidth: float, defaults 300e-6
+        channel width  in [m]
+    reflatten: Bool, defaults True
+        Should we reflatten the profile?
+    ignore: int, defaults 10
+        The number of pixels to ignore if reflattening
+        
+    Returns
+    -------
+    im: 2d array
+        The flattened image
+    """
     
     #Orientate
     flatim=ir.rotate_scale(flatim,-dp.image_angle(flatim)
@@ -218,6 +292,11 @@ def extract_profile(flatim, pixsize, chanWidth=300e-6,ignore=10,reflatten=True):
 def defaultReadingPos():
     '''
     Get the default reading positions for the 12 points diffusion device
+    
+    Returns
+    -------
+    readingPos: 1d array
+        The reading positions
     '''
     return np.array([3.5,
                      5.3,
@@ -284,8 +363,20 @@ def outChannelMask(im, chAngle=0):
     
 def outGaussianBeamMask(data, chAngle=0):
     """
-    A single, straight, protein beam is present. It is "Sinking" the profile 
-    such as the sides are leaning toward the center
+    get the outside of the channel from a gaussian fit
+    
+    Parameters
+    ----------
+    data: 2d array
+        The image
+    chAngle: number
+        The angle of the channel in radians
+    
+    Returns
+    -------
+    mask: 2d array
+        the mask excluding the channel
+    
     """
     data=np.asarray(data)
     

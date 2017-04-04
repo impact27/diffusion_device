@@ -17,15 +17,22 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     
      Parameters
     ----------
-    profiles: 1d array
-        the set of profiles
+    profiles: 2d array
+        List of profiles to fit
     flowRate: float
-    Wz=50e-6
-    Zgrid=11
-    ignore=10
-    pixs=.847e-6
-    Rs=np.arange(.5,10,.5)*1e-6
-    readingpos 
+        Speed of the flow in [ul/h]
+    pixs:float
+        The pixel size in [m]
+    readingpos: 1d float array
+        The reading position of the profiles
+    Wz: float, default 50e-6
+        The channel height in [m]
+    Zgrid: integer, default 11
+        Number of Z slices
+    ignore: float, default 10e-6
+        Ignore on the sides [m]
+    Rs: 1d float, default np.arange(.5,10,.5)*1e-6
+        The test radii [m] 
         
     Returns
     -------
@@ -33,6 +40,7 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
         The best radius fit
     """
     
+    #How many pixels should we ignore?
     ignore=int(ignore/pixs)
     if ignore ==0:
         ignore=1
@@ -86,15 +94,14 @@ def center(prof):
     
     #We must now detect the position of the center. We use correlation
     #Correlation is equivalent to least squares (A-B)^2=-2AB+ some constants
-    prof=prof.copy()
+    prof=np.array(prof)
     prof[np.isnan(prof)]=0
     Yi=prof[::-1]
     corr=np.correlate(prof,Yi, mode='full')
-    Y=corr
-    X=np.arange(len(Y))
-    args=np.argsort(Y)
+    X=np.arange(len(corr))
+    args=np.argsort(corr)
     x=X[args[-7:]]
-    y=Y[args[-7:]]
+    y=corr[args[-7:]]
     coeffs=np.polyfit(x,np.log(y),2)
     center=-coeffs[1]/(2*coeffs[0])
     center=(center-(len(corr)-1)/2)/2+(len(prof)-1)/2
@@ -204,6 +211,26 @@ def image_angle(image, maxAngle=np.pi/7):
     return angle
 
 def initprocess(profile, mode):
+    """
+    Process the initial profile
+    
+    Parameters
+    ----------
+    profile:  1d array
+        Profile to analyse 
+    mode: string
+        'none':
+            Nothing
+        'gaussian':
+            Return a gaussian fit
+        'tails':
+            Remove the tails
+    Returns
+    -------
+    profile: 1d array
+        the processed profile
+    
+    """
     if mode == 'none':
         return profile
     elif mode == 'gaussian' or mode == 'tails':
@@ -216,3 +243,20 @@ def initprocess(profile, mode):
         remove=gauss<.01*gauss.max()
         profile[remove]=0
         return profile
+
+def getfax(profiles):
+    """
+    returns a faxed verion of the profiles for easier plotting
+    
+    Parameters
+    ----------
+    profiles:  2d array
+        List of profiles 
+    Returns
+    -------
+    profiles: 1d array
+        The faxed profiles
+    
+    """
+    return np.ravel(np.concatenate(
+            (profiles,np.zeros((np.shape(profiles)[0],1))*np.nan),axis=1))
