@@ -15,7 +15,7 @@ import scipy
 gfilter=scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.morphology import binary_erosion
 
-umChannelWidth=100
+_umChannelWidth=100
 
 
 def channels_edges(bg, pixs,angle=None,std=10e-6):
@@ -51,7 +51,7 @@ def channels_edges(bg, pixs,angle=None,std=10e-6):
     #create approximate walls
     x=np.arange(len(edges))*pixs
     gwalls=np.zeros(len(edges),dtype=float)
-    for center in np.arange(1,9)*umChannelWidth*1e-6:
+    for center in np.arange(1,9)*_umChannelWidth*1e-6:
         gwalls+=edges.max()*np.exp(-(x-center)**2/(2*std**2))
     #Get best fit for approximate walls
     c=int(np.correlate(edges,gwalls,mode='same').argmax()-len(gwalls)/2)
@@ -65,13 +65,16 @@ def channels_edges(bg, pixs,angle=None,std=10e-6):
     label,n=msr.label(gwalls>.1*gwalls.max())
     
     '''
-    from matplotlib.pyplot import plot, figure
+    from matplotlib.pyplot import plot, figure, imshow
+    figure()
+    imshow(bg)
     figure()
     plot(edges)
     plot(gwalls)
     #'''
     #Get the positions
     edges=np.squeeze(msr.maximum_position(edges,label,range(1,n+1)))
+    assert(len(edges)==8)
     return edges
 
 def channels_mask(bg, pixs, angle=None, edgesOut=None):
@@ -124,7 +127,7 @@ def bg_angle(im,bg,infoDict=None):
         the image orientation angle
     """
     tmpout=rmbg.remove_curve_background(im,bg,infoDict=infoDict,bgCoord=True)
-    return -dp.image_angle(tmpout)
+    return dp.image_angle(tmpout)
 
 def remove_bg(im,bg, pixs,edgesOut=None):
     """
@@ -162,8 +165,6 @@ def remove_bg(im,bg, pixs,edgesOut=None):
                                          borderValue=np.nan)>.5   
                                  
     maskim=binary_erosion(maskim,iterations=15)
-    """
-    #"""
     #Get Intensity
     ret=rmbg.remove_curve_background(im,bg,maskbg=maskbg,maskim=maskim,
                                      bgCoord=True,reflatten=True)
@@ -224,6 +225,15 @@ def extract_profiles(im,bg,pixs):
     #If image is inverted
     if profiles[-1].max()>profiles[0].max():
         profiles=profiles[::-1]
+        
+    """
+    from matplotlib.pyplot import plot, figure, imshow
+    figure()
+    imshow(flat_im)
+    figure()
+    plot(imProf)
+    #"""
+    
     return profiles
 
 def apparent_pixel_size(bg,estimated_pix_size,im=None):
@@ -248,5 +258,5 @@ def apparent_pixel_size(bg,estimated_pix_size,im=None):
         a=bg_angle(im,bg)
     edges=channels_edges(bg,estimated_pix_size,a)
     #2000 is (channel width + gap ) *10
-    return np.mean([20*umChannelWidth/np.mean(np.diff(edges[::2])),
-                    20*umChannelWidth/np.mean(np.diff(edges[1::2]))])
+    return np.mean([20*_umChannelWidth/np.mean(np.diff(edges[::2])),
+                    20*_umChannelWidth/np.mean(np.diff(edges[1::2]))])

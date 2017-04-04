@@ -289,7 +289,7 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     #Take mean unless asked for
     if not fullGrid:
         profilespos=np.mean(profilespos,-2)
-        profilespos/=np.sum(profilespos,-1)/np.sum(Cinit/Zgrid)
+        profilespos/=np.sum(profilespos,-1)[:,:,None]/np.sum(Cinit/Zgrid)
     return profilespos
 #%%        
 def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):

@@ -86,7 +86,7 @@ def size_image(im,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=100e-6,*,
         profiles=bright.extract_profiles(im)
     elif len(np.shape(im))==3 and np.shape(im)[0]==2:
         #images and background
-        profiles= background.extract_profiles(im[0],im[1])
+        profiles= background.extract_profiles(im[0],im[1],pixsize)
         
     #normalize if needed
     if normalize_profiles:

@@ -160,6 +160,14 @@ def extract_profiles_flatim(im,infos):
     #If image upside down, turn
     if profiles[-1].max()>profiles[0].max():
         profiles=profiles[::-1] 
+        
+    """
+    from matplotlib.pyplot import plot, figure, imshow
+    figure()
+    imshow(im)
+    figure()
+    plot(image_profile)
+    #"""
     return profiles
 
 def extract_profiles(im):
