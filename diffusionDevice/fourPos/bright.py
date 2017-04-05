@@ -170,7 +170,7 @@ def extract_profiles_flatim(im,infos):
     #"""
     return profiles
 
-def extract_profiles(im):
+def extract_profiles(im, imSlice=None):
     '''
     Extract profiles from image
     
@@ -186,5 +186,21 @@ def extract_profiles(im):
     '''
     infos={}
     im=flat_image(im,infosOut=infos)
+    angle=dp.image_angle(im)
+    im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
+    """
+    profiles0=extract_profiles_flatim(im[:100],infos['infos'])
+    for p in profiles0:
+        p/=np.mean(p)
+    profiles1=extract_profiles_flatim(im[-100:],infos['infos'])
+    for p in profiles1:
+        p/=np.mean(p)
+    from matplotlib.pyplot import plot, figure, imshow
+    figure()
+    plot(np.ravel(profiles0))
+    plot(np.ravel(profiles1))
+    #"""
+    if imSlice is not None:
+        im=im[imSlice]
     profiles=extract_profiles_flatim(im,infos['infos'])
     return profiles

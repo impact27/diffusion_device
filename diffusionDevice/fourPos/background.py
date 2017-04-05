@@ -14,6 +14,8 @@ import diffusionDevice.profiles as dp
 import scipy
 gfilter=scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.morphology import binary_erosion
+import warnings
+warnings.filterwarnings('ignore', 'invalid value encountered in greater',RuntimeWarning)
 
 _umChannelWidth=100
 
@@ -170,7 +172,7 @@ def remove_bg(im,bg, pixs,edgesOut=None):
                                      bgCoord=True,reflatten=True)
     return ret
 
-def extract_profiles(im,bg,pixs):
+def extract_profiles(im,bg,pixs, imSlice=None):
     """
     Extract diffusion profiles
     
@@ -192,10 +194,12 @@ def extract_profiles(im,bg,pixs):
     #get edges 
     edges=np.empty(8,dtype=int)
     #Get flattened image
-    flat_im=remove_bg(im,bg,pixs,edges)
+    flat_im=remove_bg(im,bg,pixs,edges)    
     #Get channel width
     width=int(np.mean(np.diff(edges)[::2]))
     #Profile
+    if imSlice is not None:
+        flat_im=flat_im[imSlice]
     imProf=np.nanmean(flat_im,0)
     #Output profiles
     profiles=np.empty((4,width),dtype=float)
@@ -229,9 +233,8 @@ def extract_profiles(im,bg,pixs):
     """
     from matplotlib.pyplot import plot, figure, imshow
     figure()
-    imshow(flat_im)
-    figure()
-    plot(imProf)
+    plot(np.nanmean(flat_im[:100],0))
+    plot(np.nanmean(flat_im[-100:],0))
     #"""
     
     return profiles

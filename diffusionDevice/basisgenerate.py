@@ -178,7 +178,7 @@ def dxtDd(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
 
 
 #@profile
-def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
+def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
                 *,fullGrid=False, outV=None):
     """Returns the theorical profiles for the input variables
     
@@ -189,7 +189,7 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
             used to pad the array
     Q:  float
         The flux in the channel in [ul/h]
-    Rs: 1d array
+    Radii: 1d array
         The simulated radius. Must be in increasing order [m]
     readingpos: 1d array float
         Position to read at
@@ -210,6 +210,8 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         The list of profiles for the 12 positions at the required radii
     
     """
+    Radii=np.array(Radii)
+    assert(not np.any(Radii<0))
     #Functions to access F
     def getF(Fdir,NSteps):
         if NSteps not in Fdir:
@@ -223,7 +225,6 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         if key in getprofiles.dirFList:
             return getprofiles.dirFList[key], dxtDd(*key,Q,outV)
         else:
-            print('new F!')
             Fdir={}
             Fdir[1],dxtd=stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV)
             getprofiles.dirFList[key]=Fdir
@@ -242,7 +243,7 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         Cinit=np.tile(Cinit[:,np.newaxis],(1,Zgrid)).T
         
     Ygrid = Cinit.shape[1];
-    NRs=len(Rs)
+    NRs=len(Radii)
     Nrp=len(readingpos)
     profilespos=np.tile(np.ravel(Cinit),(NRs*Nrp,1))
     
@@ -251,11 +252,12 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
 
     #Get Nsteps for each radius and position
     Nsteps=np.empty((NRs*Nrp,),dtype=int)         
-    for i,r in enumerate(Rs):
+    for i,r in enumerate(Radii):
         D = kT/(6*np.pi*eta*r)
         dx=dxtD/D
         Nsteps[Nrp*i:Nrp*(i+1)]=np.asarray(readingpos//dx,dtype=int)
-        
+     
+    print('{} steps'.format(Nsteps.max()))
     #transform Nsteps to binary array
     pow2=1<<np.arange(int(np.floor(np.log2(Nsteps.max())+1)))
     pow2=pow2[:,None]
@@ -268,7 +270,7 @@ def getprofiles(Cinit,Q, Rs, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     for i,bsUnit in enumerate(binSteps):
         F=getF(Fdir,2**i)
             
-        print("NSteps=%d" % 2**i)
+#        print("NSteps=%d" % 2**i)
         #save previous number
         prev=np.zeros(i+1,dtype=bool)
         for j,bs in enumerate(bsUnit[sortedbs]):#[sortedbs]

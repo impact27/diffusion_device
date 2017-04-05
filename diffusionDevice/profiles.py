@@ -7,6 +7,63 @@ Created on Fri Mar 17 10:25:47 2017
 import numpy as np
 from diffusionDevice.basisgenerate import getprofiles
 
+def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
+                  initmode='none',normalize_profiles=True,Zgrid=11,
+                  ignore=10e-6,data_dict=None,fit_position_number=None):
+    
+    
+    #normalize if needed
+    if normalize_profiles:
+        for p in profiles:
+            p/=np.sum(p)
+            
+    """
+    from matplotlib.pyplot import figure, plot
+    figure()
+    plot(np.ravel(profiles))
+    #"""
+    
+    if fit_position_number is None:
+        fit_position_number=np.arange(len(readingpos))
+    else:
+        fit_position_number=np.sort(fit_position_number)
+        
+    #treat init profile
+    init=initprocess(profiles[fit_position_number[0]],initmode)
+        
+    #Get best fit
+    r=fit_monodisperse_radius([init,*profiles[fit_position_number[1:]]],
+                                 readingpos=readingpos[fit_position_number],
+                                 flowRate=Q,
+                                 Wz=Wz,
+                                 Zgrid=Zgrid,
+                                 ignore=ignore,
+                                 pixs=pixsize,
+                                 Rs=Rs)
+    
+    #fill data if needed
+    if data_dict is not None:
+        data_dict['profiles']=profiles
+        data_dict['initprof']=init
+        if fit_position_number[0] !=0:
+            init=profiles[0]
+        data_dict['fits']=getprofiles(init,Q=Q, Radii=[r], 
+                             Wy = len(init)*pixsize, Wz= Wz, Zgrid=Zgrid,
+                             readingpos=readingpos[1:]-readingpos[0])[0]
+        
+    return r
+
+
+
+
+
+   
+
+
+    
+
+
+
 def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
                                 Wz=50e-6,
                                 Zgrid=11,
@@ -39,7 +96,9 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     radii: float
         The best radius fit
     """
-    
+    profiles=np.asarray(profiles)
+    #First reading pos is initial profile
+    readingpos=readingpos[1:]-readingpos[0]
     #How many pixels should we ignore?
     ignore=int(ignore/pixs)
     if ignore ==0:
@@ -191,23 +250,39 @@ def image_angle(image, maxAngle=np.pi/7):
     top[np.isnan(top)]=0
     bottom[np.isnan(bottom)]=0
     #correlate
-    C=np.correlate(top,bottom, mode='same')
-    X=np.arctan((np.arange(len(C))-len(C)/2)/((lims[1]-lims[0])/2))
-    valid=np.abs(X)<maxAngle
-    x=X[valid]
-    c=C[valid]         
-    angle=x[c.argmax()]
+    C=np.correlate(top,bottom, mode='full')
+    
+    pos=np.arange(len(C))-(len(C)-1)/2
+    disty=((lims[1]-lims[0])/2)
+    Angles=np.arctan(pos/disty)
+    
+    valid=np.abs(Angles)<maxAngle
+    x=pos[valid]
+    c=C[valid]  
+
+    x=x[c.argmax()-5:c.argmax()+6]
+    y=np.log(c[c.argmax()-5:c.argmax()+6])  
+
+    coeff=np.polyfit(x,y,2)
+    x=-coeff[1]/(2*coeff[0])
+    angle=np.arctan(x/disty)     
     
     """
     import matplotlib.pyplot as plt
     plt.figure()
-    plt.plot(X,C)
-    plt.plot([maxAngle,maxAngle],[-.1,.3])
-    plt.plot([-maxAngle,-maxAngle],[-.1,.3])
-    plt.plot([angle,angle],[0,.2])
+    plt.plot(np.arctan(pos/disty),C)
+    plt.plot([maxAngle,maxAngle],[np.min(C),np.max(C)])
+    plt.plot([-maxAngle,-maxAngle],[np.min(C),np.max(C)])
+    plt.plot([angle,angle],[np.min(C),np.max(C)])
     #"""
-    if np.abs(angle) >maxAngle:
-        angle=0
+    """
+    import matplotlib.pyplot as plt
+    x=np.arange(len(top))
+    plt.figure()
+    plt.plot(x,top)
+    plt.plot(x+(C.argmax()-(len(C)-1)/2),bottom)
+    plt.title('image angle')
+    #"""
     return angle
 
 def initprocess(profile, mode):

@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
 def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
                 Zgrid=11,ignore=10e-6,normalize_profiles=True,initmode='none',
-                data_dict=None,rebin=2):
+                data_dict=None,rebin=2,):
     """
     Get the hydrodynamic radius from the images
     
@@ -100,30 +100,11 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
     #get profiles
     profiles=np.asarray(
             [extract_profile(fim,pixsize, chanWidth) for fim in flatimages])
-    
-    #normalize if needed
-    if normalize_profiles:
-        for p in profiles:
-            p/=np.sum(p)
-    
-    #treat init profile
-    profiles[0]=dp.initprocess(profiles[0],initmode)
 
-    #Get best fit
-    r=dp.fit_monodisperse_radius(profiles,flowRate=Q,Wz=Wz,
-                   Zgrid=Zgrid,
-                   ignore=ignore,
-                   pixs=pixsize,
-                   Rs=Rs,
-                   readingpos=readingpos)
+    return dp.size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs,
+                  initmode=initmode,normalize_profiles=normalize_profiles,
+                  Zgrid=Zgrid, ignore=ignore,data_dict=data_dict)
     
-    #fill data if needed
-    if data_dict is not None:
-        data_dict['profiles']=profiles
-        data_dict['fits']=ddbg.getprofiles(profiles[0],Q=Q, Rs=[r], 
-                             Wy = len(profiles[0])*pixsize, Wz= Wz, Zgrid=Zgrid,
-                             readingpos=readingpos)[0]
-    return r
 
 def remove_bg(im,bg, pixsize, chanWidth=300e-6):
     """
@@ -270,7 +251,12 @@ def extract_profile(flatim, pixsize, chanWidth=300e-6,*,reflatten=True,ignore=10
     Xc=np.arange(Npix)-(Npix-1)/2
     Xc*=pixsize
     
-    finterp=interpolate.interp1d(X, prof)
+    finterp=interpolate.interp1d(X, prof,bounds_error=False,fill_value=0)
+    """
+    from matplotlib.pyplot import figure, imshow,plot
+    figure()
+    plot(X,prof)
+    #"""  
     return finterp(Xc)
     
     
@@ -298,7 +284,8 @@ def defaultReadingPos():
     readingPos: 1d array
         The reading positions
     '''
-    return np.array([3.5,
+    return np.array([0,
+                     3.5,
                      5.3,
                      8.6,
                      10.3,

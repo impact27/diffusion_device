@@ -10,20 +10,39 @@ from . import bright, background
 import diffusionDevice.profiles as dp
 import diffusionDevice.basisgenerate as ddbg
 
-def defaultReadingPos():
+def defaultReadingPos(startpos=400e-6, isFolded=True):
     '''
     Get the default reading positions for the 4 points diffusion device
+    
+    Parameters
+    ----------
+    startpos: float, default 400e-6 
+        The center of the image, relative to the first turn [m]
+    isFolded: Bool, default True
+        If this is the folded or the straight device
     
     Returns
     -------
     readingPos: 1d array
         The reading positions
     '''
-    return np.array([  4183, 21446, 55879])*1e-6
+#    return np.array([  4183, 21446, 55879])*1e-6 #Kadi
+#    return np.array([  3738, 21096, 55374])*1e-6 #Electrophoresis
+    if isFolded:
+        return np.array([0,4556e-6-2*startpos, 
+                         21953e-6, 
+                         47100e-6-2*startpos]) #folded device
+    else:
+        return np.array([0,4532e-6-2*startpos, 
+                         21128e-6, 
+                         56214e-6-2*startpos]) #folded device
+    
+
+
 
 def size_image(im,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=100e-6,*,
                 Zgrid=11,ignore=5e-6,normalize_profiles=True,initmode='none',
-                data_dict=None):
+                data_dict=None, fit_position_number=None,imSlice=None):
     
     """
     Get the hydrodynamic radius from the images
@@ -83,31 +102,13 @@ def size_image(im,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=100e-6,*,
     #get profiles
     if len(np.shape(im))==2:
         #Single image
-        profiles=bright.extract_profiles(im)
+        profiles=bright.extract_profiles(im,imSlice)
     elif len(np.shape(im))==3 and np.shape(im)[0]==2:
         #images and background
-        profiles= background.extract_profiles(im[0],im[1],pixsize)
-        
-    #normalize if needed
-    if normalize_profiles:
-        for p in profiles:
-            p/=np.sum(p)
+        profiles= background.extract_profiles(im[0],im[1],pixsize,imSlice)
     
-    #treat init profile
-    profiles[0]=dp.initprocess(profiles[0],initmode)
 
-    #Get best fit
-    r=dp.fit_monodisperse_radius(profiles,flowRate=Q,Wz=Wz,
-                   Zgrid=Zgrid,
-                   ignore=ignore,
-                   pixs=pixsize,
-                   Rs=Rs,
-                   readingpos=readingpos)
-    
-    #fill data if needed
-    if data_dict is not None:
-        data_dict['profiles']=profiles
-        data_dict['fits']=ddbg.getprofiles(profiles[0],Q=Q, Rs=[r], 
-                             Wy = len(profiles[0])*pixsize, Wz= Wz, Zgrid=Zgrid,
-                             readingpos=readingpos)[0]
-    return r
+    return dp.size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs,
+                  initmode=initmode,normalize_profiles=normalize_profiles,
+                  Zgrid=Zgrid, ignore=ignore,data_dict=data_dict,
+                  fit_position_number=fit_position_number)
