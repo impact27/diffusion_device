@@ -90,7 +90,7 @@ def straight_image_infos(im, Nprofs=4):
         amax=int(amax)
         y=np.log(profiles[amax-10:amax+10])
         x=np.arange(len(y))
-        coeff=np.polyfit(x,y,2)
+        coeff=np.polyfit(x[np.isfinite(y)],y[np.isfinite(y)],2)
         maxs[i]=-coeff[1]/(2*coeff[0])-10+amax
       
     if np.all([x>y for x, y in zip(maxs, maxs[1:])]):
