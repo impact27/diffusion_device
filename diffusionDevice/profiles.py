@@ -6,16 +6,18 @@ Created on Fri Mar 17 10:25:47 2017
 """
 import numpy as np
 from diffusionDevice.basisgenerate import getprofiles
+import scipy
+gfilter=scipy.ndimage.filters.gaussian_filter1d
 
 def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
                   initmode='none',normalize_profiles=True,Zgrid=11,
-                  ignore=10e-6,data_dict=None,fit_position_number=None):
+                  ignore=10e-6,data_dict=None,fit_position_number=None,
+                  central_profile=False):
     
     
     #normalize if needed
     if normalize_profiles:
-        for p in profiles:
-            p/=np.sum(p)
+        profiles/=np.sum(profiles,-1)[:,np.newaxis]
             
     """
     from matplotlib.pyplot import figure, plot
@@ -39,36 +41,30 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
                                  Zgrid=Zgrid,
                                  ignore=ignore,
                                  pixs=pixsize,
-                                 Rs=Rs)
+                                 Rs=Rs,
+                                 central_profile=central_profile)
     
     #fill data if needed
     if data_dict is not None:
-        data_dict['profiles']=profiles
         data_dict['initprof']=init
         if fit_position_number[0] !=0:
-            init=profiles[0]
+            init=initprocess(profiles[0],initmode)
+            
+        assert r>0, 'The fitting failed. Extend the range of test radius?'
+        
         data_dict['fits']=getprofiles(init,Q=Q, Radii=[r], 
                              Wy = len(init)*pixsize, Wz= Wz, Zgrid=Zgrid,
-                             readingpos=readingpos[1:]-readingpos[0])[0]
+                             readingpos=readingpos[1:]-readingpos[0],
+                                 central_profile=central_profile)[0]
         
     return r
-
-
-
-
-
-   
-
-
-    
-
-
 
 def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
                                 Wz=50e-6,
                                 Zgrid=11,
                                 ignore=10e-6,
-                                Rs=np.arange(.5,10,.5)*1e-9,):
+                                Rs=np.arange(.5,10,.5)*1e-9,
+                                central_profile=False):
     """
     Find the best monodisperse radius
     
@@ -106,8 +102,12 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     
     #Get basis function    
     Wy=pixs*np.shape(profiles)[1]
+    
+    
+    
     Basis=getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
-                      Zgrid=Zgrid,readingpos=readingpos)
+                      Zgrid=Zgrid,readingpos=readingpos,
+                      central_profile=central_profile)            
     
     #Compute residues
     p=profiles[1:]
@@ -261,8 +261,10 @@ def image_angle(image, maxAngle=np.pi/7):
     c=C[valid]  
 
     x=x[c.argmax()-5:c.argmax()+6]
-    y=np.log(c[c.argmax()-5:c.argmax()+6])  
-
+    y=np.log(gfilter(c,2)[c.argmax()-5:c.argmax()+6])  
+    
+    assert not np.any(np.isnan(y)), 'The signal is too noisy! '
+        
     coeff=np.polyfit(x,y,2)
     x=-coeff[1]/(2*coeff[0])
     angle=np.arctan(x/disty)     
@@ -300,14 +302,19 @@ def initprocess(profile, mode):
             Return a gaussian fit
         'tails':
             Remove the tails
+        'gfilter':
+            Apply a gaussian filter of 2 px std
     Returns
     -------
     profile: 1d array
         the processed profile
     
     """
+    profile=np.array(profile)
     if mode == 'none':
         return profile
+    elif mode == 'gfilter':
+        return gfilter(profile,2)
     elif mode == 'gaussian' or mode == 'tails':
         Y=profile
         X=np.arange(len(Y))

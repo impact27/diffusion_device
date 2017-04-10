@@ -24,6 +24,8 @@ eta = 1e-3;
 D = kT/(6*np.pi*eta*Rs)
 basis=np.loadtxt('basis1_000.dat')
 init=np.loadtxt('init.dat')
+init2=np.zeros(192)
+init2[:96]=1
 init/=np.mean(init)
 basis=basis/np.mean(basis)*np.mean(init)
 Ygrid=len(basis)
@@ -95,11 +97,23 @@ plot(basis,label='simulation')
 plot(p1,label='First Method')
 plot(p1/np.mean(p1),label='First Method normalized')
 
-plot(p4,label='Edges')
+#plot(p4,label='Edges')
 
 plt.legend()
 #%%
+dx=dxtD/D
+Nsteps=47834//2
+p1=np.mean(np.dot(np.linalg.matrix_power(M1,Nsteps),np.ravel(init)).reshape((Zgrid,Ygrid)),0)
 figure()
-plot(p2)
+plot(p1)
 a2=plt.axes().twinx()
-a2.plot(np.diff(p2)*np.diff(V[0]),c='C1')
+a2.plot(np.diff(p1)*np.diff(V[0]),c='C1')
+
+#%%
+res=[]
+listNsteps=np.exp(np.linspace(0,12))
+for n in listNsteps:
+    p1=np.mean(np.dot(np.linalg.matrix_power(M1,int(n)),np.ravel(init)).reshape((Zgrid,Ygrid)),0)
+    res.append(sum(p1))
+figure()
+plot(listNsteps[:-1]+np.diff(listNsteps),np.diff(res),'x')

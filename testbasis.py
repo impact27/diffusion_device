@@ -11,6 +11,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, plot, imshow
 cmap = matplotlib.cm.get_cmap('inferno')
+import numpy as np
 
 Yinit=np.loadtxt('basis200ulph_1to10nmLin_height50um_12prof/init.dat')
 Rs=np.arange(1,10.1,.5)*1e-9

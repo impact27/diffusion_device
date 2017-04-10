@@ -29,8 +29,9 @@ def image_infos(im):
         dictionnary containing infos
     
     """
+    imflat=im
     #Detect Angle
-    angle=dp.image_angle(im-np.median(im))
+    angle=dp.image_angle(imflat)
     im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
     #Get channels infos
     w,a,origin=straight_image_infos(im)
@@ -42,7 +43,7 @@ def image_infos(im):
             'offset':a}
     return retdict
 
-def straight_image_infos(im):
+def straight_image_infos(im, Nprofs=4):
     """
     Get the channel width, proteind offset, and origin from a straight image
     
@@ -61,13 +62,29 @@ def straight_image_infos(im):
         Position of the first channel center
     
     """
-    profiles=np.nanmean(im,0)
+    width_pixels=np.shape(im)[1]//10
+    
+    profiles=np.nanmean(im-np.nanmedian(im),0)
     
     #Find max positions
     fprof=gfilter(profiles,3)
-    fprof=profiles
-    maxs=np.where(maximum_filter1d(fprof,100)==fprof)[0]
-    assert(len(maxs)==4)    
+    maxs=np.where(maximum_filter1d(fprof,width_pixels)==fprof)[0]
+    maxs=maxs[np.logical_and(maxs>15,maxs<len(fprof)-15)]
+    maxs=maxs[np.argsort(fprof[maxs])[-Nprofs:]][::-1]
+#    from matplotlib.pyplot import figure, show, plot, imshow
+#    figure()
+#    plot(fprof)
+#    plot(maximum_filter1d(fprof,100))
+#    for m in maxs:
+#        plot([m,m],[0,np.nanmax(fprof)])
+
+    
+    if len(maxs)<Nprofs:
+        raise RuntimeError("Can't get image infos")   
+
+    if np.any(profiles[maxs]<0):
+        profiles +=1-profiles[np.argmin(maxs)]
+        
     maxs=np.asarray(maxs,dtype=float)
     for i,amax in enumerate(maxs):
         amax=int(amax)
@@ -75,12 +92,29 @@ def straight_image_infos(im):
         x=np.arange(len(y))
         coeff=np.polyfit(x,y,2)
         maxs[i]=-coeff[1]/(2*coeff[0])-10+amax
+      
+    if np.all([x>y for x, y in zip(maxs, maxs[1:])]):
+        #Deduce relevant parameters
+        w=(maxs[0]-maxs[2])/4
+        a=w+(maxs[1]-maxs[0])/2
+        origin=maxs[0]+a-6*w
+        lastdist=maxs[3]-(origin+a)
         
-    #Deduce relevant parameters
-    w=(maxs[2]-maxs[0])/4
-    a=w+(maxs[0]-maxs[1])/2
-    origin=maxs[0]-a
+    elif np.all([x<y for x, y in zip(maxs, maxs[1:])]):
+        #Deduce relevant parameters
+        w=(maxs[2]-maxs[0])/4
+        a=w+(maxs[0]-maxs[1])/2
+        origin=maxs[0]-a   
+        lastdist=maxs[3]-(origin+6*w-a)
+    else:
+        raise RuntimeError("Can't get image infos")
+        
     
+    assert w>0, 'Something went wrong while analysing the images'
+    #if position 4 is remotely correct, return infos
+    if (np.abs(lastdist)>width_pixels/2 
+        or np.any(np.isnan((a,w,origin,maxs[3])))):
+        raise RuntimeError("Can't get image infos")
     return w,a,origin
     
 
@@ -184,6 +218,9 @@ def extract_profiles(im, imSlice=None):
     profiles: 2d array
         The four profiles
     '''
+    im=np.asarray(im)
+    if imSlice is not None:
+        im=im[imSlice]
     infos={}
     im=flat_image(im,infosOut=infos)
     angle=dp.image_angle(im)
@@ -200,7 +237,5 @@ def extract_profiles(im, imSlice=None):
     plot(np.ravel(profiles0))
     plot(np.ravel(profiles1))
     #"""
-    if imSlice is not None:
-        im=im[imSlice]
     profiles=extract_profiles_flatim(im,infos['infos'])
     return profiles

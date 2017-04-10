@@ -179,7 +179,7 @@ def dxtDd(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
 
 #@profile
 def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
-                *,fullGrid=False, outV=None):
+                *,fullGrid=False, outV=None,central_profile=False):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -211,7 +211,7 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     
     """
     Radii=np.array(Radii)
-    assert(not np.any(Radii<0))
+    assert not np.any(Radii<0), "Can't work with negative radii!"
     #Functions to access F
     def getF(Fdir,NSteps):
         if NSteps not in Fdir:
@@ -288,10 +288,21 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     #reshape correctly
     profilespos.shape=(NRs,Nrp,Zgrid,Ygrid)
     
-    #Take mean unless asked for
-    if not fullGrid:
+    #If full grid, stop here
+    if fullGrid:
+        return profilespos
+    
+    if central_profile:
+        #Take central profile
+        central_idx=int((Zgrid-1)/2)
+        profilespos=profilespos[:,:,central_idx,:]
+    else:
+        #Take mean
         profilespos=np.mean(profilespos,-2)
-        profilespos/=np.sum(profilespos,-1)[:,:,None]/np.sum(Cinit/Zgrid)
+    
+    #Normalize to avoid mass destruction / creation
+    profilespos/=np.sum(profilespos,-1)[:,:,np.newaxis]/np.sum(Cinit/Zgrid)
+    
     return profilespos
 #%%        
 def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):

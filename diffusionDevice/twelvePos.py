@@ -96,10 +96,14 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
         flatimages=np.array([cv2.resize(im,size,interpolation=cv2.INTER_AREA)
                                 for im in flatimages])
         pixsize*=rebin  
-        
+      
     #get profiles
     profiles=np.asarray(
             [extract_profile(fim,pixsize, chanWidth) for fim in flatimages])
+    
+    if data_dict is not None:
+        data_dict['pixsize']=pixsize
+        data_dict['profiles']=profiles  
 
     return dp.size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs,
                   initmode=initmode,normalize_profiles=normalize_profiles,

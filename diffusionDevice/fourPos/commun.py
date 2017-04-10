@@ -40,7 +40,7 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 
 
 
-def size_image(im,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=100e-6,*,
+def size_image(im,Q,Wz,Wy,readingpos=None,Rs=None,*,
                 Zgrid=11,ignore=5e-6,normalize_profiles=True,initmode='none',
                 data_dict=None, fit_position_number=None,imSlice=None):
     
@@ -57,15 +57,13 @@ def size_image(im,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=100e-6,*,
         Flow rate in [ul/h]
     Wz: float
         Height of the channel in [m]
-    pixsize: float
-        Pixel size in [m]
+    Wy: float
+        Width of the channel in [m]
     readingpos: 1d float array, defaults None
         Position at which the images are taken. If None, take the defaults
     Rs: 1d array, defaults None
         Hydrodimamic radii to simulate in [m].
         If None: between .5 and 10 nm
-    chanWidth: float, default 100e-6
-        The channel width in [m]
     Zgrid: int, defaults 11
         Number of Z slices
     ignore: float, defaults 5e-6
@@ -99,15 +97,25 @@ def size_image(im,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=100e-6,*,
             im=mpimg.imread(str(im))
         elif len(np.shape(im))==1:
             im=np.asarray([mpimg.imread(fn) for fn in im])
-    #get profiles
-    if len(np.shape(im))==2:
-        #Single image
-        profiles=bright.extract_profiles(im,imSlice)
-    elif len(np.shape(im))==3 and np.shape(im)[0]==2:
-        #images and background
-        profiles= background.extract_profiles(im[0],im[1],pixsize,imSlice)
+            
+    try:
+        #get profiles
+        if len(np.shape(im))==2:
+            #Single image
+            profiles=bright.extract_profiles(im,imSlice)
+        elif len(np.shape(im))==3 and np.shape(im)[0]==2:
+            #images and background
+            profiles= background.extract_profiles(im[0],im[1],imSlice)
+    except RuntimeError as error:
+        if error.args[0]=="Can't get image infos":
+            return np.nan
+        raise
     
 
+    pixsize=Wy/np.shape(profiles)[1]
+    if data_dict is not None:
+        data_dict['pixsize']=pixsize
+        data_dict['profiles']=profiles
     return dp.size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs,
                   initmode=initmode,normalize_profiles=normalize_profiles,
                   Zgrid=Zgrid, ignore=ignore,data_dict=data_dict,
