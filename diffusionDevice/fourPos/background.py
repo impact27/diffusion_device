@@ -53,6 +53,16 @@ def channels_edges(bg,approxwidth,angle=None,std=10,Nwalls=8):
         gwalls+=edges.max()*np.exp(-(x-center)**2/(2*std**2))
     #Get best fit for approximate walls
     c=int(np.correlate(edges,gwalls,mode='same').argmax()-len(gwalls)/2)
+    '''
+    from matplotlib.pyplot import plot, figure, imshow
+    figure()
+    imshow(bg)
+    figure()
+    plot(edges)
+    plot(gwalls)
+    figure()
+    plot(np.correlate(edges,gwalls,mode='same'))
+    #'''
     #Roll
     gwalls=np.roll(gwalls,c)
     if c<0:
@@ -62,17 +72,10 @@ def channels_edges(bg,approxwidth,angle=None,std=10,Nwalls=8):
     #label wall position
     label,n=msr.label(gwalls>.1*gwalls.max())
     
-    '''
-    from matplotlib.pyplot import plot, figure, imshow
-    figure()
-    imshow(bg)
-    figure()
-    plot(edges)
-    plot(gwalls)
-    #'''
+    
     #Get the positions
     edges=np.squeeze(msr.maximum_position(edges,label,range(1,n+1)))
-    assert(len(edges)==8)
+    assert len(edges)==8, 'Did not detect 8 edges'
     return edges
 
 def channels_mask(bg, approxwidth, angle=None, edgesOut=None):
