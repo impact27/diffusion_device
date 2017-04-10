@@ -44,14 +44,13 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
                                  Rs=Rs,
                                  central_profile=central_profile)
     
+    if r<0:
+        return np.nan
     #fill data if needed
     if data_dict is not None:
         data_dict['initprof']=init
         if fit_position_number[0] !=0:
             init=initprocess(profiles[0],initmode)
-            
-        assert r>0, 'The fitting failed. Extend the range of test radius?'
-        
         data_dict['fits']=getprofiles(init,Q=Q, Radii=[r], 
                              Wy = len(init)*pixsize, Wz= Wz, Zgrid=Zgrid,
                              readingpos=readingpos[1:]-readingpos[0],

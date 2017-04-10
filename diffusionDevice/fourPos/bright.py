@@ -82,8 +82,7 @@ def straight_image_infos(im, Nprofs=4):
     if len(maxs)<Nprofs:
         raise RuntimeError("Can't get image infos")   
 
-    if np.any(profiles[maxs]<0):
-        profiles +=1-profiles[np.argmin(maxs)]
+    profiles -=np.nanmin(profiles)
         
     maxs=np.asarray(maxs,dtype=float)
     for i,amax in enumerate(maxs):

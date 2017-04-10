@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.image as mpimg
 from . import bright, background
 import diffusionDevice.profiles as dp
-import diffusionDevice.basisgenerate as ddbg
 
 def defaultReadingPos(startpos=400e-6, isFolded=True):
     '''
