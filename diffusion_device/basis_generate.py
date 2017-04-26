@@ -178,7 +178,8 @@ def dxtDd(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
 
 #@profile
 def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
-                *,fullGrid=False, outV=None,central_profile=False):
+                *,fullGrid=False, outV=None,central_profile=False,
+                eta=1e-3, kT=1.38e-23*295):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -202,13 +203,19 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         Should return full grid?
     outV: 2d float array
         array to use for the poiseuiile flow
+    central_profile: Bool, default False
+        If true, returns only the central profile
+    eta: float
+        eta
+    kT: float
+        kT
 
     Returns
     -------
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     
-    """
+    """    
     Radii=np.array(Radii)
     assert not np.any(Radii<0), "Can't work with negative radii!"
     #Functions to access F
@@ -229,11 +236,6 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
             getprofiles.dirFList[key]=Fdir
             return Fdir,dxtd
         
-    
-    # Settings that are unlikly to change    
-    kT = 1.38e-23*295;
-    eta = 1e-3;
-    
     #Prepare input and Initialize arrays
     readingpos=np.asarray(readingpos)
     

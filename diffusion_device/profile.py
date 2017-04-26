@@ -14,8 +14,45 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
                   initmode='none',normalize_profiles=True,Zgrid=11,
                   ignore=10e-6,data_dict=None,fit_position_number=None,
                   central_profile=False):
+    """Size the profiles
     
+     Parameters
+    ----------
+    profiles: 2d array
+        List of profiles to fit
+    flowRate: float
+        Speed of the flow in [ul/h]
+    Wz: float
+        The channel height in [m]
+    pixsize:float
+        The pixel size in [m]
+    readingpos: 1d float array
+        The reading position of the profiles
+    Rs: 1d float
+        The test radii [m] 
+    initmode: string, default 'none'
+        How should the initial profile be processed 
+        See init_process
+    normalize_profiles: Bool, default True
+        Should normalize profiles?
+    Zgrid: integer, default 11
+        Number of Z slices
+    ignore: float, default 10e-6
+        Ignore on the sides [m]
+    data_dict: dictionnary
+        If not None, returns infos
+    fit_position_number: 1d array
+        Posiitons to fit
+    central_profile: Bool, default False
+        Should use central profile?
+      
+    Returns
+    -------
+    radii: float
+        The best radius fit
+    """
     
+    profiles=np.array(profiles)
     #normalize if needed
     if normalize_profiles:
         #if profile is mainly negative, error
@@ -69,8 +106,7 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
                                 ignore=10e-6,
                                 Rs=np.arange(.5,10,.5)*1e-9,
                                 central_profile=False):
-    """
-    Find the best monodisperse radius
+    """Find the best monodisperse radius
     
      Parameters
     ----------
@@ -90,7 +126,9 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
         Ignore on the sides [m]
     Rs: 1d float, default np.arange(.5,10,.5)*1e-6
         The test radii [m] 
-        
+    central_profile: Bool, default False
+        If true, use the central profile
+    
     Returns
     -------
     radii: float
@@ -337,7 +375,8 @@ def get_fax(profiles):
     Parameters
     ----------
     profiles:  2d array
-        List of profiles 
+        List of profiles
+        
     Returns
     -------
     profiles: 1d array
@@ -384,6 +423,7 @@ def get_profiles(scans, Npix, orientation=None, *,
         Index of a profile containing an edge and a maximum to detect offset
     offset: integer
         Manual offset
+        
     Returns
     -------
     profiles: 1d array
