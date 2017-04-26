@@ -7,7 +7,7 @@ Created on Tue Apr  4 11:21:01 2017
 import numpy as np
 import matplotlib.image as mpimg
 from . import bright, background
-import diffusionDevice.profiles as dp
+import diffusion_device.profile as dp
 
 def defaultReadingPos(startpos=400e-6, isFolded=True):
     '''

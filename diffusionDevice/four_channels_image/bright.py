@@ -8,7 +8,7 @@ import numpy as np
 import scipy.ndimage
 gfilter=scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.filters import maximum_filter1d
-import diffusionDevice.profiles as dp
+import diffusion_device.profile as dp
 import background_rm as rmbg
 import image_registration.image as ir
 from scipy import interpolate
@@ -91,28 +91,33 @@ def straight_image_infos(im, Nprofs=4):
         x=np.arange(len(y))
         coeff=np.polyfit(x[np.isfinite(y)],y[np.isfinite(y)],2)
         maxs[i]=-coeff[1]/(2*coeff[0])-10+amax
-      
-    if np.all([x>y for x, y in zip(maxs, maxs[1:])]):
-        #Deduce relevant parameters
-        w=(maxs[0]-maxs[2])/4
-        a=w+(maxs[1]-maxs[0])/2
-        origin=maxs[0]+a-6*w
-        lastdist=maxs[3]-(origin+a)
+     
+    maxs=np.sort(maxs)
+    
+    if maxs[0]<0 or maxs[-1]>len(profiles):
+        raise RuntimeError("Can't get image infos")
         
-    elif np.all([x<y for x, y in zip(maxs, maxs[1:])]):
+    if fprof[int(maxs[0])]>fprof[int(maxs[-1])]:
         #Deduce relevant parameters
         w=(maxs[2]-maxs[0])/4
         a=w+(maxs[0]-maxs[1])/2
         origin=maxs[0]-a   
         lastdist=maxs[3]-(origin+6*w-a)
+        
     else:
-        raise RuntimeError("Can't get image infos")
+        #Deduce relevant parameters
+        w=(maxs[3]-maxs[1])/4
+        a=w+(maxs[2]-maxs[3])/2
+        origin=maxs[3]+a-6*w   
+        lastdist=maxs[0]-(origin+a)
         
     
     assert w>0, 'Something went wrong while analysing the images'
     #if position 4 is remotely correct, return infos
-    if (np.abs(lastdist)>width_pixels/2 
-        or np.any(np.isnan((a,w,origin,maxs[3])))):
+    if (    np.abs(lastdist)>w/2 #Last too far
+            or np.any(np.isnan((a,w,origin,maxs[3])))#got nans
+            or origin -a +6.5*w >len(profiles)#Right side not in
+            or origin+a-.5*w<0):#left side not in
         raise RuntimeError("Can't get image infos")
     return w,a,origin
     

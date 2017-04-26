@@ -13,7 +13,7 @@ from matplotlib.pyplot import figure, plot, imshow
 cmap = matplotlib.cm.get_cmap('inferno')
 import numpy as np
 
-Yinit=np.loadtxt('basis200ulph_1to10nmLin_height50um_12prof/init.dat')
+Yinit=np.loadtxt('init.dat')
 Rs=np.arange(1,10.1,.5)*1e-9
 Np=11
 profilespos=np.empty((Np,len(Rs),12,len(Yinit)),dtype=float)  
@@ -24,7 +24,7 @@ for i, profpos in enumerate(profilespos):
 
 figure()
 for i in [0,8,17]:
-    fns=natsorted(glob('basis200ulph_1to10nmLin_height50um_12prof/basis*_%03d.dat'%i))
+    fns=natsorted(glob('basis*_%03d.dat'%i))
     B=np.array([np.loadtxt(fn) for fn in fns])
     #basis is upside down
     B=B[::-1]
@@ -43,7 +43,7 @@ f.clear()
 args=np.empty(len(Rs))
 for i in range(19):
     
-    fns=natsorted(glob('basis200ulph_1to10nmLin_height50um_12prof/basis*_%03d.dat'%i))
+    fns=natsorted(glob('basis*_%03d.dat'%i))
     B=np.array([np.loadtxt(fn) for fn in fns])
     #basis is upside down
     B=B[::-1]

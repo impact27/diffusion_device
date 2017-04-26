@@ -8,7 +8,7 @@ import image_registration.image as ir
 import numpy as np
 import scipy.ndimage.measurements as msr
 import background_rm as rmbg
-import diffusionDevice.profiles as dp
+import diffusion_device.profile as dp
 import scipy
 from . import bright
 gfilter=scipy.ndimage.filters.gaussian_filter1d

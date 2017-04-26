@@ -8,12 +8,11 @@ import numpy as np
 import background_rm as rmbg
 import image_registration.image as ir
 import image_registration.channel as cr
-import diffusionDevice.profiles as dp
+import diffusion_device.profile as dp
 import scipy
 import matplotlib.image as mpimg
 import warnings
 import cv2
-import diffusionDevice.basisgenerate as ddbg
 from scipy import interpolate
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
@@ -67,7 +66,7 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
     
     #Fill missing arguments
     if readingpos is None:
-        readingpos=defaultReadingPos()
+        readingpos=defaultReading12Pos()
     if Rs is None:
         Rs=np.arange(.5,10,.5)*1e-9
     
@@ -131,8 +130,8 @@ def remove_bg(im,bg, pixsize, chanWidth=300e-6):
         The processed image
     
     """
-    im=np.asarray(im,dtype=float)
-    bg=np.asarray(bg,dtype=float)
+    im=np.array(im,dtype=float)
+    bg=np.array(bg,dtype=float)
     #remove dust peaks on images
     bg[rmbg.getPeaks(bg, maxsize=50*50)]=np.nan
     im[rmbg.getPeaks(im, maxsize=50*50)]=np.nan  
@@ -279,7 +278,7 @@ def extract_profile(flatim, pixsize, chanWidth=300e-6,*,reflatten=True,ignore=10
     
 #    return prof[channel]
  
-def defaultReadingPos():
+def defaultReading12Pos():
     '''
     Get the default reading positions for the 12 points diffusion device
     

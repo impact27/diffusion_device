@@ -6,7 +6,6 @@ Created on Mon Jan  9 09:32:10 2017
 """
 import numpy as np
 from scipy.linalg import toeplitz
-import scipy.linalg as la
 
 #%%
 

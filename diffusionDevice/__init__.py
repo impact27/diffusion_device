@@ -1,1 +1,1 @@
-import diffusionDevice.fourPos
+import diffusion_device.four_channels_image

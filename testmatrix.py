@@ -5,7 +5,7 @@ Created on Wed Mar 29 22:53:06 2017
 @author: quentinpeter
 """
 
-import diffusionDevice.basisgenerate as ddbg
+import diffusion_device.basis_generate as ddbg
 import numpy as np
 from matplotlib.pyplot import figure, plot, imshow
 import matplotlib.pyplot as plt
