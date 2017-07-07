@@ -217,7 +217,8 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     
     """    
     Radii=np.array(Radii)
-    assert not np.any(Radii<0), "Can't work with negative radii!"
+    if np.any(Radii<0):
+        raise RuntimeError("Can't work with negative radii!")
     #Functions to access F
     def getF(Fdir,NSteps):
         if NSteps not in Fdir:
@@ -335,55 +336,63 @@ def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
     dx: float 
         The position step 
     """
+    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q)
+    
+    if outV is not None:
+        outV[:]=V
+        
     
     #% Get The step matrix
     dy=Wy/Ygrid
-#    dz=Wz/Zgrid
+    dz=Wz/Zgrid
     #flatten V
-    Vx=Q/(3600*1e9)/Wy/Wz
-#    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
-#    Vx=np.ravel(V)
+    V=np.ravel(V)
+   
+    #get Cyy
+    udiag=np.ones(Ygrid*Zgrid-1)
+    udiag[Ygrid-1::Ygrid]=0
+    Cyy=np.diag(udiag,1)+np.diag(udiag,-1)
+    Cyy-=np.diag(np.sum(Cyy,0))
+    Cyy/=dy**2
     
-    #get Dyy
-    line=np.zeros(Ygrid*Zgrid)
-    line[:2]=[-2,1]
-    Dyy=toeplitz(line,line) #toeplitz creation of matrice which repeat in diagonal 
+    #get Czz
+    Czz=0
+    if Zgrid>1:
+        udiag=np.ones(Ygrid*(Zgrid-1))
+        Czz=np.diag(udiag,-Ygrid)+np.diag(udiag,Ygrid)
+        Czz-=np.diag(np.sum(Czz,0))
+        Czz/=dz**2
+        
+    Cy = (np.diag(-np.ones(Ygrid*Zgrid-2),-2)
+        + np.diag(8*np.ones(Ygrid*Zgrid-1),-1)
+        + np.diag(-8*np.ones(Ygrid*Zgrid-1),1)
+        + np.diag(np.ones(Ygrid*Zgrid-2),2))
+       
     for i in range(0,Ygrid*Zgrid,Ygrid):
-        Dyy[i,i]=-1
-        Dyy[i-1+Ygrid,i-1+Ygrid]=-1
+        Cy[i:i+2,i]=7
+        Cy[i+Ygrid-2:i+Ygrid,i+Ygrid-1]=-7
         if i>0 :
-            Dyy[i-1,i]=0
-            Dyy[i,i-1]=0
-
-            
-    #get Dy
-    if muE>0:
-        Dy=np.diag(np.ones(Ygrid*Zgrid),0)+np.diag(-np.ones(Ygrid*Zgrid-1),-1)
-    else:
-        Dy=np.diag(np.ones(Ygrid*Zgrid-1),1)+np.diag(-np.ones(Ygrid*Zgrid),0)
-#    Dy=np.diag(np.ones(Ygrid*Zgrid-1),1)+np.diag(-np.ones(Ygrid*Zgrid-1),-1)
-#    Dy=Dy/2    
-    for i in range(0,Ygrid*Zgrid,Ygrid):
-        Dy[i,i]=0
-        Dy[i-1+Ygrid,i-1+Ygrid]=0
-        if i>0 :
-            Dy[i-1,i]=0
-            Dy[i,i-1]=0
-    Dy/=(dy)
+            Cy[i-2:i,i:i+2]=0
+            Cy[i:i+2,i-2:i]=0
+    Cy/=(12*dy)
+        
+    Lapl=np.dot(np.diag(1/V),D*(Cyy+Czz) - muE*Cy)
     #get F
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    F=1/dy**2*Dyy#+1/dz**2*Dzz
-#    dx=Vx.min()/(2*D/(np.min((dy,dz))**2)+muE/(dy))/2
-    dx=np.nanmin([dy*np.min(Vx)/muE,np.min(Vx)*dy**2/D/2])/2
-
-    I=np.eye(Ygrid*Zgrid, dtype=float)
-    F=I+dx*1/Vx*(D*F-muE*Dy)#
+    dx=np.min((dy,dz))**2*V.min()
+    dx = np.nanmin([dx/muE, dx/D])
+    dx = dx/100
     
-
+    
+    I=np.eye(Ygrid*Zgrid, dtype=float)
+    F=I+dx*Lapl
     #The maximal eigenvalue should be <=1! otherwhise no stability
     #The above dx should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dx
+
+
+
 

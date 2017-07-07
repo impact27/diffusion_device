@@ -111,10 +111,10 @@ def straight_image_infos(im, Nprofs=4):
         origin=maxs[3]+a-6*w   
         lastdist=maxs[0]-(origin+a)
         
-    
-    assert w>0, 'Something went wrong while analysing the images'
+    if not w>0:
+        raise RuntimeError('Something went wrong while analysing the images')
     #if position 4 is remotely correct, return infos
-    if (    np.abs(lastdist)>w/2 #Last too far
+    if (    np.abs(lastdist)>w #Last too far
             or np.any(np.isnan((a,w,origin,maxs[3])))#got nans
             or origin -a +6.5*w >len(profiles)#Right side not in
             or origin+a-.5*w<0):#left side not in
@@ -122,7 +122,7 @@ def straight_image_infos(im, Nprofs=4):
     return w,a,origin
     
 
-def flat_image(im,frac=.7,infosOut=None):
+def flat_image(im,frac=.7,infosOut=None, subtract=False):
     """
     Flatten input images
     
@@ -134,6 +134,8 @@ def flat_image(im,frac=.7,infosOut=None):
         fraction of the profile taken by fluorescence from channels
     infosOut: dict, defaults None
         dictionnary containing the return value of straight_image_infos
+    subtract: Bool
+        Should the shape be subtracted instead of divided
         
     Returns
     -------
@@ -155,7 +157,17 @@ def flat_image(im,frac=.7,infosOut=None):
     mask=mask>0
     mask=np.tile(mask[None,:],(np.shape(im)[0],1))
     #Flatten
-    im=im/rmbg.polyfit2d(im,mask=mask)-1
+    if not subtract:
+        im=im/rmbg.polyfit2d(im,mask=mask)-1
+    else:
+        im=im-rmbg.polyfit2d(im,mask=mask)
+#        import matplotlib.pyplot as plt
+#        plt.figure()
+#        plt.imshow(rmbg.polyfit2d(im,mask=mask))
+#        plt.colorbar()
+#        plt.figure()
+#        plt.imshow(im)
+#        plt.imshow(mask,alpha=.5)
     if infosOut is not None:
         infosOut['infos']=(w,a,origin)
     return im
@@ -208,7 +220,7 @@ def extract_profiles_flatim(im,infos):
     #"""
     return profiles
 
-def extract_profiles(im, imSlice=None):
+def extract_profiles(im, imSlice=None,flatten=False):
     '''
     Extract profiles from image
     
@@ -216,6 +228,10 @@ def extract_profiles(im, imSlice=None):
     ----------
     im: 2d array
         The flat image
+    imSlice: slice
+        Slice of the image to consider
+    flatten: Bool, Defaults False
+        Should the image be flatten
         
     Returns
     -------
@@ -226,9 +242,12 @@ def extract_profiles(im, imSlice=None):
     if imSlice is not None:
         im=im[imSlice]
     infos={}
-    im=flat_image(im,infosOut=infos)
+    if flatten:
+        im=flat_image(im,infosOut=infos)
     angle=dp.image_angle(im)
     im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
+    if not flatten:
+        infos['infos']=straight_image_infos(im)
     """
     profiles0=extract_profiles_flatim(im[:100],infos['infos'])
     for p in profiles0:

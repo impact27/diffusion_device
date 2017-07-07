@@ -52,7 +52,7 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
         The best radius fit
     """
     
-    profiles=np.array(profiles)
+    profiles=np.asarray(profiles)
     #normalize if needed
     if normalize_profiles:
         #if profile is mainly negative, error
@@ -86,7 +86,7 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
                                  Rs=Rs,
                                  central_profile=central_profile)
     
-    if r<0:
+    if not r>0:
         return np.nan
     #fill data if needed
     if data_dict is not None:
@@ -156,15 +156,6 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     res=np.empty(len(Rs),dtype=float)
     for i,b in enumerate(Basis):
         res[i]=np.sqrt(np.mean(np.square(b-p)[:,ignore:-ignore]))
-
-    '''
-    from matplotlib.pyplot import figure, plot
-    figure()
-    plot(Rs,res)
-    figure()
-    plot(np.ravel(profiles[1:]))
-    plot(np.ravel(Basis[np.argmin(res)]))
-    #'''
     
     #Use linear combination between the two smallest results
     i,j=np.argsort(res)[:2]
@@ -175,6 +166,17 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     
     #Get resulting r
     r=c*(Rs[i]-Rs[j])+Rs[j]
+    
+    '''
+    from matplotlib.pyplot import figure, plot, title
+    figure()
+    plot(Rs,res)
+    figure()
+    plot(np.ravel(profiles[1:]))
+    plot(np.ravel(Basis[np.argmin(res)]))
+    title("{}, {}".format(r, Rs[np.argmin(res)]))
+    #'''
+    
     return r
 
 def center(prof):
@@ -305,7 +307,8 @@ def image_angle(image, maxAngle=np.pi/7):
     x=x[c.argmax()-5:c.argmax()+6]
     y=np.log(gfilter(c,2)[c.argmax()-5:c.argmax()+6])  
     
-    assert not np.any(np.isnan(y)), 'The signal is too noisy! '
+    if np.any(np.isnan(y)):
+        raise RuntimeError('The signal is too noisy!')
         
     coeff=np.polyfit(x,y,2)
     x=-coeff[1]/(2*coeff[0])
@@ -433,6 +436,8 @@ def get_profiles(scans, Npix, orientation=None, *,
     #Init return
     profiles=np.empty((scans.shape[0],Npix))
     scans=np.array(scans)
+    if offset_edge_idx is not None and offset_edge_idx<0:
+        offset_edge_idx=len(scans)+offset_edge_idx
     
     #Straighten scans
     if orientation is not None:

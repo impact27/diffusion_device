@@ -39,16 +39,17 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 
 
 
-def size_image(im,Q,Wz,Wy,readingpos=None,Rs=None,*,
-                Zgrid=11,ignore=5e-6,normalize_profiles=True,initmode='none',
-                data_dict=None, fit_position_number=None,imSlice=None):
+def size_image(im, Q, Wz, Wy, readingpos=None, Rs=None, *,
+                Zgrid=11, ignore=5e-6, normalize_profiles=True, 
+                initmode='none', data_dict=None, fit_position_number=None,
+                imSlice=None, flatten=False):
     
     """
     Get the hydrodynamic radius from the images
     
     Parameters
     ----------
-    images: 2d image or file name OR 2x 2d images
+    im: 2d image or file name OR 2x 2d images
         If this is a string, it will be treated like a path
         If one image, treated like regular fluorescence image
         If two images, treated like image and background
@@ -73,6 +74,12 @@ def size_image(im,Q,Wz,Wy,readingpos=None,Rs=None,*,
         The processing mode for the initial profile (See profiles.py)
     data_dict: dict, defaults None
         Output to get the profiles and fits
+    fit_position_number: 1d list
+        Positions to use in the fit
+    imSlice: slice
+        slice of the image to use
+    flatten: Bool, defaut False
+        (Bright field only) Should the image be flattened?
         
     Returns
     -------
@@ -101,14 +108,14 @@ def size_image(im,Q,Wz,Wy,readingpos=None,Rs=None,*,
         #get profiles
         if len(np.shape(im))==2:
             #Single image
-            profiles=bright.extract_profiles(im,imSlice)
+            profiles=bright.extract_profiles(im,imSlice,flatten=flatten)
         elif len(np.shape(im))==3 and np.shape(im)[0]==2:
             #images and background
             profiles= background.extract_profiles(im[0],im[1],imSlice)
     except RuntimeError as error:
-        if error.args[0]=="Can't get image infos":
-            return np.nan
-        raise
+        print(error.args[0])
+        return np.nan
+        
     
 
     pixsize=Wy/np.shape(profiles)[1]

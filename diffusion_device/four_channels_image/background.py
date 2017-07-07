@@ -75,7 +75,8 @@ def channels_edges(bg,approxwidth,angle=None,std=10,Nwalls=8):
     
     #Get the positions
     edges=np.squeeze(msr.maximum_position(edges,label,range(1,n+1)))
-    assert len(edges)==8, 'Did not detect 8 edges'
+    if not len(edges)==8:
+        raise RuntimeError('Did not detect 8 edges')
     return edges
 
 def channels_mask(bg, approxwidth, angle=None, edgesOut=None):
@@ -195,6 +196,9 @@ def extract_profiles(im,bg, imSlice=None,Nedges=8):
     flat_im=remove_bg(im,bg,edges)    
     #Get channel width
     width=int(np.mean(np.diff(edges)[::2]))
+    
+    if (edges[1]+edges[0])/2 < width:
+        raise RuntimeError("Edges incorrectly detected.")
     #Profile
     if imSlice is not None:
         flat_im=flat_im[imSlice]

@@ -138,7 +138,8 @@ def remove_bg(im,bg, pixsize, chanWidth=300e-6):
     
     #Get the X positions (perpendicular to alignent axis) and check wide enough
     X=np.arange(im.shape[1])*pixsize
-    assert(1.2*chanWidth<X[-1])
+    if not (1.2*chanWidth<X[-1]):
+        raise RuntimeError("image too small to get entire channel.")
     
     #Get the approximate expected channel position
     channel=np.absolute(X-X[-1]/2)<.6*chanWidth
