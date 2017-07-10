@@ -5,13 +5,9 @@ Created on Mon Jan  9 09:32:10 2017
 @author: quentinpeter
 """
 import numpy as np
-from scipy.linalg import toeplitz
 
 #%%
-
-    
-    
-def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,get_interface=False):
+def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
     """
     Compute the poiseuille flow profile
     
@@ -41,45 +37,46 @@ def poiseuille(Zgrid,Ygrid,Wz,Wy,Q,get_interface=False):
     """
         
     #Poiseuille flow
-    V=np.zeros((Zgrid,Ygrid),dtype='float64')    
+    V = np.zeros((Zgrid, Ygrid), dtype='float64')    
     for j in range(Ygrid):
         for i in range(Zgrid):
-            nz=np.arange(1,100,2)[:,None]
-            ny=np.arange(1,100,2)[None,:]
-            V[i,j]=np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
+            nz = np.arange(1, 100, 2)[:, None]
+            ny = np.arange(1, 100, 2)[None, :]
+            V[i, j] = np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
                       (np.sin(nz*np.pi*(i+.5)/Zgrid)*
                        np.sin(ny*np.pi*(j+.5)/Ygrid)))
-    Q/=3600*1e9 #transorm in m^3/s
+    Q /= 3600*1e9 #transorm in m^3/s
     #Normalize
-    normfactor=Q/(np.mean(V)* Wy *Wz)
-    V*=normfactor
+    normfactor = Q/(np.mean(V)* Wy *Wz)
+    V *= normfactor
     
     if not get_interface:
         return V
     #Y interface
-    Viy=np.zeros((Zgrid,Ygrid-1),dtype='float64')    
-    for j in range(1,Ygrid):
+    Viy = np.zeros((Zgrid, Ygrid-1), dtype='float64')    
+    for j in range(1, Ygrid):
         for i in range(Zgrid):
-            nz=np.arange(1,100,2)[:,None]
-            ny=np.arange(1,100,2)[None,:]
-            Viy[i,j-1]=np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
+            nz = np.arange(1, 100, 2)[:, None]
+            ny = np.arange(1, 100, 2)[None, :]
+            Viy[i, j-1] = np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
                       (np.sin(nz*np.pi*(i+.5)/Zgrid)*
                        np.sin(ny*np.pi*(j)/Ygrid)))
-    Viy*=normfactor
+    Viy *= normfactor
     #Z interface       
-    Viz=np.zeros((Zgrid-1,Ygrid),dtype='float64')    
+    Viz = np.zeros((Zgrid-1, Ygrid), dtype='float64')    
     for j in range(Ygrid):
-        for i in range(1,Zgrid):
-            nz=np.arange(1,100,2)[:,None]
-            ny=np.arange(1,100,2)[None,:]
-            Viz[i-1,j]=np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
+        for i in range(1, Zgrid):
+            nz = np.arange(1, 100, 2)[:, None]
+            ny = np.arange(1, 100, 2)[None, :]
+            Viz[i-1, j] = np.sum(1/(nz*ny*(nz**2/Wz**2+ny**2/Wy**2))*
                       (np.sin(nz*np.pi*(i)/Zgrid)*
                        np.sin(ny*np.pi*(j+.5)/Ygrid)))
             
-    Viz*=normfactor
-    return V,Viy,Viz
+    Viz *= normfactor
+    return V, Viy, Viz
 #%%    
-def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
+def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None, 
+               method='Trapezoid', dxfactor=1):
     """
     Compute the step matrix and corresponding position step
     
@@ -95,8 +92,18 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
         Channel width [m]
     Q:  float
         The flux in the channel in [ul/h]
+    qEokT: float, default 0
+        In case of electrophoresis, q*E/k/T [m^-1]
     outV: 2d float array
         array to use for the return
+    method: string, default 'Trapezoid'
+        Method for integration
+        'Trapezoid': Mixed integration
+         'Explicit': explicit integration 
+         'Implicit': implicit integration
+    dxfactor: float, default 1
+        Factor to change the value of dx
+        
     Returns
     -------
     F:  2d array
@@ -104,88 +111,128 @@ def stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
     dxtD: float 
         The position step multiplied by the diffusion coefficient
     """
-    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q)
+    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)
     
     if outV is not None:
-        outV[:]=V
+        outV[:] = V
         
     
     #% Get The step matrix
-    dy=Wy/Ygrid
-    dz=Wz/Zgrid
+    dy = Wy/Ygrid
+    dz = Wz/Zgrid
     #flatten V
-    V=np.ravel(V)
+    V = np.ravel(V)
    
     #get Cyy
-    udiag=np.ones(Ygrid*Zgrid-1)
-    udiag[Ygrid-1::Ygrid]=0
-    Cyy=np.diag(udiag,1)+np.diag(udiag,-1)
-    Cyy-=np.diag(np.sum(Cyy,0))
-    Cyy/=dy**2
+    udiag = np.ones(Ygrid*Zgrid-1)
+    udiag[Ygrid-1::Ygrid] = 0
+    Cyy = np.diag(udiag, 1)+np.diag(udiag, -1)
+    Cyy -= np.diag(np.sum(Cyy, 0))
+    Cyy /= dy**2
     
     #get Czz
-    Czz=0
+    Czz = 0
     if Zgrid>1:
-        udiag=np.ones(Ygrid*(Zgrid-1))
-        Czz=np.diag(udiag,-Ygrid)+np.diag(udiag,Ygrid)
-        Czz-=np.diag(np.sum(Czz,0))
-        Czz/=dz**2
+        udiag = np.ones(Ygrid*(Zgrid-1))
+        Czz = np.diag(udiag, -Ygrid)+np.diag(udiag, Ygrid)
+        Czz -= np.diag(np.sum(Czz, 0))
+        Czz /= dz**2
+    
+    Cy = 0
+    if qEokT != 0:
+        #get grad y operator    
+        Cy = (np.diag(-np.ones(Ygrid*Zgrid-2), -2)
+            + np.diag(8*np.ones(Ygrid*Zgrid-1), -1)
+            + np.diag(-8*np.ones(Ygrid*Zgrid-1), 1)
+            + np.diag(np.ones(Ygrid*Zgrid-2), 2))
+           
+        for i in range(0, Ygrid*Zgrid, Ygrid):
+            Cy[i:i+2, i] = 7
+            Cy[i+Ygrid-2:i+Ygrid, i+Ygrid-1] = -7
+            if i>0 :
+                Cy[i-2:i, i:i+2] = 0
+                Cy[i:i+2, i-2:i] = 0
+        Cy /= (12*dy)
         
-    Lapl=np.dot(np.diag(1/V),Cyy+Czz)
+    Lapl = np.dot(np.diag(1/V), Cyy+Czz - qEokT*Cy)
     #get F
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    dxtD=np.min((dy,dz))**2*V.min()/2
-    I=np.eye(Ygrid*Zgrid, dtype=float)
-    F=I+dxtD*Lapl
+    dxtD = np.min((dy, dz))**2*V.min()/2
+    
+    if qEokT > 0:
+        dxtD2 = dy*V.min()/qEokT/2
+        dxtD = np.min([dxtD, dxtD2])
+        
+    dxtD *= dxfactor
+        
+    #Get step matrix
+    I = np.eye(Ygrid*Zgrid, dtype=float)
+    if method == 'Explicit':
+        #Explicit
+        F = I+dxtD*Lapl
+    elif method == 'Implicit':
+        #implicit
+        F = np.linalg.inv(I-dxtD*Lapl)
+    elif method == 'Trapezoid':
+        #Trapezoid
+        F = np.linalg.inv(I-.5*dxtD*Lapl)@(I+.5*dxtD*Lapl)
+    else:
+        raise "Unknown integration Method: {}".format(method)
+        
+        
     #The maximal eigenvalue should be <=1! otherwhise no stability
     #The above dx should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dxtD
 
-def dxtDd(Zgrid,Ygrid,Wz,Wy,Q,outV=None):
-    """
-    Compute the position step
-    
-    Parameters
-    ----------
-    Zgrid:  integer
-        Number of Z pixel
-    Ygrid:  integer
-        Number of Y pixel
-    Wz: float
-        Channel height [m]
-    Wy: float 
-        Channel width [m]
-    Q:  float
-        The flux in the channel in [ul/h]
-    outV: 2d float array
-        array to use for the return
-    Returns
-    -------
-    dxtD: float 
-        The position step multiplied by the diffusion coefficient
-    """
-    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q,outV)
-    #% Get The step matrix
-    dy=Wy/Ygrid
-    dz=Wz/Zgrid    
 
-    dxtD=np.min((dy,dz))**2*V.min()/2
-    return dxtD
+
+
+
+# def dxtDd(Zgrid, Ygrid, Wz, Wy, Q, outV=None):
+#     """
+#     Compute the position step
+#     
+#     Parameters
+#     ----------
+#     Zgrid:  integer
+#         Number of Z pixel
+#     Ygrid:  integer
+#         Number of Y pixel
+#     Wz: float
+#         Channel height [m]
+#     Wy: float 
+#         Channel width [m]
+#     Q:  float
+#         The flux in the channel in [ul/h]
+#     outV: 2d float array
+#         array to use for the return
+#     Returns
+#     -------
+#     dxtD: float 
+#         The position step multiplied by the diffusion coefficient
+#     """
+#     V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, outV)
+#     #% Get The step matrix
+#     dy = Wy/Ygrid
+#     dz = Wz/Zgrid    
+# 
+#     dxtD = np.min((dy, dz))**2*V.min()/2
+#     return dxtD
 
 
 #@profile
-def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
-                *,fullGrid=False, outV=None,central_profile=False,
-                eta=1e-3, kT=1.38e-23*295):
+def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
+                qE=0, *, fullGrid=False, central_profile=False,
+                eta=1e-3, kT=1.38e-23*295, normalize=True):
     """Returns the theorical profiles for the input variables
     
     Parameters
     ----------
     Cinit:  1d array or 2d array
-            The initial profile. If 1D (shape (x,) not (x,1)) Zgrid is 
+            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
             used to pad the array
     Q:  float
         The flux in the channel in [ul/h]
@@ -199,6 +246,8 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         Channel height [m]  
     Zgrid:  integer, defaults 1
         Number of Z pixel if Cinit is unidimentional
+    qE: float, default 0
+        charge times transverse electric field[N]
     fullGrid: bool , false
         Should return full grid?
     outV: 2d float array
@@ -216,79 +265,79 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
         The list of profiles for the 12 positions at the required radii
     
     """    
-    Radii=np.array(Radii)
+    Radii = np.array(Radii)
     if np.any(Radii<0):
         raise RuntimeError("Can't work with negative radii!")
     #Functions to access F
-    def getF(Fdir,NSteps):
+    def getF(Fdir, NSteps):
         if NSteps not in Fdir:
-            Fdir[NSteps]=np.dot(Fdir[NSteps//2],Fdir[NSteps//2])
+            Fdir[NSteps] = np.dot(Fdir[NSteps//2], Fdir[NSteps//2])
         return Fdir[NSteps]  
-    def initF(Zgrid,Ygrid,Wz,Wy,Q,outV):
-        key=(Zgrid,Ygrid,Wz,Wy)
-        if not hasattr(getprofiles,'dirFList') :
+    
+    def initF(Zgrid, Ygrid, Wz, Wy, Q, qE):
+        key = (Zgrid, Ygrid, Wz, Wy, qE)
+        if not hasattr(getprofiles, 'dirFList') :
             getprofiles.dirFList = {}
         #Create dictionnary if doesn't exist
         if key in getprofiles.dirFList:
-            return getprofiles.dirFList[key], dxtDd(*key,Q,outV)
+            return getprofiles.dirFList[key]
         else:
-            Fdir={}
-            Fdir[1],dxtd=stepMatrix(Zgrid,Ygrid,Wz,Wy,Q,outV)
-            getprofiles.dirFList[key]=Fdir
-            return Fdir,dxtd
+            Fdir = {}
+            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, qEokT=qE/kT)
+            getprofiles.dirFList[key] = (Fdir, dxtd)
+            return Fdir, dxtd
         
     #Prepare input and Initialize arrays
-    readingpos=np.asarray(readingpos)
+    readingpos = np.asarray(readingpos)
     
-    Cinit=np.asarray(Cinit,dtype=float)
+    Cinit = np.asarray(Cinit, dtype=float)
     if len(Cinit.shape)<2:
-        Cinit=np.tile(Cinit[:,np.newaxis],(1,Zgrid)).T
+        Cinit = np.tile(Cinit[:, np.newaxis], (1, Zgrid)).T
         
     Ygrid = Cinit.shape[1];
-    NRs=len(Radii)
-    Nrp=len(readingpos)
-    profilespos=np.tile(np.ravel(Cinit),(NRs*Nrp,1))
+    NRs = len(Radii)
+    Nrp = len(readingpos)
+    profilespos = np.tile(np.ravel(Cinit), (NRs*Nrp, 1))
     
     #get step matrix
-    Fdir,dxtD=initF(Zgrid,Ygrid,Wz,Wy,Q,outV)       
+    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, qE)       
 
     #Get Nsteps for each radius and position
-    Nsteps=np.empty((NRs*Nrp,),dtype=int)         
-    for i,r in enumerate(Radii):
+    Nsteps = np.empty((NRs*Nrp,), dtype=int)         
+    for i, r in enumerate(Radii):
         D = kT/(6*np.pi*eta*r)
-        dx=dxtD/D
-        Nsteps[Nrp*i:Nrp*(i+1)]=np.asarray(readingpos//dx,dtype=int)
+        dx = dxtD/D
+        Nsteps[Nrp*i:Nrp*(i+1)] = np.asarray(readingpos//dx, dtype=int)
      
     print('{} steps'.format(Nsteps.max()))
     #transform Nsteps to binary array
-    pow2=1<<np.arange(int(np.floor(np.log2(Nsteps.max())+1)))
-    pow2=pow2[:,None]
-    binSteps=np.bitwise_and(Nsteps[None,:],pow2)>0
+    pow2 = 1<<np.arange(int(np.floor(np.log2(Nsteps.max())+1)))
+    pow2 = pow2[:, None]
+    binSteps = np.bitwise_and(Nsteps[None, :], pow2)>0
     
     #Sort for less calculations
-    sortedbs=np.argsort([str(num) for num in np.asarray(binSteps,dtype=int).T])
+    sortedbs = np.argsort([str(num) 
+                            for num in np.asarray(binSteps, dtype=int).T])
     
     #for each unit
-    for i,bsUnit in enumerate(binSteps):
-        F=getF(Fdir,2**i)
-            
-#        print("NSteps=%d" % 2**i)
+    for i, bsUnit in enumerate(binSteps):
+        F = getF(Fdir, 2**i)
         #save previous number
-        prev=np.zeros(i+1,dtype=bool)
-        for j,bs in enumerate(bsUnit[sortedbs]):#[sortedbs]
-            prof=profilespos[sortedbs[j],:]
-            act=binSteps[:i+1,sortedbs[j]]
+        prev = np.zeros(i+1, dtype=bool)
+        for j, bs in enumerate(bsUnit[sortedbs]):#[sortedbs]
+            prof = profilespos[sortedbs[j], :]
+            act = binSteps[:i+1, sortedbs[j]]
             #If we have a one, multiply by the current step function
             if bs:
                 #If this is the same as before, no need to recompute
                 if (act==prev).all():
-                    prof[:]=profilespos[sortedbs[j-1]]
+                    prof[:] = profilespos[sortedbs[j-1]]
                 else:
-                    prof[:]=np.dot(F,prof)
-            prev=act
+                    prof[:] = np.dot(F, prof)
+            prev = act
          
     #reshape correctly
-    profilespos.shape=(NRs,Nrp,Zgrid,Ygrid)
+    profilespos.shape = (NRs, Nrp, Zgrid, Ygrid)
     
     #If full grid, stop here
     if fullGrid:
@@ -296,103 +345,73 @@ def getprofiles(Cinit,Q, Radii, readingpos,  Wy = 300e-6, Wz= 50e-6, Zgrid=1,
     
     if central_profile:
         #Take central profile
-        central_idx=int((Zgrid-1)/2)
-        profilespos=profilespos[:,:,central_idx,:]
+        central_idx = int((Zgrid-1)/2)
+        profilespos = profilespos[:, :, central_idx, :]
     else:
         #Take mean
-        profilespos=np.mean(profilespos,-2)
+        profilespos = np.mean(profilespos, -2)
     
-    #Normalize to avoid mass destruction / creation
-    profilespos/=np.sum(profilespos,-1)[:,:,np.newaxis]/np.sum(Cinit/Zgrid)
+    if normalize:
+        #Normalize to avoid mass destruction / creation
+        profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
+                        / np.sum(Cinit/Zgrid))
     
     return profilespos
-#%%        
-def stepMatrixElectro(Zgrid,Ygrid,Wz,Wy,Q,D,muE,outV=None):
-    """
-    Compute the step matrix and corresponding position step
+
+def getElectroProfiles(qEs, Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, 
+                       Zgrid=1, *, fullGrid=False, central_profile=False,
+                       eta=1e-3, kT=1.38e-23*295):
+    """Returns the theorical profiles for the input variables
     
     Parameters
     ----------
-    Zgrid:  integer
-        Number of Z pixel
-    Ygrid:  integer
-        Number of Y pixel
-    Wz: float
-        Channel height [m]
-    Wy: float 
-        Channel width [m]
+    Cinit:  1d array or 2d array
+            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
+            used to pad the array
     Q:  float
         The flux in the channel in [ul/h]
-    D:  float
-        The diffusion coefficient
-    muE: float
-        the convective speed
+    Radii: 1d array
+        The simulated radius. Must be in increasing order [m]
+    readingpos: 1d array float
+        Position to read at
+    Wy: float, defaults 300e-6 
+        Channel width [m]
+    Wz: float, defaults 50e-6
+        Channel height [m]  
+    Zgrid:  integer, defaults 1
+        Number of Z pixel if Cinit is unidimentional
+    qE: float, default 0
+        charge times transverse electric field[N]
+    fullGrid: bool , false
+        Should return full grid?
     outV: 2d float array
-        array to use for the return
+        array to use for the poiseuiile flow
+    central_profile: Bool, default False
+        If true, returns only the central profile
+    eta: float
+        eta
+    kT: float
+        kT
+
     Returns
     -------
-    F:  2d array
-        The step matrix (independent on Q)
-    dx: float 
-        The position step 
-    """
-    V=poiseuille(Zgrid,Ygrid,Wz,Wy,Q)
+    profilespos: 3d array
+        The list of profiles for the 12 positions at the required radii
     
-    if outV is not None:
-        outV[:]=V
+    """ 
+    
+    NqE = len(qEs)
+    NRs = len(Radii)
+    Nrp = len(readingpos)
+    Ygrid = Cinit.shape[-1]
+    
+    if fullGrid:
+        rets = np.zeros((NqE, NRs, Nrp, Zgrid, Ygrid))
+    else:
+        rets = np.zeros((NqE, NRs, Nrp, Ygrid))
         
-    
-    #% Get The step matrix
-    dy=Wy/Ygrid
-    dz=Wz/Zgrid
-    #flatten V
-    V=np.ravel(V)
-   
-    #get Cyy
-    udiag=np.ones(Ygrid*Zgrid-1)
-    udiag[Ygrid-1::Ygrid]=0
-    Cyy=np.diag(udiag,1)+np.diag(udiag,-1)
-    Cyy-=np.diag(np.sum(Cyy,0))
-    Cyy/=dy**2
-    
-    #get Czz
-    Czz=0
-    if Zgrid>1:
-        udiag=np.ones(Ygrid*(Zgrid-1))
-        Czz=np.diag(udiag,-Ygrid)+np.diag(udiag,Ygrid)
-        Czz-=np.diag(np.sum(Czz,0))
-        Czz/=dz**2
-        
-    Cy = (np.diag(-np.ones(Ygrid*Zgrid-2),-2)
-        + np.diag(8*np.ones(Ygrid*Zgrid-1),-1)
-        + np.diag(-8*np.ones(Ygrid*Zgrid-1),1)
-        + np.diag(np.ones(Ygrid*Zgrid-2),2))
-       
-    for i in range(0,Ygrid*Zgrid,Ygrid):
-        Cy[i:i+2,i]=7
-        Cy[i+Ygrid-2:i+Ygrid,i+Ygrid-1]=-7
-        if i>0 :
-            Cy[i-2:i,i:i+2]=0
-            Cy[i:i+2,i-2:i]=0
-    Cy/=(12*dy)
-        
-    Lapl=np.dot(np.diag(1/V),D*(Cyy+Czz) - muE*Cy)
-    #get F
-    #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
-    #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    dx=np.min((dy,dz))**2*V.min()
-    dx = np.nanmin([dx/muE, dx/D])
-    dx = dx/100
-    
-    
-    I=np.eye(Ygrid*Zgrid, dtype=float)
-    F=I+dx*Lapl
-    #The maximal eigenvalue should be <=1! otherwhise no stability
-    #The above dx should put it to 1
-#    from numpy.linalg import eigvals
-#    assert(np.max(np.abs(eigvals(F)))<=1.)
-    return F, dx
-
-
-
-
+    for qE, ret in zip(qEs, rets):
+        ret[:] = getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid, qE, 
+                             fullGrid=fullGrid, eta=eta, kT=kT,
+                             central_profile=central_profile, normalize=False)
+    return rets
