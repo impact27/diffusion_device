@@ -76,7 +76,7 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
     return V, Viy, Viz
 #%%    
 def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None, 
-               method='Trapezoid', dxfactor=1):
+               method='Trapezoid', dxfactor=1, Zmirror=False):
     """
     Compute the step matrix and corresponding position step
     
@@ -103,6 +103,8 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
          'Implicit': implicit integration
     dxfactor: float, default 1
         Factor to change the value of dx
+    Zmirror: bool, default False
+        should we use a mirror for Z?
         
     Returns
     -------
@@ -111,47 +113,59 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
     dxtD: float 
         The position step multiplied by the diffusion coefficient
     """
-    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)
+    
+    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)    
     
     if outV is not None:
         outV[:] = V
-        
     
     #% Get The step matrix
     dy = Wy/Ygrid
     dz = Wz/Zgrid
+    
+    if Zmirror:
+        Zodd = Zgrid%2==1
+        halfZgrid = (Zgrid+1)//2 
+        V = V[:halfZgrid,:]
+        Zgrid = halfZgrid
+    
     #flatten V
     V = np.ravel(V)
-   
+    
     #get Cyy
     udiag = np.ones(Ygrid*Zgrid-1)
     udiag[Ygrid-1::Ygrid] = 0
     Cyy = np.diag(udiag, 1)+np.diag(udiag, -1)
-    Cyy -= np.diag(np.sum(Cyy, 0))
+    Cyy -= np.diag(np.sum(Cyy, 1))
     Cyy /= dy**2
     
     #get Czz
     Czz = 0
     if Zgrid>1:
         udiag = np.ones(Ygrid*(Zgrid-1))
-        Czz = np.diag(udiag, -Ygrid)+np.diag(udiag, Ygrid)
-        Czz -= np.diag(np.sum(Czz, 0))
+        Czz = np.diag(udiag, Ygrid)
+        if Zmirror and Zodd:
+            udiag[-Ygrid:] = 2
+        Czz += np.diag(udiag, -Ygrid)
+        Czz -= np.diag(np.sum(Czz, 1))
         Czz /= dz**2
-    
+        
     Cy = 0
     if qEokT != 0:
-        #get grad y operator    
-        Cy = (np.diag(-np.ones(Ygrid*Zgrid-2), -2)
-            + np.diag(8*np.ones(Ygrid*Zgrid-1), -1)
-            + np.diag(-8*np.ones(Ygrid*Zgrid-1), 1)
-            + np.diag(np.ones(Ygrid*Zgrid-2), 2))
+        #get grad y operator   
+        udiag1 = np.ones(Ygrid*Zgrid-1)
+        udiag1[Ygrid-1::Ygrid] = 0
+        udiag2 = np.ones(Ygrid*Zgrid-2)
+        udiag2[Ygrid-1::Ygrid] = 0
+        udiag2[Ygrid-2::Ygrid] = 0
+        Cy = (np.diag(-udiag2, -2)
+            + np.diag(8*udiag1, -1)
+            + np.diag(-8*udiag1, 1)
+            + np.diag(udiag2, 2))
            
         for i in range(0, Ygrid*Zgrid, Ygrid):
             Cy[i:i+2, i] = 7
             Cy[i+Ygrid-2:i+Ygrid, i+Ygrid-1] = -7
-            if i>0 :
-                Cy[i-2:i, i:i+2] = 0
-                Cy[i:i+2, i-2:i] = 0
         Cy /= (12*dy)
         
     Lapl = np.dot(np.diag(1/V), Cyy+Czz - qEokT*Cy)
@@ -165,7 +179,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
         dxtD = np.min([dxtD, dxtD2])
         
     dxtD *= dxfactor
-        
+
     #Get step matrix
     I = np.eye(Ygrid*Zgrid, dtype=float)
     if method == 'Explicit':
@@ -226,7 +240,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
 #@profile
 def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
                 qE=0, *, fullGrid=False, central_profile=False,
-                eta=1e-3, kT=1.38e-23*295, normalize=True):
+                eta=1e-3, kT=1.38e-23*295, normalize=True, Zmirror=True):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -274,8 +288,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
             Fdir[NSteps] = np.dot(Fdir[NSteps//2], Fdir[NSteps//2])
         return Fdir[NSteps]  
     
-    def initF(Zgrid, Ygrid, Wz, Wy, Q, qE):
-        key = (Zgrid, Ygrid, Wz, Wy, qE)
+    def initF(Zgrid, Ygrid, Wz, Wy, Q, qE, Zmirror):
+        key = (Zgrid, Ygrid, Wz, Wy, Q, qE, Zmirror)
         if not hasattr(getprofiles, 'dirFList') :
             getprofiles.dirFList = {}
         #Create dictionnary if doesn't exist
@@ -283,16 +297,24 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
             return getprofiles.dirFList[key]
         else:
             Fdir = {}
-            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, qEokT=qE/kT)
+            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, qEokT=qE/kT, 
+                                        Zmirror=Zmirror)
             getprofiles.dirFList[key] = (Fdir, dxtd)
             return Fdir, dxtd
         
     #Prepare input and Initialize arrays
     readingpos = np.asarray(readingpos)
     
+    ZgridEffective = Zgrid
+    if Zmirror:
+        ZgridEffective = (Zgrid+1)//2
+    
     Cinit = np.asarray(Cinit, dtype=float)
     if len(Cinit.shape)<2:
-        Cinit = np.tile(Cinit[:, np.newaxis], (1, Zgrid)).T
+        Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
+    else:
+        if Cinit.shape[0]!=ZgridEffective:
+            raise "Cinit Z dim and Zgrid not aligned."
         
     Ygrid = Cinit.shape[1];
     NRs = len(Radii)
@@ -300,7 +322,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     profilespos = np.tile(np.ravel(Cinit), (NRs*Nrp, 1))
     
     #get step matrix
-    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, qE)       
+    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, qE, Zmirror)       
 
     #Get Nsteps for each radius and position
     Nsteps = np.empty((NRs*Nrp,), dtype=int)         
@@ -337,7 +359,12 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
             prev = act
          
     #reshape correctly
-    profilespos.shape = (NRs, Nrp, Zgrid, Ygrid)
+    profilespos.shape = (NRs, Nrp, ZgridEffective, Ygrid)
+    
+    if Zmirror:
+        profilespos = np.concatenate((profilespos, 
+                                      profilespos[:, :, -1-Zgrid%2::-1, :]), 2)
+        Cinit = np.concatenate((Cinit, Cinit[-1-Zgrid%2::-1, :]), 0)
     
     #If full grid, stop here
     if fullGrid:
@@ -360,7 +387,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
 
 def getElectroProfiles(qEs, Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, 
                        Zgrid=1, *, fullGrid=False, central_profile=False,
-                       eta=1e-3, kT=1.38e-23*295):
+                       eta=1e-3, kT=1.38e-23*295, Zmirror=True):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -412,6 +439,6 @@ def getElectroProfiles(qEs, Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6,
         
     for qE, ret in zip(qEs, rets):
         ret[:] = getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid, qE, 
-                             fullGrid=fullGrid, eta=eta, kT=kT,
+                             fullGrid=fullGrid, eta=eta, kT=kT, Zmirror=Zmirror,
                              central_profile=central_profile, normalize=False)
     return rets
