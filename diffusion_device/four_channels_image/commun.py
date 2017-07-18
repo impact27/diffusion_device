@@ -5,9 +5,10 @@ Created on Tue Apr  4 11:21:01 2017
 @author: quentinpeter
 """
 import numpy as np
-import matplotlib.image as mpimg
+from tifffile import imread
 from . import bright, background
 import diffusion_device.profile as dp
+
 
 def defaultReadingPos(startpos=400e-6, isFolded=True):
     '''
@@ -42,7 +43,7 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 def size_image(im, Q, Wz, Wy, readingpos=None, Rs=None, *,
                 Zgrid=11, ignore=5e-6, normalize_profiles=True, 
                 initmode='none', data_dict=None, fit_position_number=None,
-                imSlice=None, flatten=False):
+                flatten=False):
     
     """
     Get the hydrodynamic radius from the images
@@ -76,8 +77,6 @@ def size_image(im, Q, Wz, Wy, readingpos=None, Rs=None, *,
         Output to get the profiles and fits
     fit_position_number: 1d list
         Positions to use in the fit
-    imSlice: slice
-        slice of the image to use
     flatten: Bool, defaut False
         (Bright field only) Should the image be flattened?
         
@@ -100,18 +99,18 @@ def size_image(im, Q, Wz, Wy, readingpos=None, Rs=None, *,
     #load images if string
     if im.dtype.type==np.str_:
         if len(np.shape(im))==0:
-            im=mpimg.imread(str(im))
+            im = imread(str(im))
         elif len(np.shape(im))==1:
-            im=np.asarray([mpimg.imread(fn) for fn in im])
+            im=np.asarray([imread(fn) for fn in im])
             
     try:
         #get profiles
         if len(np.shape(im))==2:
             #Single image
-            profiles=bright.extract_profiles(im,imSlice,flatten=flatten)
+            profiles=bright.extract_profiles(im, flatten=flatten)
         elif len(np.shape(im))==3 and np.shape(im)[0]==2:
             #images and background
-            profiles= background.extract_profiles(im[0],im[1],imSlice)
+            profiles= background.extract_profiles(im[0],im[1])
     except RuntimeError as error:
         print(error.args[0])
         return np.nan

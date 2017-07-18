@@ -16,7 +16,7 @@ import cv2
 from scipy import interpolate
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
-def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
+def size_images(images, Q, Wz, Wy, pixsize, readingpos=None, Rs=None, *,
                 Zgrid=11,ignore=10e-6,normalize_profiles=True,initmode='none',
                 data_dict=None,rebin=2,):
     """
@@ -39,7 +39,7 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
     Rs: 1d array, defaults None
         Hydrodimamic radii to simulate in [m].
         If None: between .5 and 10 nm
-    chanWidth: float, default 300e-6
+    Wy: float
         The channel width in [m]
     Zgrid: int, defaults 11
         Number of Z slices
@@ -82,12 +82,12 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
     if len(np.shape(images))==3:
         #Single images
         flatimages=np.asarray(
-                [flat_image(im,pixsize, chanWidth) 
+                [flat_image(im,pixsize, Wy) 
                 for im in images])
     elif len(np.shape(images))==4 and np.shape(images)[0]==2:
         #images and background
         flatimages=np.asarray(
-                [remove_bg(im,bg,pixsize, chanWidth) 
+                [remove_bg(im,bg,pixsize, Wy) 
                 for im,bg in zip(images[0],images[1])])
     
     if rebin>1:   
@@ -98,7 +98,7 @@ def size_images(images,Q,Wz,pixsize,readingpos=None,Rs=None,chanWidth=300e-6,*,
       
     #get profiles
     profiles=np.asarray(
-            [extract_profile(fim,pixsize, chanWidth) for fim in flatimages])
+            [extract_profile(fim,pixsize, Wy) for fim in flatimages])
     
     if data_dict is not None:
         data_dict['pixsize']=pixsize

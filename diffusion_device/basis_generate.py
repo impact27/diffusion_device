@@ -385,7 +385,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     
     return profilespos
 
-def getElectroProfiles(qEs, Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, 
+def getElectroProfiles(Cinit, Q, qEs, Radii, readingpos,  Wy=300e-6, Wz=50e-6, 
                        Zgrid=1, *, fullGrid=False, central_profile=False,
                        eta=1e-3, kT=1.38e-23*295, Zmirror=True):
     """Returns the theorical profiles for the input variables

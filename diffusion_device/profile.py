@@ -7,10 +7,10 @@ Created on Fri Mar 17 10:25:47 2017
 import numpy as np
 from .basis_generate import getprofiles
 import scipy
-gfilter=scipy.ndimage.filters.gaussian_filter1d
+gfilter = scipy.ndimage.filters.gaussian_filter1d
 import warnings
 
-def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
+def size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs=None,*,
                   initmode='none',normalize_profiles=True,Zgrid=11,
                   ignore=10e-6,data_dict=None,fit_position_number=None,
                   central_profile=False):
@@ -51,8 +51,8 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
     radii: float
         The best radius fit
     """
-    
-    profiles=np.asarray(profiles)
+    readingpos = np.asarray(readingpos)
+    profiles = np.asarray(profiles)
     #normalize if needed
     if normalize_profiles:
         #if profile is mainly negative, error
@@ -68,15 +68,15 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
     #"""
     
     if fit_position_number is None:
-        fit_position_number=np.arange(len(readingpos))
+        fit_position_number = np.arange(len(readingpos))
     else:
-        fit_position_number=np.sort(fit_position_number)
+        fit_position_number = np.sort(fit_position_number)
         
     #treat init profile
-    init=init_process(profiles[fit_position_number[0]],initmode)
+    init = init_process(profiles[fit_position_number[0]],initmode)
         
     #Get best fit
-    r=fit_monodisperse_radius([init,*profiles[fit_position_number[1:]]],
+    r = fit_monodisperse_radius([init,*profiles[fit_position_number[1:]]],
                                  readingpos=readingpos[fit_position_number],
                                  flowRate=Q,
                                  Wz=Wz,
@@ -90,10 +90,10 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos=None,Rs=None,*,
         return np.nan
     #fill data if needed
     if data_dict is not None:
-        data_dict['initprof']=init
+        data_dict['initprof'] = init
         if fit_position_number[0] !=0:
-            init=init_process(profiles[0],initmode)
-        data_dict['fits']=getprofiles(init,Q=Q, Radii=[r], 
+            init = init_process(profiles[0],initmode)
+        data_dict['fits'] = getprofiles(init,Q=Q, Radii=[r], 
                              Wy = len(init)*pixsize, Wz= Wz, Zgrid=Zgrid,
                              readingpos=readingpos[1:]-readingpos[0],
                                  central_profile=central_profile)[0]
@@ -134,38 +134,38 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     radii: float
         The best radius fit
     """
-    profiles=np.asarray(profiles)
+    profiles = np.asarray(profiles)
     #First reading pos is initial profile
-    readingpos=readingpos[1:]-readingpos[0]
+    readingpos = readingpos[1:]-readingpos[0]
     #How many pixels should we ignore?
-    ignore=int(ignore/pixs)
+    ignore = int(ignore/pixs)
     if ignore ==0:
-        ignore=1
+        ignore = 1
     
     #Get basis function    
-    Wy=pixs*np.shape(profiles)[1]
+    Wy = pixs*np.shape(profiles)[1]
     
     
     
-    Basis=getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
+    Basis = getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
                       Zgrid=Zgrid,readingpos=readingpos,
                       central_profile=central_profile)            
     
     #Compute residues
-    p=profiles[1:]
-    res=np.empty(len(Rs),dtype=float)
+    p = profiles[1:]
+    res = np.empty(len(Rs),dtype=float)
     for i,b in enumerate(Basis):
-        res[i]=np.sqrt(np.mean(np.square(b-p)[:,ignore:-ignore]))
+        res[i] = np.sqrt(np.mean(np.square(b-p)[:,ignore:-ignore]))
     
     #Use linear combination between the two smallest results
-    i,j=np.argsort(res)[:2]
-    b1=Basis[i,:,ignore:-ignore]
-    b2=Basis[j,:,ignore:-ignore]
-    p0=p[:,ignore:-ignore]
-    c=-np.sum((b1-b2)*(b2-p0))/np.sum((b1-b2)**2)
+    i,j = np.argsort(res)[:2]
+    b1 = Basis[i,:,ignore:-ignore]
+    b2 = Basis[j,:,ignore:-ignore]
+    p0 = p[:,ignore:-ignore]
+    c = -np.sum((b1-b2)*(b2-p0))/np.sum((b1-b2)**2)
     
     #Get resulting r
-    r=c*(Rs[i]-Rs[j])+Rs[j]
+    r = c*(Rs[i]-Rs[j])+Rs[j]
     
     '''
     from matplotlib.pyplot import figure, plot, title
@@ -197,17 +197,17 @@ def center(prof):
     
     #We must now detect the position of the center. We use correlation
     #Correlation is equivalent to least squares (A-B)^2=-2AB+ some constants
-    prof=np.array(prof)
-    prof[np.isnan(prof)]=0
-    Yi=prof[::-1]
-    corr=np.correlate(prof,Yi, mode='full')
-    X=np.arange(len(corr))
-    args=np.argsort(corr)
-    x=X[args[-7:]]
-    y=corr[args[-7:]]
-    coeffs=np.polyfit(x,np.log(y),2)
-    center=-coeffs[1]/(2*coeffs[0])
-    center=(center-(len(corr)-1)/2)/2+(len(prof)-1)/2
+    prof = np.array(prof)
+    prof[np.isnan(prof)] = 0
+    Yi = prof[::-1]
+    corr = np.correlate(prof,Yi, mode='full')
+    X = np.arange(len(corr))
+    args = np.argsort(corr)
+    x = X[args[-7:]]
+    y = corr[args[-7:]]
+    coeffs = np.polyfit(x,np.log(y),2)
+    center = -coeffs[1]/(2*coeffs[0])
+    center = (center-(len(corr)-1)/2)/2+(len(prof)-1)/2
     return center
 
 def baseline(prof, frac=.05):
@@ -229,15 +229,15 @@ def baseline(prof, frac=.05):
     """
     #we use 5% on left side to get the correct 0:
     #Get left and right zeros
-    argvalid=np.argwhere(np.isfinite(prof))
-    lims=np.squeeze([argvalid[0],argvalid[-1]])
-    left=int(lims[0]+frac*np.diff(lims))
-    right=int(lims[1]-frac*np.diff(lims))
-    leftZero=np.nanmean(prof[lims[0]:left])
-    rightZero=np.nanmean(prof[right:lims[1]])
+    argvalid = np.argwhere(np.isfinite(prof))
+    lims = np.squeeze([argvalid[0],argvalid[-1]])
+    left = int(lims[0]+frac*np.diff(lims))
+    right = int(lims[1]-frac*np.diff(lims))
+    leftZero = np.nanmean(prof[lims[0]:left])
+    rightZero = np.nanmean(prof[right:lims[1]])
         
     #Send profile to 0
-    baseline=np.linspace(leftZero,rightZero,len(prof))
+    baseline = np.linspace(leftZero,rightZero,len(prof))
     return baseline
 
 def flat_baseline(prof, frac=.05):
@@ -259,11 +259,11 @@ def flat_baseline(prof, frac=.05):
     """
     #we use 5% on left side to get the correct 0:
     #Get left and right zeros
-    leftZero=np.nanmean(prof[:int(frac*len(prof))])
-    rightZero=np.nanmean(prof[-int(frac*len(prof)):])
+    leftZero = np.nanmean(prof[:int(frac*len(prof))])
+    rightZero = np.nanmean(prof[-int(frac*len(prof)):])
         
     #Send profile to 0
-    ret=np.zeros(prof.shape)+np.mean([leftZero,rightZero])
+    ret = np.zeros(prof.shape)+np.mean([leftZero,rightZero])
     return ret
 
 def image_angle(image, maxAngle=np.pi/7):
@@ -285,34 +285,34 @@ def image_angle(image, maxAngle=np.pi/7):
     """
     #Difference left 50% with right 50%
     #We want to slice in two where we have data
-    argvalid=np.argwhere(np.isfinite(np.nanmean(image,1)))
-    lims=np.squeeze([argvalid[0],argvalid[-1]])
+    argvalid = np.argwhere(np.isfinite(np.nanmean(image,1)))
+    lims = np.squeeze([argvalid[0],argvalid[-1]])
     #should we flatten this?
-    top=np.nanmean(image[lims[0]:np.mean(lims,dtype=int)] ,0)
-    bottom=np.nanmean(image[np.mean(lims,dtype=int):lims[1]],0)
+    top = np.nanmean(image[lims[0]:np.mean(lims,dtype=int)] ,0)
+    bottom = np.nanmean(image[np.mean(lims,dtype=int):lims[1]],0)
     #Remouve nans
-    top[np.isnan(top)]=0
-    bottom[np.isnan(bottom)]=0
+    top[np.isnan(top)] = 0
+    bottom[np.isnan(bottom)] = 0
     #correlate
-    C=np.correlate(top,bottom, mode='full')
+    C = np.correlate(top,bottom, mode='full')
     
-    pos=np.arange(len(C))-(len(C)-1)/2
-    disty=((lims[1]-lims[0])/2)
-    Angles=np.arctan(pos/disty)
+    pos = np.arange(len(C))-(len(C)-1)/2
+    disty = ((lims[1]-lims[0])/2)
+    Angles = np.arctan(pos/disty)
     
-    valid=np.abs(Angles)<maxAngle
-    x=pos[valid]
-    c=C[valid]  
+    valid = np.abs(Angles)<maxAngle
+    x = pos[valid]
+    c = C[valid]  
 
-    x=x[c.argmax()-5:c.argmax()+6]
-    y=np.log(gfilter(c,2)[c.argmax()-5:c.argmax()+6])  
+    x = x[c.argmax()-5:c.argmax()+6]
+    y = np.log(gfilter(c,2)[c.argmax()-5:c.argmax()+6])  
     
     if np.any(np.isnan(y)):
         raise RuntimeError('The signal is too noisy!')
         
-    coeff=np.polyfit(x,y,2)
-    x=-coeff[1]/(2*coeff[0])
-    angle=np.arctan(x/disty)     
+    coeff = np.polyfit(x,y,2)
+    x = -coeff[1]/(2*coeff[0])
+    angle = np.arctan(x/disty)     
     
     """
     import matplotlib.pyplot as plt
@@ -324,7 +324,7 @@ def image_angle(image, maxAngle=np.pi/7):
     #"""
     """
     import matplotlib.pyplot as plt
-    x=np.arange(len(top))
+    x = np.arange(len(top))
     plt.figure()
     plt.plot(x,top)
     plt.plot(x+(C.argmax()-(len(C)-1)/2),bottom)
@@ -355,20 +355,20 @@ def init_process(profile, mode):
         the processed profile
     
     """
-    profile=np.array(profile)
+    profile = np.array(profile)
     if mode == 'none':
         return profile
     elif mode == 'gfilter':
         return gfilter(profile,2)
     elif mode == 'gaussian' or mode == 'tails':
-        Y=profile
-        X=np.arange(len(Y))
-        valid=Y>.5*Y.max()
-        gauss=np.exp(np.poly1d(np.polyfit(X[valid],np.log(Y[valid]),2))(X))
+        Y = profile
+        X = np.arange(len(Y))
+        valid = Y>.5*Y.max()
+        gauss = np.exp(np.poly1d(np.polyfit(X[valid],np.log(Y[valid]),2))(X))
         if mode=='gaussian':
             return gauss
-        remove=gauss<.01*gauss.max()
-        profile[remove]=0
+        remove = gauss<.01*gauss.max()
+        profile[remove] = 0
         return profile
 
 def get_fax(profiles):
@@ -401,13 +401,13 @@ def get_edge(profile):
     edgePos: float
         The edge position
     """
-    e=np.abs(np.diff(gfilter(profile,2)))
-    valid=slice(np.argmax(e)-3,np.argmax(e)+4)
-    X=np.arange(len(e))+.5
-    X=X[valid]
-    Y=np.log(e[valid])
-    coeff=np.polyfit(X,Y,2)
-    edgePos=-coeff[1]/(2*coeff[0])
+    e = np.abs(np.diff(gfilter(profile,2)))
+    valid = slice(np.argmax(e)-3,np.argmax(e)+4)
+    X = np.arange(len(e))+.5
+    X = X[valid]
+    Y = np.log(e[valid])
+    coeff = np.polyfit(X,Y,2)
+    edgePos = -coeff[1]/(2*coeff[0])
     return edgePos
 
 def get_profiles(scans, Npix, orientation=None, *, 
@@ -434,49 +434,49 @@ def get_profiles(scans, Npix, orientation=None, *,
     """
     
     #Init return
-    profiles=np.empty((scans.shape[0],Npix))
-    scans=np.array(scans)
+    profiles = np.empty((scans.shape[0],Npix))
+    scans = np.array(scans)
     if offset_edge_idx is not None and offset_edge_idx<0:
-        offset_edge_idx=len(scans)+offset_edge_idx
+        offset_edge_idx = len(scans)+offset_edge_idx
     
     #Straighten scans
     if orientation is not None:
         for s,o in zip(scans,orientation):
             if o<0:
-                s[:]=s[::-1]
+                s[:] = s[::-1]
     
     # get the offset if needed
     if offset_edge_idx is not None:
-        offset_scan=scans[offset_edge_idx]
-        cent=center(offset_scan)
-        edge=get_edge(offset_scan)
-        offset=np.abs(cent-edge)-Npix/2
-        edgeside=1
+        offset_scan = scans[offset_edge_idx]
+        cent = center(offset_scan)
+        edge = get_edge(offset_scan)
+        offset = np.abs(cent-edge)-Npix/2
+        edgeside = 1
         if edge>cent:
-            edgeside=-1
+            edgeside = -1
     
     #For each scan
     for i,s in enumerate(scans):
         #Get the mid point
         if offset_edge_idx is None:
-            mid=center(s)-offset
+            mid = center(s)-offset
         else:
             if i<offset_edge_idx:
-                mid=center(s)-edgeside*offset
+                mid = center(s)-edgeside*offset
             else:
-                mid=get_edge(s)+edgeside*Npix/2
+                mid = get_edge(s)+edgeside*Npix/2
         #First position
-        amin=int(mid-Npix/2)
+        amin = int(mid-Npix/2)
         #If pixels missings:
         if amin<0 or amin>len(s)-Npix:
             warnings.warn("Missing pixels, scan not large enough", 
                           RuntimeWarning)
             while amin>len(s)-Npix:
-                s=np.append(s,s[-1])
+                s = np.append(s,s[-1])
             while amin<0:
                 amin+=1
-                s=np.append(s[0],s)
+                s = np.append(s[0],s)
         #Get profile
-        profiles[i]=s[amin:amin+Npix]
+        profiles[i] = s[amin:amin+Npix]
         
     return profiles

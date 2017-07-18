@@ -220,7 +220,7 @@ def extract_profiles_flatim(im,infos):
     #"""
     return profiles
 
-def extract_profiles(im, imSlice=None,flatten=False):
+def extract_profiles(im, flatten=False):
     '''
     Extract profiles from image
     
@@ -228,8 +228,6 @@ def extract_profiles(im, imSlice=None,flatten=False):
     ----------
     im: 2d array
         The flat image
-    imSlice: slice
-        Slice of the image to consider
     flatten: Bool, Defaults False
         Should the image be flatten
         
@@ -239,8 +237,6 @@ def extract_profiles(im, imSlice=None,flatten=False):
         The four profiles
     '''
     im=np.asarray(im)
-    if imSlice is not None:
-        im=im[imSlice]
     infos={}
     if flatten:
         im=flat_image(im,infosOut=infos)

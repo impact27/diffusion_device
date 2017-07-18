@@ -1,0 +1,13 @@
+{
+    "Image file name": "327.68ul-h-50um device.tif",
+    "Wz[m]": 5.3e-05,
+    "Wy[m]": 0.0001,
+    "Q[ulph]": 327.68,
+    "Read Positions [m]": [
+        0.0,
+        0.003956,
+        0.021953,
+        0.0465
+    ],
+    "Pixel Size [m]": 1
+}

@@ -173,7 +173,7 @@ def remove_bg(im, bg, edgesOut=None):
                                      bgCoord=True,reflatten=True)
     return ret
 
-def extract_profiles(im,bg, imSlice=None,Nedges=8):
+def extract_profiles(im, bg, Nedges=8):
     """
     Extract diffusion profiles
     
@@ -191,23 +191,21 @@ def extract_profiles(im,bg, imSlice=None,Nedges=8):
         list of profiles
     """
     #get edges 
-    edges=np.empty(Nedges,dtype=int)
+    edges=np.empty(Nedges, dtype=int)
     #Get flattened image
-    flat_im=remove_bg(im,bg,edges)    
+    flat_im=remove_bg(im, bg, edges)    
     #Get channel width
     width=int(np.mean(np.diff(edges)[::2]))
     
     if (edges[1]+edges[0])/2 < width:
         raise RuntimeError("Edges incorrectly detected.")
     #Profile
-    if imSlice is not None:
-        flat_im=flat_im[imSlice]
-    imProf=np.nanmean(flat_im,0)
+    imProf = np.nanmean(flat_im, 0)
     #Output profiles
-    profiles=np.empty((4,width),dtype=float)
+    profiles = np.empty((4, width), dtype=float)
     #Extract profiles
     firstcenter=None
-    for i,(e,prof) in enumerate(zip(edges[1::2]+edges[::2],profiles)):
+    for i,(e,prof) in enumerate(zip(edges[1::2]+edges[::2], profiles)):
         #e is 2*center of the channel
         amin=(e-width)//2
         amax=(e+width)//2
