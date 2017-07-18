@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.pyplot import plot, figure
 import os
-from image_registration.image import is_overexposed
 from diffusion_device.json import full_fit
 
 #==============================================================================
@@ -35,7 +34,7 @@ plotpos = [0, 10, 15]
 (radii, profiles_list, 
  fits_list, LSE, pixs, overexposed) = full_fit(settingsfn)
 
-overexposed=[is_overexposed(im) for im in ims]
+
 #%%
 
 
@@ -109,7 +108,6 @@ if outpath is not None:
         
 
         
-#%%
 plotpos=np.asarray(plotpos)
 
 for pos in plotpos[plotpos<len(profiles_list)]:

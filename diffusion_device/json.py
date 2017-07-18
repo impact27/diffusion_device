@@ -10,6 +10,7 @@ import os
 from tifffile import imread
 import diffusion_device.four_channels_image as dd4
 import diffusion_device.channel_image as ddx
+from image_registration.image import is_overexposed
 
 
 KEY_FN = 'Image file name'
@@ -134,7 +135,10 @@ def full_fit(settingsfn):
     isfourpos = False
     if isinstance(filename, (list, tuple)):
         #This is a 12 pos
-        ims = [[imread(fn) for fn in filename]]
+        ims = [imread(fn) for fn in filename]
+        ims = [im[imborder[0]:imborder[1],
+                  imborder[2]:imborder[3]] for im in ims]
+        ims = [ims]
         
         
     else:
@@ -147,6 +151,9 @@ def full_fit(settingsfn):
         else:
             
             ims = [ims]
+            
+        ims = [im[imborder[0]:imborder[1], 
+                  imborder[2]:imborder[3]] for im in ims]
             
     
     
@@ -206,7 +213,7 @@ def full_fit(settingsfn):
     if len(ims) == 1:
         return radius, profiles, fits, lse, pixel_size
     
-    
+    overexposed=[is_overexposed(im) for im in ims]
     return (np.asarray(radius_list), profiles_list, fits_list, 
-            np.asarray(lse_list), np.asarray(pixel_size_list))
+            np.asarray(lse_list), np.asarray(pixel_size_list), overexposed)
 

@@ -16,13 +16,13 @@ from diffusion_device.json import full_fit
 #File Name. If using UV, [image filename, background filename]
 outpath = 'output'
 settingsfn='../diffusion_device/tests/test_data/UVim300ulph_fitSettings.json'
-settingsfn='../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
+#settingsfn='../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
 
 #==============================================================================
 # Fit
 #==============================================================================
 
-radius, profiles, fits, lse, pixel_size, __ = full_fit(settingsfn)
+radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
 
 #==============================================================================
 # Plot

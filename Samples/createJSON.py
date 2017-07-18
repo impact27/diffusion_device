@@ -94,13 +94,13 @@ bgfn = ['bg_0.tif',
  'bg_12.tif']
 
 #Settings
-Wz=25*1e-6 #m Height of the device
+Wz=53*1e-6 #m Height of the device
 Wy=300*1e-6 #m Width of the device
-rmin=.01e-9#m test radii
-rmax=1e-9#m test radii
-rstep=.01e-9#m test radii
+rmin=.5e-9#m test radii
+rmax=10e-9#m test radii
+rstep=.5e-9#m test radii
 Q=350/2 #ulph.
-pixsize=1.6e-6#pixel sixe in m
+pixsize=.84e-6#pixel sixe in m
 
 #Advanced settings
 ignore=10e-6 #m Distance from the sides to ignore

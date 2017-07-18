@@ -1,9 +1,9 @@
 {
     "Metadata file name": "metadata.json",
     "Radii[m] (min, max, step)": [
-        1e-11,
-        1e-09,
-        1e-11
+        5e-10,
+        1e-08,
+        5e-10
     ],
     "Ignore Edge[m]": 1e-05
 }

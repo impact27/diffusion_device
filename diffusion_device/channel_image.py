@@ -78,6 +78,8 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos=None, Rs=None, *,
         elif len(np.shape(images))==2:
             images=np.asarray(
                     [[mpimg.imread(im) for im in ims] for ims in images])
+            
+    
     #Get flat images
     if len(np.shape(images))==3:
         #Single images

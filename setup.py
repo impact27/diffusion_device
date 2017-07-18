@@ -20,9 +20,9 @@ def readme():
     with open('README.md') as f:
         return f.read()
 
-setup(name='background_rm',
+setup(name='diffusion_device',
       version='0.1.0',
-      description='remove background from images',
+      description='Image processing on diffusion device images',
       long_description=readme(),
       classifiers=[
         'Development Status :: 4 - Beta',
@@ -30,16 +30,18 @@ setup(name='background_rm',
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Scientific/Engineering',
       ],
-      keywords='background removal microfluidics',
-      url='https://github.com/impact27/background_rm',
+      keywords='sizing microfluidics',
+      url='https://github.com/impact27/diffusion_device',
       author='Quentin Peter',
       author_email='qaep2@cam.ac.uk',
       license='GPl v3',
-      packages=['background_rm'],
+      packages=['diffusion_device'],
       install_requires=[
           'numpy',
           'scipy',
           'opencv-python',
+          'tifffile',
+          'background_rm',
           'image_registration'
       ],
       test_suite='nose.collector',

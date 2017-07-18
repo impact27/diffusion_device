@@ -167,6 +167,10 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     #Get resulting r
     r = c*(Rs[i]-Rs[j])+Rs[j]
     
+    if r < np.min(Rs):
+        raise RuntimeError('The test radius are too big!')
+    if r > np.max(Rs):
+        raise RuntimeError('The test radius are too small!')
     '''
     from matplotlib.pyplot import figure, plot, title
     figure()
