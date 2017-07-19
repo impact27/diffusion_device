@@ -44,6 +44,8 @@ setup(name='diffusion_device',
           'background_rm',
           'registrator'
       ],
+      dependency_links=['https://github.com/impact27/registrator',
+                        'https://github.com/impact27/background_rm'],
       test_suite='nose.collector',
       tests_require=['nose', 'nose-cover3'],
       include_package_data=True,
