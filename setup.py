@@ -14,7 +14,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def readme():
     with open('README.md') as f:
@@ -35,7 +35,7 @@ setup(name='diffusion_device',
       author='Quentin Peter',
       author_email='qaep2@cam.ac.uk',
       license='GPl v3',
-      packages=['diffusion_device'],
+      packages=find_packages(),
       install_requires=[
           'numpy',
           'scipy',
@@ -44,8 +44,9 @@ setup(name='diffusion_device',
           'background_rm',
           'registrator'
       ],
-      dependency_links=['https://github.com/impact27/registrator',
-                        'https://github.com/impact27/background_rm'],
+      dependency_links=[
+              'https://github.com/impact27/registrator/tarball/master#egg=registrator-0.1.0',
+              'https://github.com/impact27/background_rm/dist#egg=background_rm-0.1.0'],
       test_suite='nose.collector',
       tests_require=['nose', 'nose-cover3'],
       include_package_data=True,
