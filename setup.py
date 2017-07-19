@@ -42,7 +42,7 @@ setup(name='diffusion_device',
           'opencv-python',
           'tifffile',
           'background_rm',
-          'image_registration'
+          'registrator'
       ],
       test_suite='nose.collector',
       tests_require=['nose', 'nose-cover3'],

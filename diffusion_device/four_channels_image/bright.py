@@ -10,7 +10,7 @@ gfilter=scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.filters import maximum_filter1d
 import diffusion_device.profile as dp
 import background_rm as rmbg
-import image_registration.image as ir
+import registrator.image as ir
 from scipy import interpolate
 
 

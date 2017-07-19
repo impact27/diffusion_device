@@ -6,8 +6,8 @@ Created on Fri Mar 17 10:26:20 2017
 """
 import numpy as np
 import background_rm as rmbg
-import image_registration.image as ir
-import image_registration.channel as cr
+import registrator.image as ir
+import registrator.channel as cr
 import diffusion_device.profile as dp
 import scipy
 import matplotlib.image as mpimg

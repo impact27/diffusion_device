@@ -4,7 +4,7 @@ Created on Fri Mar 17 10:26:48 2017
 
 @author: quentinpeter
 """
-import image_registration.image as ir
+import registrator.image as ir
 import numpy as np
 import scipy.ndimage.measurements as msr
 import background_rm as rmbg

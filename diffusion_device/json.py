@@ -10,7 +10,7 @@ import os
 from tifffile import imread
 import diffusion_device.four_channels_image as dd4
 import diffusion_device.channel_image as ddx
-from image_registration.image import is_overexposed
+from registrator.image import is_overexposed
 
 
 KEY_FN = 'Image file name'
