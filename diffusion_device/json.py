@@ -42,9 +42,9 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize, bgfn=None):
         json.dump(Metadata, f, indent=4)
 
 def createFitSettings(settingsfn, metafn, rmin, rmax, rstep, 
-                      ignore=None, firstmethod=None, output=None,
+                      ignore=None, firstmethod=None,
                       fitpos=None, flatten=None, border=None, 
-                      framesSlices=None, framesPlot=None):
+                      framesSlices=None):
     Settings = {}
     Settings[KEY_MDFN] = metafn
     Settings[KEY_R] = (rmin, rmax, rstep)
