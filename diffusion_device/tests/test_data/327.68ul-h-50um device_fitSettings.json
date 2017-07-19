@@ -5,6 +5,9 @@
         1e-08,
         1e-10
     ],
+    "Ignore Edge[m]": 0.0,
+    "First Position Filter": "none",
+    "Flatten bright field": true,
     "Image border[px] (t, d, l, r)": [
         150,
         null,
