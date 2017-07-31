@@ -75,7 +75,7 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
     Viz *= normfactor
     return V, Viy, Viz
 #%%    
-def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None, 
+def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None, 
                method='Trapezoid', dxfactor=1, Zmirror=False):
     """
     Compute the step matrix and corresponding position step
@@ -92,8 +92,8 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
         Channel width [m]
     Q:  float
         The flux in the channel in [ul/h]
-    qEokT: float, default 0
-        In case of electrophoresis, q*E/k/T [m^-1]
+    muEoD: float, default 0
+        In case of electrophoresis, q*E/k/T = muE/D[m^-1]
     outV: 2d float array
         array to use for the return
     method: string, default 'Trapezoid'
@@ -151,7 +151,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
         Czz /= dz**2
         
     Cy = 0
-    if qEokT != 0:
+    if muEoD != 0:
         #get grad y operator   
         udiag1 = np.ones(Ygrid*Zgrid-1)
         udiag1[Ygrid-1::Ygrid] = 0
@@ -168,29 +168,31 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
             Cy[i+Ygrid-2:i+Ygrid, i+Ygrid-1] = -7
         Cy /= (12*dy)
         
-    Lapl = np.dot(np.diag(1/V), Cyy+Czz - qEokT*Cy)
+    Lapl = np.dot(np.diag(1/V), Cyy+Czz - muEoD*Cy)
     #get F
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
     dxtD = np.min((dy, dz))**2*V.min()/2
     
-    if qEokT > 0:
-        dxtD2 = dy*V.min()/qEokT/2
+    if muEoD > 0:
+        dxtD2 = dy*V.min()/muEoD/2
         dxtD = np.min([dxtD, dxtD2])
         
     dxtD *= dxfactor
+    
+    dF = dxtD*Lapl
 
     #Get step matrix
     I = np.eye(Ygrid*Zgrid, dtype=float)
     if method == 'Explicit':
         #Explicit
-        F = I+dxtD*Lapl
+        F = I+dF
     elif method == 'Implicit':
         #implicit
-        F = np.linalg.inv(I-dxtD*Lapl)
+        F = np.linalg.inv(I-dF)
     elif method == 'Trapezoid':
         #Trapezoid
-        F = np.linalg.inv(I-.5*dxtD*Lapl)@(I+.5*dxtD*Lapl)
+        F = np.linalg.inv(I-.5*dF)@(I+.5*dF)
     else:
         raise "Unknown integration Method: {}".format(method)
         
@@ -239,8 +241,9 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, qEokT=0, outV=None,
 
 #@profile
 def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
-                qE=0, *, fullGrid=False, central_profile=False,
-                eta=1e-3, kT=1.38e-23*295, normalize=True, Zmirror=True):
+                muEoD=0, *, fullGrid=False, central_profile=False,
+                eta=1e-3, kT=1.38e-23*295, normalize=True, Zmirror=True,
+                stepMuE=False, dxfactor=1):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -252,6 +255,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         The flux in the channel in [ul/h]
     Radii: 1d array
         The simulated radius. Must be in increasing order [m]
+        OR: The mobilities (if stepMuE is True)
     readingpos: 1d array float
         Position to read at
     Wy: float, defaults 300e-6 
@@ -278,18 +282,22 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     
-    """    
+    """  
     Radii = np.array(Radii)
-    if np.any(Radii<0):
-        raise RuntimeError("Can't work with negative radii!")
+    if stepMuE:
+        if muEoD==0:
+            raise RuntimeError("Can't calculate for 0 qE")
+    else:
+        if np.any(Radii<=0):
+            raise RuntimeError("Can't work with negative radii!")
     #Functions to access F
     def getF(Fdir, NSteps):
         if NSteps not in Fdir:
             Fdir[NSteps] = np.dot(Fdir[NSteps//2], Fdir[NSteps//2])
         return Fdir[NSteps]  
     
-    def initF(Zgrid, Ygrid, Wz, Wy, Q, qE, Zmirror):
-        key = (Zgrid, Ygrid, Wz, Wy, Q, qE, Zmirror)
+    def initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor):
+        key = (Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)
         if not hasattr(getprofiles, 'dirFList') :
             getprofiles.dirFList = {}
         #Create dictionnary if doesn't exist
@@ -297,8 +305,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
             return getprofiles.dirFList[key]
         else:
             Fdir = {}
-            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, qEokT=qE/kT, 
-                                        Zmirror=Zmirror)
+            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, muEoD=muEoD, 
+                                        Zmirror=Zmirror, dxfactor=dxfactor)
             getprofiles.dirFList[key] = (Fdir, dxtd)
             return Fdir, dxtd
         
@@ -322,13 +330,16 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     profilespos = np.tile(np.ravel(Cinit), (NRs*Nrp, 1))
     
     #get step matrix
-    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, qE, Zmirror)       
+    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)       
 
     #Get Nsteps for each radius and position
     Nsteps = np.empty((NRs*Nrp,), dtype=int)         
-    for i, r in enumerate(Radii):
-        D = kT/(6*np.pi*eta*r)
-        dx = dxtD/D
+    for i, v in enumerate(Radii):
+        if stepMuE:
+            dx = np.abs(dxtD*muEoD/v)
+        else:
+            D = kT/(6*np.pi*eta*v)
+            dx = dxtD/D
         Nsteps[Nrp*i:Nrp*(i+1)] = np.asarray(readingpos//dx, dtype=int)
      
     print('{} steps'.format(Nsteps.max()))
@@ -385,9 +396,10 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     
     return profilespos
 
-def getElectroProfiles(Cinit, Q, qEs, Radii, readingpos,  Wy=300e-6, Wz=50e-6, 
+def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
+                       Wz=50e-6, 
                        Zgrid=1, *, fullGrid=False, central_profile=False,
-                       eta=1e-3, kT=1.38e-23*295, Zmirror=True):
+                       eta=1e-3, kT=1.38e-23*295, Zmirror=True, dxfactor=1):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -426,19 +438,43 @@ def getElectroProfiles(Cinit, Q, qEs, Radii, readingpos,  Wy=300e-6, Wz=50e-6,
         The list of profiles for the 12 positions at the required radii
     
     """ 
+
+    muEs = np.asarray(muEs)
+    absmuEoDs = np.abs(absmuEoDs)
+    NqE = len(absmuEoDs)
+    negmuE = muEs[muEs<0]
+    posmuE = muEs[muEs>0]
     
-    NqE = len(qEs)
-    NRs = len(Radii)
     Nrp = len(readingpos)
     Ygrid = Cinit.shape[-1]
     
+    def getret(muEs, muEoDs):
+        NuEs = len(muEs)
+        if fullGrid:
+            rets = np.zeros((NqE, NuEs, Nrp, Zgrid, Ygrid))
+        else:
+            rets = np.zeros((NqE, NuEs, Nrp, Ygrid))
+            
+        for muEoD, ret in zip(muEoDs, rets):
+            ret[:] = getprofiles(Cinit, Q, muEs, readingpos,  Wy, Wz, Zgrid, 
+                                 muEoD, fullGrid=fullGrid, eta=eta, kT=kT, 
+                                 Zmirror=Zmirror, 
+                                 central_profile=central_profile, 
+                                 normalize=False, stepMuE=True, 
+                                 dxfactor=dxfactor)
+        return rets
+    
+    N_neg_muEs = len(negmuE)
+    N_pos_muEs = len(posmuE)
+    NmuEs = N_neg_muEs + N_pos_muEs
     if fullGrid:
-        rets = np.zeros((NqE, NRs, Nrp, Zgrid, Ygrid))
+        rets = np.zeros((NqE, NmuEs, Nrp, Zgrid, Ygrid))
     else:
-        rets = np.zeros((NqE, NRs, Nrp, Ygrid))
+        rets = np.zeros((NqE, NmuEs, Nrp, Ygrid))
         
-    for qE, ret in zip(qEs, rets):
-        ret[:] = getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid, qE, 
-                             fullGrid=fullGrid, eta=eta, kT=kT, Zmirror=Zmirror,
-                             central_profile=central_profile, normalize=False)
+    if N_neg_muEs>0:
+        rets[:, :N_neg_muEs] = getret(negmuE, -absmuEoDs)
+    if N_pos_muEs>0:   
+        rets[:, N_neg_muEs:] = getret(posmuE, absmuEoDs)
+    
     return rets

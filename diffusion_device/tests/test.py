@@ -16,6 +16,14 @@ class TestImage(TestCase):
         self.assertTrue(2.5e-9<radius)
         self.assertTrue(5e-9>radius)
         
+    def test_UV_bg_poly(self):
+        settingsfn=os.path.join(folder, 
+                                'test_data/UVim300ulph_fitSettings_poly.json')
+        radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
+        Rs, spectrum = radius
+        self.assertTrue(2.5e-9<Rs[np.argmax(spectrum)])
+        self.assertTrue(5e-9>Rs[np.argmax(spectrum)])
+        
     def test_bright(self):
         settingsfn=os.path.join(folder, 
                                 'test_data/Brightim900ulph_fitSettings.json')

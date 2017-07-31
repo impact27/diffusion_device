@@ -30,8 +30,9 @@ ignore=0e-6 #m
 firstmethod='none'
 fitpos=None # None means all
 flatten=True #For bright Images
+nspecies = 1
 
 createFitSettings(settingsfn, metafn, rmin, rmax, rstep, 
                       ignore, firstmethod,
                       fitpos, flatten, border, 
-                      framesSlices)
+                      framesSlices, nspecies)

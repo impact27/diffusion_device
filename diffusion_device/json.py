@@ -21,6 +21,7 @@ KEY_WZ = 'Wz[m]'
 KEY_WY = 'Wy[m]'
 KEY_Q = 'Q[ulph]'
 KEY_RPOS = 'Read Positions [m]'
+KEY_NSPECIES = 'Number of species to fit'
 
 def optional(dic, key, val):
     if val is not None:
@@ -44,7 +45,7 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize, bgfn=None):
 def createFitSettings(settingsfn, metafn, rmin, rmax, rstep, 
                       ignore=None, firstmethod=None,
                       fitpos=None, flatten=None, border=None, 
-                      framesSlices=None):
+                      framesSlices=None, nspecies=1):
     Settings = {}
     Settings[KEY_MDFN] = metafn
     Settings[KEY_R] = (rmin, rmax, rstep)
@@ -56,6 +57,7 @@ def createFitSettings(settingsfn, metafn, rmin, rmax, rstep,
     optional(Settings,'Image border[px] (t, d, l, r)', border)
     #For multi frames
     optional(Settings,'Frames slice', framesSlices)
+    Settings[KEY_NSPECIES] = nspecies
      
     with open(settingsfn, 'w') as f:
         json.dump(Settings, f, indent=4)
@@ -128,7 +130,7 @@ def full_fit(settingsfn):
     flatten = Settings['Flatten bright field']
     imborder = Settings['Image border[px] (t, d, l, r)']
     framesSlice = Settings['Frames slice']
-    
+    nspecies = Settings[KEY_NSPECIES]
     test_radii=np.arange(rmin,rmax,rstep) 
     
     
@@ -186,23 +188,23 @@ def full_fit(settingsfn):
                                   test_radii, data_dict=data_dict, 
                                   ignore=ignore, initmode=initmode, 
                                   fit_position_number=fit_position_number, 
-                                  flatten=flatten)
+                                  flatten=flatten, nspecies=nspecies)
         else:
             radius=ddx.size_images(im, ActualFlowRate, Wz, Wy, pixsize,
                                    readingpos, Rs=test_radii, 
                                    data_dict=data_dict, ignore=ignore,
-                                   initmode=initmode)
+                                   initmode=initmode, 
+                                   nspecies=nspecies)
         
         profiles, fits, lse, pixel_size = np.nan, np.nan, np.nan, np.nan
         
-        if not np.isnan(radius):
-            lse=np.sqrt(np.mean(np.square(data_dict['profiles'][1:]
-                                        - data_dict['fits'])))
-            
-            #Get profiles and fit
-            profiles=data_dict['profiles']
-            fits=[data_dict['initprof'],*data_dict['fits']]
-            pixel_size=data_dict['pixsize']
+        lse=np.sqrt(np.mean(np.square(data_dict['profiles'][1:]
+                                    - data_dict['fits'])))
+        
+        #Get profiles and fit
+        profiles=data_dict['profiles']
+        fits=[data_dict['initprof'],*data_dict['fits']]
+        pixel_size=data_dict['pixsize']
             
         radius_list.append(radius)
         profiles_list.append(profiles)

@@ -17,8 +17,8 @@ from scipy import interpolate
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
 def size_images(images, Q, Wz, Wy, pixsize, readingpos=None, Rs=None, *,
-                Zgrid=11,ignore=10e-6,normalize_profiles=True,initmode='none',
-                data_dict=None,rebin=2,):
+                Zgrid=11, ignore=10e-6, normalize_profiles=True, 
+                initmode='none', data_dict=None, rebin=2, nspecies=1):
     """
     Get the hydrodynamic radius from the images
     
@@ -108,7 +108,8 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos=None, Rs=None, *,
 
     return dp.size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs,
                   initmode=initmode,normalize_profiles=normalize_profiles,
-                  Zgrid=Zgrid, ignore=ignore,data_dict=data_dict)
+                  Zgrid=Zgrid, ignore=ignore,data_dict=data_dict,
+                  nspecies=nspecies)
     
 
 def remove_bg(im,bg, pixsize, chanWidth=300e-6):

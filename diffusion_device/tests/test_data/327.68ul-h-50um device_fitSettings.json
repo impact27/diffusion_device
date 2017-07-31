@@ -17,5 +17,6 @@
     "Frames slice": [
         null,
         250
-    ]
+    ],
+    "Number of species to fit": 1
 }

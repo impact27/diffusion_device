@@ -9,11 +9,13 @@ from .basis_generate import getprofiles
 import scipy
 gfilter = scipy.ndimage.filters.gaussian_filter1d
 import warnings
+from scipy.optimize import basinhopping, differential_evolution, minimize
+from itertools import combinations
 
-def size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs=None,*,
-                  initmode='none',normalize_profiles=True,Zgrid=11,
-                  ignore=10e-6,data_dict=None,fit_position_number=None,
-                  central_profile=False):
+def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
+                  initmode='none', normalize_profiles=True, Zgrid=11,
+                  ignore=10e-6, data_dict=None,
+                  central_profile=False, nspecies=1):
     """Size the profiles
     
      Parameters
@@ -41,8 +43,6 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs=None,*,
         Ignore on the sides [m]
     data_dict: dictionnary
         If not None, returns infos
-    fit_position_number: 1d array
-        Posiitons to fit
     central_profile: Bool, default False
         Should use central profile?
       
@@ -51,118 +51,139 @@ def size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs=None,*,
     radii: float
         The best radius fit
     """
+    # Check input are arrays
     readingpos = np.asarray(readingpos)
     profiles = np.asarray(profiles)
+    
     #normalize if needed
     if normalize_profiles:
         #if profile is mainly negative, error
-        if np.any(np.sum(profiles*(profiles>0),1)<5*-np.sum(profiles*(profiles<0),1)):
-            #raise RuntimeError("Profiles are negative!")
-            return np.nan
+        if np.any(np.sum(profiles*(profiles>0),1) < 
+                  5*-np.sum(profiles*(profiles<0),1)):
+            raise RuntimeError('The profiles are negatives!')
         profiles/=np.sum(profiles,-1)[:,np.newaxis]
-            
-    """
-    from matplotlib.pyplot import figure, plot
-    figure()
-    plot(np.ravel(profiles))
-    #"""
-    
-    if fit_position_number is None:
-        fit_position_number = np.arange(len(readingpos))
-    else:
-        fit_position_number = np.sort(fit_position_number)
         
     #treat init profile
-    init = init_process(profiles[fit_position_number[0]],initmode)
-        
-    #Get best fit
-    r = fit_monodisperse_radius([init,*profiles[fit_position_number[1:]]],
-                                 readingpos=readingpos[fit_position_number],
-                                 flowRate=Q,
-                                 Wz=Wz,
-                                 Zgrid=Zgrid,
-                                 ignore=ignore,
-                                 pixs=pixsize,
-                                 Rs=Rs,
-                                 central_profile=central_profile)
+    init = init_process(profiles[0],initmode)
+    #First reading pos is initial profile
+    readingposfit = readingpos[1:]-readingpos[0]
     
-    if not r>0:
-        return np.nan
-    #fill data if needed
-    if data_dict is not None:
-        data_dict['initprof'] = init
-        if fit_position_number[0] !=0:
-            init = init_process(profiles[0],initmode)
-        data_dict['fits'] = getprofiles(init,Q=Q, Radii=[r], 
-                             Wy = len(init)*pixsize, Wz= Wz, Zgrid=Zgrid,
-                             readingpos=readingpos[1:]-readingpos[0],
-                                 central_profile=central_profile)[0]
+    #Get basis function    
+    Wy = pixsize*len(init)
+    Basis = getprofiles(init, Q, Rs, Wy=Wy, Wz=Wz,
+                      Zgrid=Zgrid, readingpos=readingposfit,
+                      central_profile=central_profile) 
+    
+    #convert ignore to px
+    ignore = int(ignore/pixsize)
+    
+    if nspecies == 1:
+        #Get best fit
+        r = fit_radius(profiles[1:], Basis, Rs, ignore, nspecies=1)
         
-    return r
+        #fill data if needed
+        if data_dict is not None:
+            data_dict['initprof'] = init
+            data_dict['fits'] = getprofiles(init,Q=Q, Radii=[r],
+                                            Wy=Wy, Wz=Wz, Zgrid=Zgrid,
+                                            readingpos=readingposfit,
+                                            central_profile=central_profile)[0]
+            
+        return r
+    else:
+        spectrum = fit_radius(profiles[1:], Basis, Rs, ignore, nspecies=nspecies)
+        
+         #fill data if needed
+        if data_dict is not None:
+            data_dict['initprof'] = init
+            data_dict['fits'] = np.sum(spectrum[:, np.newaxis, np.newaxis]
+                                        * Basis, axis = 0)
+        
+        return Rs, spectrum
+    
 
-def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
-                                Wz=50e-6,
-                                Zgrid=11,
-                                ignore=10e-6,
-                                Rs=np.arange(.5,10,.5)*1e-9,
-                                central_profile=False):
+
+def fit_radius(profiles, Basis, Rs, ignore=0, nspecies=1):
     """Find the best monodisperse radius
     
      Parameters
     ----------
     profiles: 2d array
         List of profiles to fit
-    flowRate: float
-        Speed of the flow in [ul/h]
-    pixs:float
-        The pixel size in [m]
-    readingpos: 1d float array
-        The reading position of the profiles
-    Wz: float, default 50e-6
-        The channel height in [m]
-    Zgrid: integer, default 11
-        Number of Z slices
-    ignore: float, default 10e-6
-        Ignore on the sides [m]
-    Rs: 1d float, default np.arange(.5,10,.5)*1e-6
+    Basis: 3d array
+        List of basis to fit. The first dimention must correspond to Rs
+    Rs: 1d float
         The test radii [m] 
-    central_profile: Bool, default False
-        If true, use the central profile
+    ignore: int, default 0
+        Ignore on the sides [px]
+    nspecies: int
+        Number of species to fit. 0=all.
+
+    
+    Returns
+    -------
+    spectrum: 
+        The factors of Rs to get the best fit
+    IF nspecies == 1:
+    Radii: [m]
+        The best radius fit
+    """
+    #How many pixels should we ignore?
+    if ignore == 0:
+        profslice = slice(None)
+    else:
+        profslice = slice(ignore, -ignore)
+        
+        
+    Nb = len(Basis)
+    flatbasis = np.reshape(Basis[:, :, profslice], (Nb, -1))
+    flatprofs = np.ravel(profiles[:, profslice])
+    M = np.zeros((Nb, Nb))
+    b = np.zeros((Nb))
+    
+    psquare = np.sum(flatprofs*flatprofs)
+    for i in range(Nb):
+        b[i] = np.sum(flatbasis[i]*flatprofs)
+        for j in range(Nb):
+            M[i, j] = np.sum(flatbasis[i]*flatbasis[j])
+            
+    if nspecies == 1:
+        return fit_monodisperse_radius(M, b, psquare, Rs)
+    
+    elif nspecies > 1:
+        return fit_N_radius(M, b, psquare, nspecies)
+        
+    elif nspecies == 0:
+        return fit_polydisperse_radius(M, b, psquare)
+    
+    else:
+        raise RuntimeError('Number of species negative!')
+    
+
+def fit_monodisperse_radius(M, b, psquare, Rs):
+    """Find the best monodisperse radius
+    
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    Rs: 1d float
+        The test radii [m] 
     
     Returns
     -------
     radii: float
         The best radius fit
     """
-    profiles = np.asarray(profiles)
-    #First reading pos is initial profile
-    readingpos = readingpos[1:]-readingpos[0]
-    #How many pixels should we ignore?
-    ignore = int(ignore/pixs)
-    if ignore ==0:
-        ignore = 1
-    
-    #Get basis function    
-    Wy = pixs*np.shape(profiles)[1]
-    
-    
-    
-    Basis = getprofiles(profiles[0],flowRate,Rs,Wy=Wy,Wz=Wz,
-                      Zgrid=Zgrid,readingpos=readingpos,
-                      central_profile=central_profile)            
-    
-    #Compute residues
-    p = profiles[1:]
-    res = np.empty(len(Rs),dtype=float)
-    for i,b in enumerate(Basis):
-        res[i] = np.sqrt(np.mean(np.square(b-p)[:,ignore:-ignore]))
-    
-    #Use linear combination between the two smallest results
+    #get best residu
+    res = psquare + np.diag(M)-2*b
     i,j = np.argsort(res)[:2]
-    b1 = Basis[i,:,ignore:-ignore]
-    b2 = Basis[j,:,ignore:-ignore]
-    p0 = p[:,ignore:-ignore]
-    c = -np.sum((b1-b2)*(b2-p0))/np.sum((b1-b2)**2)
+    #np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
+    c = (b[i] - b[j] - M[i,j] + M[j,j])/(M[i,i] + M[j,j] - M[i,j] - M[j,i])
     
     #Get resulting r
     r = c*(Rs[i]-Rs[j])+Rs[j]
@@ -182,6 +203,112 @@ def fit_monodisperse_radius(profiles, flowRate, pixs, readingpos,
     #'''
     
     return r
+
+def fun(C, M, b, psquare):
+    return psquare + C@M@C -2*C@b
+
+def jac(C, M, b, psquare):
+    return 2*C@M -2*b
+
+def hess(C, M, b, psquare):
+    return 2*M
+
+def getconstr(Nb):
+    constr = []
+    
+    # Need C[i]>0
+    for i in range(Nb):
+        def cfun(C, i=i):
+            return C[i]
+    
+        def cjac(C, i=i):
+            ret = np.zeros_like(C)
+            ret[i]=1
+            return ret 
+        
+        constr.append({
+               
+            "type": "ineq",
+            "fun": cfun,
+            "jac": cjac
+            
+            })
+    return constr
+    
+def fit_N_radius(M, b, psquare, nspecies):
+    """Find the best N-disperse radius
+    
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    nspecies: int
+        Number of species to fit.
+    
+    Returns
+    -------
+    spectrum: 1d array
+        The best radius fit spectrum
+    """
+    NRs = len(b)
+    indices = np.asarray([i for i in combinations(range(NRs), nspecies)])
+    res = np.empty(len(indices))
+    C = np.empty((len(indices), nspecies))
+    C0 = np.ones(nspecies)/nspecies
+    for i, idx in enumerate(indices):
+        bi = b[idx]
+        Mi = M[idx][:, idx]
+        min_res = minimize(fun, C0, args=(Mi, bi, psquare),
+                   jac=jac, hess=hess, 
+                   constraints=getconstr(nspecies))
+        res[i] = min_res.fun
+        C[i] = min_res.x
+      
+    bestidx = np.argmin(res)
+    idx = indices[bestidx]
+    spectrum = np.zeros(NRs)
+    spectrum[idx] = C[bestidx]
+    
+    return spectrum
+        
+        
+def fit_polydisperse_radius(M, b, psquare):
+    """Find the best N-disperse radius
+    
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    
+    Returns
+    -------
+    spectrum: 1d array
+        The best fit spectrum
+    """     
+    
+    Nb = len(b)
+    C0 = np.zeros(Nb)
+
+    def fun2(C, M, b, psquare):
+        return fun(np.abs(C), M, b, psquare)
+    
+    def jac2(C, M, b, psquare):
+        return jac(np.abs(C), M, b, psquare)*np.sign(C)
+    
+    res = basinhopping(fun2, C0, 100,
+                       minimizer_kwargs={'args': (M, b, psquare),
+                                         'jac': jac2
+                                         })
+    spectrum = np.abs(res.x)
+    return spectrum
 
 def center(prof):
     """
