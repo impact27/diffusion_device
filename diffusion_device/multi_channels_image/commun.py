@@ -43,7 +43,7 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
                 Zgrid=11, ignore=5e-6, normalize_profiles=True, 
                 initmode='none', data_dict=None, fit_position_number=None,
-                flatten=False, nspecies=1, ignore_error=False):
+                flatten=False, nspecies=1, ignore_error=False, plotim=False):
     
     """
     Get the hydrodynamic radius from the images
@@ -87,6 +87,10 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         (Bright field only) Should the image be flattened?
     nspecies: int, default 1
         Number of species to fit. 0=all.
+    ignore_error: Bool, default False
+        Should the errors be ignored?
+    plotim: Bool, default False
+        Plot how the image is flattened
         
     Returns
     -------
@@ -114,7 +118,8 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         if bg is None:
             #Single image
             profiles = bright.extract_profiles(im, Nprofs,
-                                               Wy, wall_width, flatten=flatten)
+                                               Wy, wall_width, 
+                                               flatten=flatten, plotim=plotim)
             
         else:
             #images and background

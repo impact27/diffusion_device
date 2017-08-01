@@ -130,7 +130,7 @@ def straight_image_infos(im, Nprofs):
     
 
 def flat_image(im, chwidth, wallwidth, Nprofs, *, 
-               frac=.6, infosOut=None, subtract=False):
+               frac=.6, infosOut=None, subtract=False, plotim=False):
     """
     Flatten input images
     
@@ -167,6 +167,17 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
     for i in range(Nprofs):
         amin = origin + i*w - frac*w*chwidth/(chwidth + wallwidth)
         amax = origin + i*w + frac*w*chwidth/(chwidth + wallwidth)
+        
+        if amin < 0:
+           amin = origin + i*w - .5*w*chwidth/(chwidth + wallwidth) 
+           if amin < 0:
+               amin = 0
+               
+        if amax > len(mask):
+            amax = origin + i*w + .5*w*chwidth/(chwidth + wallwidth)
+            if amax > len(mask):
+                amax = len(mask)
+        
         mask[int(amin):int(amax)] = 0
     mask = mask>0
     mask = np.tile(mask[None, :], (np.shape(im)[0], 1))
@@ -175,15 +186,16 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
         im = im / rmbg.polyfit2d(im, mask=mask)-1
     else:
         im = im - rmbg.polyfit2d(im, mask=mask)
-    """
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.imshow(rmbg.polyfit2d(im, mask=mask))
-    plt.colorbar()
-    plt.figure()
-    plt.imshow(im)
-    plt.imshow(mask, alpha=.5)
-    """
+
+    if plotim:
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(im)
+        plt.imshow(mask, alpha=.5)
+#        plt.figure()
+#        plt.imshow(rmbg.polyfit2d(im, mask=mask))
+#        plt.colorbar()
+    
     if infosOut is not None:
         infosOut['infos'] = (w, a, origin)
     return im
@@ -244,7 +256,8 @@ def extract_profiles_flatim(im, chwidth, wallwidth, infos, Nprofs):
     #"""
     return profiles
 
-def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False):
+def extract_profiles(im, Nprofs, chwidth, wallwidth, 
+                     flatten=False, plotim=False):
     '''
     Extract profiles from image
     
@@ -260,6 +273,8 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False):
         The wall width in [m]
     flatten: Bool, Defaults False
         Should the image be flatten
+    plotim: Bool, default False
+        Plot how the image is flattened
         
     Returns
     -------
@@ -269,7 +284,8 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False):
     im = np.asarray(im)
     infos = {}
     if flatten:
-        im = flat_image(im, chwidth, wallwidth, Nprofs, infosOut=infos)
+        im = flat_image(im, chwidth, wallwidth, Nprofs, infosOut=infos, 
+                        plotim=plotim)
     angle = dp.image_angle(im)
     im = ir.rotate_scale(im, -angle, 1, borderValue=np.nan)
     if not flatten:

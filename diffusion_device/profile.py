@@ -114,7 +114,49 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         
         return Rs, spectrum
     
+def get_matrices(profiles, Basis, ignore=0):
+    """Return matrix representation of sums
+    
+     Parameters
+    ----------
+    profiles: 2d array
+        List of profiles to fit
+    Basis: 3d array
+        List of basis to fit. The first dimention must correspond to Rs
+    ignore: int, default 0
+        Ignore on the sides [px]
 
+    
+    Returns
+    -------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    """
+    #How many pixels should we ignore?
+    if ignore == 0:
+        profslice = slice(None)
+    else:
+        profslice = slice(ignore, -ignore)
+        
+    Nb = len(Basis)
+    flatbasis = np.reshape(Basis[:, :, profslice], (Nb, -1))
+    flatprofs = np.ravel(profiles[:, profslice])
+    M = np.zeros((Nb, Nb))
+    b = np.zeros((Nb))
+    
+    psquare = np.sum(flatprofs*flatprofs)
+    for i in range(Nb):
+        b[i] = np.sum(flatbasis[i]*flatprofs)
+        for j in range(Nb):
+            M[i, j] = np.sum(flatbasis[i]*flatbasis[j])
+            
+    return M, b, psquare
+            
+    
 
 def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
     """Find the best monodisperse radius
@@ -138,32 +180,16 @@ def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
     spectrum: 
         The factors of Rs to get the best fit
     IF nspecies == 1:
-    Radii: [m]
-        The best radius fit
+        Radii: [m]
+            The best radius fit
     """
-    #How many pixels should we ignore?
-    if ignore == 0:
-        profslice = slice(None)
-    else:
-        profslice = slice(ignore, -ignore)
         
-        
-    Nb = len(Basis)
-    flatbasis = np.reshape(Basis[:, :, profslice], (Nb, -1))
-    flatprofs = np.ravel(profiles[:, profslice])
-    M = np.zeros((Nb, Nb))
-    b = np.zeros((Nb))
-    
-    psquare = np.sum(flatprofs*flatprofs)
-    for i in range(Nb):
-        b[i] = np.sum(flatbasis[i]*flatprofs)
-        for j in range(Nb):
-            M[i, j] = np.sum(flatbasis[i]*flatbasis[j])
+    M, b, psquare = get_matrices(profiles, Basis, ignore=0)
             
-    if nspecies == 1:
+    if nspecies == 1 and Rs is not None:
         return fit_monodisperse_radius(M, b, psquare, Rs)
     
-    elif nspecies > 1:
+    elif nspecies > 0:
         return fit_N_radius(M, b, psquare, nspecies)
         
     elif nspecies == 0:
