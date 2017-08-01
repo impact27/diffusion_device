@@ -1,0 +1,15 @@
+{
+    "Image file name": "1tf_001tweentico75_100ulhr.tif",
+    "Wz[m]": 2.999e-05,
+    "Wy[m]": 0.0003,
+    "Q[ulph]": 100,
+    "Read Positions [m]": [
+        0.0015692,
+        0.0110692,
+        0.0205692,
+        0.04106919999999999
+    ],
+    "Pixel Size [m]": 3.2e-06,
+    "Number of channels": 4,
+    "Wall Width [m]": 100e-6
+}

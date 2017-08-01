@@ -1,0 +1,18 @@
+{
+    "Metadata file name": "1tf_001tweentico75_100ulhr_Metadata.json",
+    "Radii[m] (min, max, step)": [
+        5e-10,
+        1e-08,
+        1e-10
+    ],
+    "Ignore Edge[m]": 30e-06,
+    "First Position Filter": "none",
+    "Flatten bright field": true,
+    "Image border[px] (t, d, l, r)": [
+        null,
+        null,
+        null,
+        null
+    ],
+    "Number of species to fit": 1
+}
