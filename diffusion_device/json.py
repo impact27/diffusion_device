@@ -353,14 +353,15 @@ def full_fit(settingsfn):
         return (radius, *read_data_dict(data_dict))
         
     else:
-        def process_im(im):
+        def process_im(im, ignore_error=False):
             data_dict={}
             radius=dd4.size_image(im, ActualFlowRate, Wz, Wy, readingpos,
                                   test_radii, bg=bg, data_dict=data_dict, 
                                   ignore=ignore, initmode=initmode, 
                                   fit_position_number=fit_position_number, 
                                   flatten=flatten, nspecies=nspecies,
-                                  Nprofs=nchannels, wall_width=wall_width)
+                                  Nprofs=nchannels, wall_width=wall_width,
+                                  ignore_error=ignore_error)
             return (radius, *read_data_dict(data_dict))
         
         if len(ims.shape) == 2:
@@ -373,7 +374,7 @@ def full_fit(settingsfn):
             lse_list = []
             pixel_size_list = []
             for im in ims:
-                radius, profiles, fits, lse, pixel_size =  process_im(im)
+                radius, profiles, fits, lse, pixel_size =  process_im(im, True)
                 radius_list.append(radius)
                 profiles_list.append(profiles)
                 fits_list.append(fits)

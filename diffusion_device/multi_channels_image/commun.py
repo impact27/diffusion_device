@@ -43,7 +43,7 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
                 Zgrid=11, ignore=5e-6, normalize_profiles=True, 
                 initmode='none', data_dict=None, fit_position_number=None,
-                flatten=False, nspecies=1):
+                flatten=False, nspecies=1, ignore_error=False):
     
     """
     Get the hydrodynamic radius from the images
@@ -122,7 +122,10 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
                                                   Wy, wall_width)
     except RuntimeError as error:
         print(error.args[0])
-        return np.nan
+        if ignore_error:
+            return np.nan
+        else:
+            raise error
       
     if fit_position_number is not None:
         profiles = profiles[np.sort(fit_position_number)]
