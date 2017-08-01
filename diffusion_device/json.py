@@ -7,7 +7,7 @@ Created on Tue Jul 18 10:23:24 2017
 import json
 import numpy as np
 import os
-from matplotlib.image import imread
+from tifffile import imread
 import diffusion_device.four_channels_image as dd4
 import diffusion_device.channel_image as ddx
 from registrator.image import is_overexposed
@@ -158,6 +158,10 @@ def full_fit(settingsfn):
         ims = np.asarray([imread(fn) for fn in filename])
     else:
         ims = imread(filename)
+        if len(np.shape(ims)) == 3:
+            #Check for full 0 
+            ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1,2)))])
+            
         if len(np.shape(ims)) == 3:
             #movie
             ims = ims[framesSlice[0]:framesSlice[1]]            

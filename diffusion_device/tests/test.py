@@ -16,9 +16,17 @@ class TestImage(TestCase):
         self.assertTrue(2.5e-9<radius)
         self.assertTrue(5e-9>radius)
         
-    def test_UV_bg_poly(self):
+    def test_UV_bg_poly_2(self):
         settingsfn=os.path.join(folder, 
-                                'test_data/UVim300ulph_fitSettings_poly.json')
+                            'test_data/UVim300ulph_fitSettings_poly_2.json')
+        radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
+        Rs, spectrum = radius
+        self.assertTrue(2.5e-9<Rs[np.argmax(spectrum)])
+        self.assertTrue(5e-9>Rs[np.argmax(spectrum)])
+        
+    def test_UV_bg_poly_all(self):
+        settingsfn=os.path.join(folder, 
+                            'test_data/UVim300ulph_fitSettings_poly_all.json')
         radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
         Rs, spectrum = radius
         self.assertTrue(2.5e-9<Rs[np.argmax(spectrum)])
@@ -49,6 +57,13 @@ class TestImage(TestCase):
         self.assertTrue(2.5e-9<radius)
         self.assertTrue(4e-9>radius)
         
+    def test_bright_walls(self):
+        settingsfn=os.path.join(folder, 
+                        'test_data/1tf_001tweentico75_100ulhr_Settings.json')
+        radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
+        
+        self.assertTrue(2e-9<radius)
+        self.assertTrue(3e-9>radius)
     
 
         
