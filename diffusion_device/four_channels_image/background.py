@@ -11,12 +11,14 @@ import background_rm as rmbg
 import diffusion_device.profile as dp
 import scipy
 from . import bright
-gfilter=scipy.ndimage.filters.gaussian_filter1d
+gfilter = scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.morphology import binary_erosion
 import warnings
-warnings.filterwarnings('ignore', 'invalid value encountered in greater',RuntimeWarning)
+warnings.filterwarnings('ignore', 'invalid value encountered in greater',
+                        RuntimeWarning)
 
-def channels_edges(bg,approxwidth,angle=None,std=10,Nwalls=8):
+def channels_edges(bg, chwidth, wallwidth, Nprofs,
+                   angle=None, std=10):
     """
     Get the position of the edges
     
@@ -38,21 +40,28 @@ def channels_edges(bg,approxwidth,angle=None,std=10,Nwalls=8):
     
     """
     
-    bg=bg/rmbg.polyfit2d(bg)
+    bg = bg/rmbg.polyfit2d(bg)
     if angle is not None:
-        bg=ir.rotate_scale(bg,-angle,1,borderValue=np.nan)
+        bg = ir.rotate_scale(bg, -angle, 1, borderValue=np.nan)
         
 
-    prof=gfilter(np.nanmean(bg,0),3)
-    edges=np.abs(np.diff(prof))
-    edges[np.isnan(edges)]=0
+    prof = gfilter(np.nanmean(bg, 0), 3)
+    edges = np.abs(np.diff(prof))
+    edges[np.isnan(edges)] = 0
     #create approximate walls
-    x=np.arange(len(edges))
-    gwalls=np.zeros(len(edges),dtype=float)
-    for center in (1+np.arange(Nwalls))*approxwidth:
-        gwalls+=edges.max()*np.exp(-(x-center)**2/(2*std**2))
+    x = np.arange(len(edges))
+    gwalls = np.zeros(len(edges), dtype=float)
+    
+    
+    centers = np.arange(Nprofs*2)
+    centers[::2]  =  wallwidth/2 + np.arange(Nprofs)*(chwidth + wallwidth)
+    centers[1::2] = (wallwidth/2 + np.arange(Nprofs)*(chwidth + wallwidth) 
+                     + chwidth)
+    
+    for center in centers:
+        gwalls += edges.max()*np.exp( -(x - center)**2/(2*std**2))
     #Get best fit for approximate walls
-    c=int(np.correlate(edges,gwalls,mode='same').argmax()-len(gwalls)/2)
+    c = int(np.correlate(edges, gwalls, mode='same').argmax() - len(gwalls)/2)
     '''
     from matplotlib.pyplot import plot, figure, imshow
     figure()
@@ -61,25 +70,24 @@ def channels_edges(bg,approxwidth,angle=None,std=10,Nwalls=8):
     plot(edges)
     plot(gwalls)
     figure()
-    plot(np.correlate(edges,gwalls,mode='same'))
+    plot(np.correlate(edges, gwalls, mode='same'))
     #'''
     #Roll
-    gwalls=np.roll(gwalls,c)
+    gwalls = np.roll(gwalls, c)
     if c<0:
-        gwalls[c:]=0
+        gwalls[c:] = 0
     else:
-        gwalls[:c]=0
+        gwalls[:c] = 0
     #label wall position
-    label,n=msr.label(gwalls>.1*gwalls.max())
-    
+    label, n = msr.label(gwalls>.1*gwalls.max())
     
     #Get the positions
-    edges=np.squeeze(msr.maximum_position(edges,label,range(1,n+1)))
-    if not len(edges)==8:
-        raise RuntimeError('Did not detect 8 edges')
+    edges = np.squeeze(msr.maximum_position(edges, label, range(1, n+1)))
+    if not len(edges) == 2*Nprofs:
+        raise RuntimeError('Did not detect edges')
     return edges
 
-def channels_mask(bg, approxwidth, angle=None, edgesOut=None):
+def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
     """
     Get the mask from the image
     
@@ -101,16 +109,16 @@ def channels_mask(bg, approxwidth, angle=None, edgesOut=None):
     
     """
     #Find edges position
-    maxpos=channels_edges(bg,approxwidth,angle)
+    maxpos = channels_edges(bg, chwidth, wallwidth, Nprofs=Nprofs, angle=angle)
     if edgesOut is not None:
-        edgesOut[:]=maxpos
+        edgesOut[:] = maxpos
     #Fill mask
-    mask=np.ones(bg.shape)
+    mask = np.ones(bg.shape)
     for i in range(len(maxpos)//2):
-        mask[:,maxpos[2*i]:maxpos[2*i+1]]=0
+        mask[:, maxpos[2*i]:maxpos[2*i + 1]] = 0
     return mask
 
-def bg_angle(im,bg,infoDict=None):
+def bg_angle(im, bg, Nprofs, infoDict=None):
     """
     get the angle by remove_curve_background
     
@@ -128,12 +136,13 @@ def bg_angle(im,bg,infoDict=None):
     angle: float
         the image orientation angle
     """
-    tmpout=rmbg.remove_curve_background(im,bg,infoDict=infoDict,bgCoord=True)
+    tmpout = rmbg.remove_curve_background(im, bg, infoDict=infoDict,
+                                          bgCoord=True)
     if infoDict is not None:
-        infoDict['BrightInfos']=bright.image_infos(tmpout)
+        infoDict['BrightInfos'] = bright.image_infos(tmpout, Nprofs)
     return dp.image_angle(tmpout)
 
-def remove_bg(im, bg, edgesOut=None):
+def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
     """
     Flatten and background subtract images
     
@@ -153,27 +162,33 @@ def remove_bg(im, bg, edgesOut=None):
     
     """
     #Get bg angle (the other images are the same)
-    infoDict={}
-    angle=bg_angle(im,bg,infoDict)
-    approxwidth=infoDict['BrightInfos']['width']
+    infoDict = {}
+    angle = bg_angle(im, bg, Nprofs, infoDict=infoDict)
+    approxwidth = infoDict['BrightInfos']['width']
+    approxpixsize = (chwidth + wallwidth)/approxwidth
     #Get the mask
-    maskbg=channels_mask(bg,approxwidth,angle,edgesOut)
+    maskbg = channels_mask(bg, 
+                           chwidth/approxpixsize, #to pix
+                           wallwidth/approxpixsize, #to pix
+                           Nprofs, 
+                           angle=angle,
+                           edgesOut=edgesOut)
     #rotate and flatten the bg
-    bg=ir.rotate_scale(bg,-angle,1,borderValue=np.nan)
-    im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
+    bg = ir.rotate_scale(bg, -angle, 1, borderValue=np.nan)
+    im = ir.rotate_scale(im, -angle, 1, borderValue=np.nan)
     
-    maskim=ir.rotate_scale_shift(maskbg, infoDict['diffAngle'],
+    maskim = ir.rotate_scale_shift(maskbg, infoDict['diffAngle'],
                                          infoDict['diffScale'],
                                          infoDict['offset'], 
                                          borderValue=np.nan)>.5   
                                  
-    maskim=binary_erosion(maskim,iterations=15)
+    maskim = binary_erosion(maskim, iterations=15)
     #Get Intensity
-    ret=rmbg.remove_curve_background(im,bg,maskbg=maskbg,maskim=maskim,
-                                     bgCoord=True,reflatten=True)
+    ret = rmbg.remove_curve_background(im, bg, maskbg=maskbg, maskim=maskim,
+                                     bgCoord=True, reflatten=True)
     return ret
 
-def extract_profiles(im, bg, Nedges=8):
+def extract_profiles(im, bg, Nprofs, chwidth, wallwidth):
     """
     Extract diffusion profiles
     
@@ -191,55 +206,55 @@ def extract_profiles(im, bg, Nedges=8):
         list of profiles
     """
     #get edges 
-    edges=np.empty(Nedges, dtype=int)
-    #Get flattened image
-    flat_im=remove_bg(im, bg, edges)    
+    edges = np.empty(Nprofs*2, dtype=int)
+    #Get flattened image 
+    flat_im = remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=edges)
     #Get channel width
-    width=int(np.mean(np.diff(edges)[::2]))
+    width = int(np.mean(np.diff(edges)[::2]))
     
-    if (edges[1]+edges[0])/2 < width:
+    if (edges[1] + edges[0])/2 < width:
         raise RuntimeError("Edges incorrectly detected.")
     #Profile
     imProf = np.nanmean(flat_im, 0)
     #Output profiles
-    profiles = np.empty((4, width), dtype=float)
+    profiles = np.empty((Nprofs, width), dtype=float)
     #Extract profiles
-    firstcenter=None
-    for i,(e,prof) in enumerate(zip(edges[1::2]+edges[::2], profiles)):
+    firstcenter = None
+    for i, (e, prof) in enumerate(zip(edges[1::2] + edges[::2], profiles)):
         #e is 2*center of the channel
-        amin=(e-width)//2
-        amax=(e+width)//2
-        p=imProf[amin:amax]
+        amin = (e - width)//2
+        amax = (e + width)//2
+        p = imProf[amin:amax]
         #All even profiles are switched
-        if i%2==1:
-            p=p[::-1]
+        if i%2 == 1:
+            p = p[::-1]
         #Align by detecting center
-        c=dp.center(p)
+        c = dp.center(p)
         if firstcenter is not None:
-            diff=c-firstcenter
-            if i%2==1:
-                diff*=-1
-            diff=int(diff)
-            p=imProf[amin+diff:amax+diff]
-            if i%2==1:
-                p=p[::-1]
+            diff = c - firstcenter
+            if i%2 == 1:
+                diff *= -1
+            diff = int(diff)
+            p = imProf[amin + diff:amax + diff]
+            if i%2 == 1:
+                p = p[::-1]
         else:
-            firstcenter=c
-        prof[:]=p
+            firstcenter = c
+        prof[:] = p
     #If image is inverted
     if profiles[-1].max()>profiles[0].max():
-        profiles=profiles[::-1]
+        profiles = profiles[::-1]
         
     """
     from matplotlib.pyplot import plot, figure, imshow
     figure()
-    plot(np.nanmean(flat_im[:100],0))
-    plot(np.nanmean(flat_im[-100:],0))
+    plot(np.nanmean(flat_im[:100], 0))
+    plot(np.nanmean(flat_im[-100:], 0))
     #"""
     
     return profiles
 
-#def apparent_pixel_size(bg,estimated_pix_size,im=None):
+#def apparent_pixel_size(bg, estimated_pix_size, im=None):
 #    """
 #    Compute the apparent pixel size
 #    
@@ -256,10 +271,10 @@ def extract_profiles(im, bg, Nedges=8):
 #        The apparent pixel size
 #    """
 #    if im is None:
-#        a=ir.orientation_angle(bg)-np.pi/2
+#        a = ir.orientation_angle(bg) - np.pi/2
 #    else:
-#        a=bg_angle(im,bg)
-#    edges=channels_edges(bg,estimated_pix_size,a)
+#        a = bg_angle(im, bg)
+#    edges = channels_edges(bg, estimated_pix_size, a)
 #    #2000 is (channel width + gap ) *10
 #    return np.mean([20*_umChannelWidth/np.mean(np.diff(edges[::2])),
 #                    20*_umChannelWidth/np.mean(np.diff(edges[1::2]))])

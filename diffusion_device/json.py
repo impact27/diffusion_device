@@ -7,7 +7,7 @@ Created on Tue Jul 18 10:23:24 2017
 import json
 import numpy as np
 import os
-from tifffile import imread
+from matplotlib.image import imread
 import diffusion_device.four_channels_image as dd4
 import diffusion_device.channel_image as ddx
 from registrator.image import is_overexposed
@@ -22,20 +22,32 @@ KEY_WY = 'Wy[m]'
 KEY_Q = 'Q[ulph]'
 KEY_RPOS = 'Read Positions [m]'
 KEY_NSPECIES = 'Number of species to fit'
+KEY_PIXSIZE = 'Pixel Size [m]'
+KEY_IGNORE = 'Ignore Edge[m]'
+KEY_NCHANNELS = 'Number of channels'
+KEY_POS0FILTER = 'First Position Filter'
+KEY_FITPOS = 'Pos to fit'
+KEY_BFFLAT = 'Flatten bright field'
+KEY_BORDER = 'Image border[px] (t, d, l, r)'
+KEY_FRAMESSLICES = 'Frames slice'
+KEY_WALLWIDTH = 'Wall Width [m]'
 
 def optional(dic, key, val):
     if val is not None:
         dic[key] = val
         
-def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize, bgfn=None):
+def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize, 
+                   bgfn=None, wallwidth=None, nchannels=None):
     Metadata = {}
     Metadata[KEY_FN] = fn
     optional(Metadata, KEY_BGFN, bgfn)
     Metadata[KEY_WZ] = Wz
     Metadata[KEY_WY] = Wy
+    optional(Metadata, KEY_WALLWIDTH, wallwidth)
+    optional(Metadata, KEY_NCHANNELS, nchannels)
     Metadata[KEY_Q] = Q
     Metadata[KEY_RPOS] = readingpos
-    Metadata['Pixel Size [m]'] = pixelsize
+    Metadata[KEY_PIXSIZE] = pixelsize
     #Optional
     
     
@@ -50,13 +62,13 @@ def createFitSettings(settingsfn, metafn, rmin, rmax, rstep,
     Settings[KEY_MDFN] = metafn
     Settings[KEY_R] = (rmin, rmax, rstep)
     #Optional
-    optional(Settings,'Ignore Edge[m]', ignore)
-    optional(Settings,'First Position Filter', firstmethod)
-    optional(Settings,'Pos to fit', fitpos)
-    optional(Settings,'Flatten bright field', flatten)
-    optional(Settings,'Image border[px] (t, d, l, r)', border)
+    optional(Settings, KEY_IGNORE, ignore)
+    optional(Settings, KEY_POS0FILTER, firstmethod)
+    optional(Settings, KEY_FITPOS, fitpos)
+    optional(Settings, KEY_BFFLAT, flatten)
+    optional(Settings, KEY_BORDER, border)
     #For multi frames
-    optional(Settings,'Frames slice', framesSlices)
+    optional(Settings, KEY_FRAMESSLICES, framesSlices)
     Settings[KEY_NSPECIES] = nspecies
      
     with open(settingsfn, 'w') as f:
@@ -97,18 +109,23 @@ def loadJSON(settingsfn):
         Metadata = json.load(f)
         
     default(Metadata, KEY_BGFN, None)
-    Metadata[KEY_BGFN] = listmakeabs(os.path.dirname(metadatafn),
-                                 Metadata[KEY_BGFN])
+    default(Metadata, KEY_WALLWIDTH, None)
+    default(Metadata, KEY_NCHANNELS, 1)
+    
+    if Metadata[KEY_BGFN] is not None:
+        Metadata[KEY_BGFN] = listmakeabs(os.path.dirname(metadatafn),
+                                         Metadata[KEY_BGFN])
     Metadata[KEY_FN] = listmakeabs(os.path.dirname(metadatafn),
-                                 Metadata[KEY_FN])
+                                   Metadata[KEY_FN])
         
     
-    default(Settings, 'Ignore Edge[m]', 0)
-    default(Settings, 'First Position Filter', 'none')
-    default(Settings, 'Pos to fit', None)
-    default(Settings, 'Flatten bright field', False)
-    default(Settings, 'Image border[px] (t, d, l, r)', [None, None, None,None])
-    default(Settings, 'Frames slice', [None, None])
+    default(Settings, KEY_IGNORE, 0)
+    default(Settings, KEY_POS0FILTER, 'none')
+    default(Settings, KEY_FITPOS, None)
+    default(Settings, KEY_BFFLAT, False)
+    default(Settings, KEY_BORDER, [None, None, None,None])
+    default(Settings, KEY_FRAMESSLICES, [None, None])
+    default(Settings, KEY_NSPECIES, 1)
         
     return Metadata, Settings
 
@@ -122,82 +139,94 @@ def full_fit(settingsfn):
     Wz = Metadata[KEY_WZ]
     Wy = Metadata[KEY_WY]
     ActualFlowRate = Metadata[KEY_Q]
-    pixsize = Metadata['Pixel Size [m]']
+    pixsize = Metadata[KEY_PIXSIZE]
     rmin, rmax, rstep = Settings[KEY_R]
-    ignore = Settings['Ignore Edge[m]']
-    initmode = Settings['First Position Filter']
-    fit_position_number = Settings['Pos to fit']
-    flatten = Settings['Flatten bright field']
-    imborder = Settings['Image border[px] (t, d, l, r)']
-    framesSlice = Settings['Frames slice']
+    ignore = Settings[KEY_IGNORE]
+    initmode = Settings[KEY_POS0FILTER]
+    fit_position_number = Settings[KEY_FITPOS]
+    flatten = Settings[KEY_BFFLAT]
+    imborder = Settings[KEY_BORDER]
+    framesSlice = Settings[KEY_FRAMESSLICES]
     nspecies = Settings[KEY_NSPECIES]
     test_radii=np.arange(rmin,rmax,rstep) 
     
+    nchannels = Metadata[KEY_NCHANNELS]
+    wall_width = Metadata[KEY_WALLWIDTH]
     
-    isfourpos = False
+    #load images
     if isinstance(filename, (list, tuple)):
-        #This is a 12 pos
-        ims = [imread(fn) for fn in filename]
-        ims = [im[imborder[0]:imborder[1],
-                  imborder[2]:imborder[3]] for im in ims]
-        ims = [ims]
-        
-        
+        ims = np.asarray([imread(fn) for fn in filename])
     else:
-        # 4 pos
-        isfourpos = True
         ims = imread(filename)
         if len(np.shape(ims)) == 3:
             #movie
-            ims = ims[framesSlice[0]:framesSlice[1]]
-        else:
-            
-            ims = [ims]
-            
-        ims = [im[imborder[0]:imborder[1], 
-                  imborder[2]:imborder[3]] for im in ims]
-            
+            ims = ims[framesSlice[0]:framesSlice[1]]            
+      
+    #Remove Border
+    ims = ims[..., imborder[0]:imborder[1],
+                   imborder[2]:imborder[3]]
     
-    
+    #load background
+    bg = None
     if bgfn is not None:
-        if isfourpos:
+        if isinstance(bgfn, (list, tuple)):
+            bg = np.asarray([imread(fn) for fn in bgfn])
+        else:
             bg = imread(bgfn)
-            ims = [[im, bg] for im in ims]
-        else:
-            bgs = [imread(fn) for fn in bgfn]
-            ims[0] = [ims[0], bgs]
     
     
-    
-        
-        
-    radius_list = []
-    profiles_list = []
-    fits_list = []
-    lse_list = []
-    pixel_size_list = []
-    
-    for im in ims:
-    
-        # Infer variables
+    if nchannels == 1:
+        if len(ims.shape) == 2:
+            raise RuntimeError('Only 1 channel in 1 image. Please set "'
+                               +KEY_NCHANNELS + '".')
         data_dict={}
-        
-        # Get radius and LSE
-        if isfourpos:
-            radius=dd4.size_image(im, ActualFlowRate, Wz, Wy, readingpos,
-                                  test_radii, data_dict=data_dict, 
-                                  ignore=ignore, initmode=initmode, 
-                                  fit_position_number=fit_position_number, 
-                                  flatten=flatten, nspecies=nspecies)
-        else:
-            radius=ddx.size_images(im, ActualFlowRate, Wz, Wy, pixsize,
-                                   readingpos, Rs=test_radii, 
+        radius=ddx.size_images(ims, ActualFlowRate, Wz, Wy, pixsize,
+                                   readingpos, Rs=test_radii, bgs=bg,
                                    data_dict=data_dict, ignore=ignore,
                                    initmode=initmode, 
                                    nspecies=nspecies)
+        return (radius, *read_data_dict(data_dict))
         
-        profiles, fits, lse, pixel_size = np.nan, np.nan, np.nan, np.nan
+    else:
+        def process_im(im):
+            data_dict={}
+            radius=dd4.size_image(im, ActualFlowRate, Wz, Wy, readingpos,
+                                  test_radii, bg=bg, data_dict=data_dict, 
+                                  ignore=ignore, initmode=initmode, 
+                                  fit_position_number=fit_position_number, 
+                                  flatten=flatten, nspecies=nspecies,
+                                  Nprofs=nchannels, wall_width=wall_width)
+            return (radius, *read_data_dict(data_dict))
         
+        if len(ims.shape) == 2:
+            return process_im(ims)
+        else:
+            #movie
+            radius_list = []
+            profiles_list = []
+            fits_list = []
+            lse_list = []
+            pixel_size_list = []
+            for im in ims:
+                radius, profiles, fits, lse, pixel_size =  process_im(im)
+                radius_list.append(radius)
+                profiles_list.append(profiles)
+                fits_list.append(fits)
+                lse_list.append(lse)
+                pixel_size_list.append(pixel_size)
+    
+            overexposed=[is_overexposed(im) for im in ims]
+            return (np.asarray(radius_list), profiles_list, fits_list, 
+                    np.asarray(lse_list), np.asarray(pixel_size_list), 
+                    overexposed)
+    
+    
+    
+
+def read_data_dict(data_dict):
+    profiles, fits, lse, pixel_size = np.nan, np.nan, np.nan, np.nan
+    
+    if 'profiles' in data_dict and 'fits'in data_dict:
         lse=np.sqrt(np.mean(np.square(data_dict['profiles'][1:]
                                     - data_dict['fits'])))
         
@@ -205,17 +234,5 @@ def full_fit(settingsfn):
         profiles=data_dict['profiles']
         fits=[data_dict['initprof'],*data_dict['fits']]
         pixel_size=data_dict['pixsize']
-            
-        radius_list.append(radius)
-        profiles_list.append(profiles)
-        fits_list.append(fits)
-        lse_list.append(lse)
-        pixel_size_list.append(pixel_size)
-
-    if len(ims) == 1:
-        return radius, profiles, fits, lse, pixel_size
     
-    overexposed=[is_overexposed(im) for im in ims]
-    return (np.asarray(radius_list), profiles_list, fits_list, 
-            np.asarray(lse_list), np.asarray(pixel_size_list), overexposed)
-
+    return profiles, fits, lse, pixel_size

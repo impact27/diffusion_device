@@ -16,8 +16,8 @@ import cv2
 from scipy import interpolate
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
-def size_images(images, Q, Wz, Wy, pixsize, readingpos=None, Rs=None, *,
-                Zgrid=11, ignore=10e-6, normalize_profiles=True, 
+def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
+                Zgrid=11, ignore=0e-6, normalize_profiles=True, 
                 initmode='none', data_dict=None, rebin=2, nspecies=1):
     """
     Get the hydrodynamic radius from the images
@@ -64,33 +64,36 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos=None, Rs=None, *,
     #Check images is numpy array
     images=np.asarray(images)
     
-    #Fill missing arguments
-    if readingpos is None:
-        readingpos=defaultReading12Pos()
-    if Rs is None:
-        Rs=np.arange(.5,10,.5)*1e-9
-    
     #load images if string
-    if images.dtype.type==np.str_:
-        if len(np.shape(images))==1:
-            images=np.asarray(
-                    [mpimg.imread(im) for im in images])
-        elif len(np.shape(images))==2:
-            images=np.asarray(
-                    [[mpimg.imread(im) for im in ims] for ims in images])
-            
+    if images.dtype.type == np.str_:
+        if len(np.shape(images)) == 1:
+            images = np.asarray([mpimg.imread(im) for im in images])
+        else:
+            images = mpimg.imread(images)
+        
+    if bgs is not None:
+        #Check bgs is numpy array
+        bgs=np.asarray(bgs)
+        
+        #load bgs if string
+        if bgs.dtype.type==np.str_:
+            if len(np.shape(bgs))==1:
+                bgs = np.asarray([mpimg.imread(bg) for bg in bgs])
+            else:
+                bgs = mpimg.imread(bgs)
+        
     
     #Get flat images
-    if len(np.shape(images))==3:
+    if bgs is None:
         #Single images
         flatimages=np.asarray(
                 [flat_image(im,pixsize, Wy) 
                 for im in images])
-    elif len(np.shape(images))==4 and np.shape(images)[0]==2:
+    else:
         #images and background
         flatimages=np.asarray(
                 [remove_bg(im,bg,pixsize, Wy) 
-                for im,bg in zip(images[0],images[1])])
+                for im,bg in zip(images, bgs)])
     
     if rebin>1:   
         size=tuple(np.array(np.shape(flatimages)[1:])//rebin)

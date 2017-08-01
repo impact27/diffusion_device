@@ -51,6 +51,15 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     radii: float
         The best radius fit
     """
+    
+    #convert ignore to px
+    ignore = int(ignore/pixsize)
+    
+    if ignore == 0:
+        pslice = slice(None)
+    else:
+        pslice = slice(ignore, -ignore)
+    
     # Check input are arrays
     readingpos = np.asarray(readingpos)
     profiles = np.asarray(profiles)
@@ -58,13 +67,13 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     #normalize if needed
     if normalize_profiles:
         #if profile is mainly negative, error
-        if np.any(np.sum(profiles*(profiles>0),1) < 
-                  5*-np.sum(profiles*(profiles<0),1)):
-            raise RuntimeError('The profiles are negatives!')
-        profiles/=np.sum(profiles,-1)[:,np.newaxis]
+        if np.any(np.sum((profiles*(profiles>0))[:, pslice],1) < 
+                  5*-np.sum((profiles*(profiles<0))[:, pslice],1)):
+            warnings.warn("Negative profile", RuntimeWarning)
+        profiles/=np.sum(profiles[:, pslice],-1)[:,np.newaxis]
         
     #treat init profile
-    init = init_process(profiles[0],initmode)
+    init = init_process(profiles[0],initmode, ignore)
     #First reading pos is initial profile
     readingposfit = readingpos[1:]-readingpos[0]
     
@@ -74,8 +83,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
                       Zgrid=Zgrid, readingpos=readingposfit,
                       central_profile=central_profile) 
     
-    #convert ignore to px
-    ignore = int(ignore/pixsize)
+    
     
     if nspecies == 1:
         #Get best fit
@@ -103,7 +111,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     
 
 
-def fit_radius(profiles, Basis, Rs, ignore=0, nspecies=1):
+def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
     """Find the best monodisperse radius
     
      Parameters
@@ -160,7 +168,7 @@ def fit_radius(profiles, Basis, Rs, ignore=0, nspecies=1):
         raise RuntimeError('Number of species negative!')
     
 
-def fit_monodisperse_radius(M, b, psquare, Rs):
+def fit_monodisperse_radius(M, b, psquare, Rs=None):
     """Find the best monodisperse radius
     
     Parameters
@@ -181,6 +189,12 @@ def fit_monodisperse_radius(M, b, psquare, Rs):
     """
     #get best residu
     res = psquare + np.diag(M)-2*b
+    
+    if Rs is None:
+        ret = np.zeros_like(b)
+        ret[np.argmin(res)]=1
+        return ret
+    
     i,j = np.argsort(res)[:2]
     #np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
     c = (b[i] - b[j] - M[i,j] + M[j,j])/(M[i,i] + M[j,j] - M[i,j] - M[j,i])
@@ -188,19 +202,16 @@ def fit_monodisperse_radius(M, b, psquare, Rs):
     #Get resulting r
     r = c*(Rs[i]-Rs[j])+Rs[j]
     
+    #'''
+    from matplotlib.pyplot import figure, plot, title
+    figure()
+    plot(Rs,res)
+    #'''
+    
     if r < np.min(Rs):
         raise RuntimeError('The test radius are too big!')
     if r > np.max(Rs):
         raise RuntimeError('The test radius are too small!')
-    '''
-    from matplotlib.pyplot import figure, plot, title
-    figure()
-    plot(Rs,res)
-    figure()
-    plot(np.ravel(profiles[1:]))
-    plot(np.ravel(Basis[np.argmin(res)]))
-    title("{}, {}".format(r, Rs[np.argmin(res)]))
-    #'''
     
     return r
 
@@ -463,7 +474,7 @@ def image_angle(image, maxAngle=np.pi/7):
     #"""
     return angle
 
-def init_process(profile, mode):
+def init_process(profile, mode, ignore):
     """
     Process the initial profile
     
@@ -480,6 +491,8 @@ def init_process(profile, mode):
             Remove the tails
         'gfilter':
             Apply a gaussian filter of 2 px std
+    ignore: int or None
+        The number of pixels to ignore on the edges
     Returns
     -------
     profile: 1d array
@@ -487,6 +500,10 @@ def init_process(profile, mode):
     
     """
     profile = np.array(profile)
+    if ignore is not None:
+        profile[:ignore]=0
+        profile[-ignore:]=0
+
     if mode == 'none':
         return profile
     elif mode == 'gfilter':

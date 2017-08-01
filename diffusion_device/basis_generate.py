@@ -194,7 +194,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         #Trapezoid
         F = np.linalg.inv(I-.5*dF)@(I+.5*dF)
     else:
-        raise "Unknown integration Method: {}".format(method)
+        raise RuntimeError("Unknown integration Method: {}".format(method))
         
         
     #The maximal eigenvalue should be <=1! otherwhise no stability
@@ -322,7 +322,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
     else:
         if Cinit.shape[0]!=ZgridEffective:
-            raise "Cinit Z dim and Zgrid not aligned."
+            raise RuntimeError("Cinit Z dim and Zgrid not aligned.")
         
     Ygrid = Cinit.shape[1];
     NRs = len(Radii)
