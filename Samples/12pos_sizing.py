@@ -14,8 +14,10 @@ from matplotlib.pyplot import plot, figure
 # Settings
 #==============================================================================
 
-#File Name. If using UV, [image filename, background filename]
+#Settings file name
 settingsfn='../diffusion_device/tests/test_data/350ulh_12pos/fitsettings_poly.json'
+
+#path to save the results
 outpath = 'output'
 
 #==============================================================================
@@ -30,9 +32,11 @@ outpath = 'output'
 #      (_ )( _)
 
 radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
-#==============================================================================
+
+# =============================================================================
 # Plot
-#%%==============================================================================
+# =============================================================================
+
 if outpath is not None:
     import os
     import shutil

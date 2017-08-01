@@ -16,10 +16,15 @@ from matplotlib.image import NonUniformImage
 # Settings
 #==============================================================================
 
-#File Name.
+#Settings file path
 settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings_poly_2.json'
+
+#Folder to save results
 outpath = 'output'
+
+#positions to plot
 plotpos = [0, 10, 15]
+
 #==============================================================================
 # Fit----------DO NOT CHANGE BELOW THIS POINT----------------------------------
 #==============================================================================
@@ -35,9 +40,6 @@ plotpos = [0, 10, 15]
 (radii, profiles_list, 
  fits_list, LSE, pixs, overexposed) = full_fit(settingsfn)
 
-#%%
-
-
 intensity = np.asarray([ np.nanmax(p) for p in profiles_list])
 LSE = np.asarray(LSE)
 pixs = np.asarray(pixs)
@@ -46,7 +48,6 @@ if outpath is not None:
     base_name = os.path.join(outpath, 
                              os.path.splitext(os.path.basename(settingsfn))[0])
 
-#%%
 if len(np.shape(radii)) == 3:
     Rs= radii[0,0]*1e9
     ylim = (0, len(radii))
@@ -72,6 +73,7 @@ else:
     if np.any(overexposed):
         plot(x[overexposed],radii[overexposed]*1e9,'x',label='overexposed data')
         plt.legend()
+        
 if outpath is not None:
     plt.savefig(base_name+'_R_fig.pdf')
     
@@ -84,7 +86,7 @@ if np.any(overexposed):
     plt.legend()
 if outpath is not None:
     plt.savefig(base_name+'_LSE_fig.pdf')
-#%%  
+
 figure()
 plot(x[valid],intensity[valid],'x',label='regular')
 plt.xlabel('Frame number')

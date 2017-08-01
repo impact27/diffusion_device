@@ -12,10 +12,13 @@ from diffusion_device.json import full_fit
 # Settings
 #==============================================================================
 
-#File Name. If using UV, [image filename, background filename]
-outpath = 'output'
+#Settings file location
 settingsfn='../diffusion_device/tests/test_data/UVim300ulph_fitSettings_poly_all.json'
 #settingsfn='../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
+
+#Where to save the run
+outpath = 'output'
+
 
 #==============================================================================
 # Fit
