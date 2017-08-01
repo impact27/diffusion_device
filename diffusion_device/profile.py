@@ -202,7 +202,7 @@ def fit_monodisperse_radius(M, b, psquare, Rs=None):
     #Get resulting r
     r = c*(Rs[i]-Rs[j])+Rs[j]
     
-    #'''
+    '''
     from matplotlib.pyplot import figure, plot, title
     figure()
     plot(Rs,res)
@@ -270,12 +270,16 @@ def fit_N_radius(M, b, psquare, nspecies):
     res = np.empty(len(indices))
     C = np.empty((len(indices), nspecies))
     C0 = np.ones(nspecies)/nspecies
+    best = psquare
     for i, idx in enumerate(indices):
         bi = b[idx]
         Mi = M[idx][:, idx]
         min_res = minimize(fun, C0, args=(Mi, bi, psquare),
                    jac=jac, hess=hess, 
                    constraints=getconstr(nspecies))
+        if min_res.fun < best:
+            best = min_res.fun
+            print('New best: ',best)
         res[i] = min_res.fun
         C[i] = min_res.x
       
@@ -314,9 +318,9 @@ def fit_polydisperse_radius(M, b, psquare):
     def jac2(C, M, b, psquare):
         return jac(np.abs(C), M, b, psquare)*np.sign(C)
     
-    res = basinhopping(fun2, C0, 100,
+    res = basinhopping(fun2, C0, 100, disp=True,
                        minimizer_kwargs={'args': (M, b, psquare),
-                                         'jac': jac2
+                                         'jac': jac2,
                                          })
     spectrum = np.abs(res.x)
     return spectrum
@@ -500,7 +504,7 @@ def init_process(profile, mode, ignore):
     
     """
     profile = np.array(profile)
-    if ignore is not None:
+    if ignore is not None and ignore !=0:
         profile[:ignore]=0
         profile[-ignore:]=0
 
