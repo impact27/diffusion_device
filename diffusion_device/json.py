@@ -177,6 +177,9 @@ def full_fit(settingsfn):
             bg = np.asarray([imread(fn) for fn in bgfn])
         else:
             bg = imread(bgfn)
+            if len(np.shape(bg)) == 3:
+                #Check for full 0 
+                bg = np.squeeze(bg[np.logical_not(np.all(bg == 0, (1,2)))])
     
     
     if nchannels == 1:
