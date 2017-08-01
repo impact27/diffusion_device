@@ -23,10 +23,23 @@ settingsfn='../diffusion_device/tests/test_data/UVim300ulph_fitSettings_poly_all
 
 radius, profiles, fits, lse, pixel_size = full_fit(settingsfn)
 
+if outpath is not None:
+    import os
+    import shutil
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
+    base_name = os.path.join(outpath,  
+                             os.path.splitext(os.path.basename(settingsfn))[0])
+    shutil.copy(settingsfn, base_name + '.json')
+    
 if len(np.shape(radius))>0:
     Rs, spectrum = radius
     figure()
-    plot(Rs, spectrum, 'x-')
+    plot(Rs*1e9, spectrum, 'x-')
+    plt.xlabel("Radius [nm]")
+    plt.ylabel("Coefficient")
+    if outpath is not None:   
+        plt.savefig(base_name+'_rSpectrum_fig.pdf')
     figure()
     plt.title('LSE = {:.4e}, pixel = {:.3f} um'.format(
         lse, pixel_size*1e6))   
@@ -48,25 +61,24 @@ plt.ylabel('Normalised amplitude')
 
 #==============================================================================
 # Save
-#==============================================================================
+#%%============================================================================
 
 if outpath is not None:
-    import os
-    import shutil
-    if not os.path.exists(outpath):
-        os.makedirs(outpath)
-    base_name = os.path.join(outpath, 
-                             os.path.splitext(os.path.basename(settingsfn))[0])
     
-    plt.savefig(base_name+'_fig.pdf')
-    shutil.copy(settingsfn, base_name + '.json')     
-#    with open(base_name+'_result.txt','wb') as f:
-#        f.write("""Radius: {:f} nm
-#LSE: {:e}
-#Apparent pixel size: {:f} um
-#Profiles:
-#""".format(radius*1e9,lse,pixel_size*1e6).encode())
-#        np.savetxt(f,profiles)
-#        f.write('Fits:\n'.encode())
-#        np.savetxt(f,fits)
+    plt.savefig(base_name+'_fig.pdf') 
+    with open(base_name+'_result.txt','wb') as f:
+        f.write("LSE: {:e}\n".format(lse).encode())
+        f.write("Apparent pixel size: {:f} um\n".format(pixel_size*1e6).encode())
+        if len(np.shape(radius))>0:
+            f.write("Radii:\n".encode())
+            np.savetxt(f,radius[0])
+            f.write("Spectrum:\n".encode())
+            np.savetxt(f,radius[1])
+            
+        else:
+            f.write("Radius: {:f} nm".format(radius*1e9).encode())
+        f.write("Profiles:".encode())
+        np.savetxt(f,profiles)
+        f.write('Fits:\n'.encode())
+        np.savetxt(f,fits)
         

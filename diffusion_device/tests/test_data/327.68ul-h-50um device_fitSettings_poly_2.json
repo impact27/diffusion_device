@@ -1,0 +1,22 @@
+{
+    "Metadata file name": "327.68ul-h-50um device_Metadata.json",
+    "Radii[m] (min, max, step)": [
+        5e-10,
+        1e-08,
+        1e-10
+    ],
+    "Ignore Edge[m]": 0.0,
+    "First Position Filter": "none",
+    "Flatten bright field": true,
+    "Image border[px] (t, d, l, r)": [
+        150,
+        null,
+        null,
+        null
+    ],
+    "Frames slice": [
+        null,
+        250
+    ],
+    "Number of species to fit": 2
+}

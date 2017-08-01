@@ -7,16 +7,17 @@ Created on Wed Mar 22 16:47:11 2017
 import diffusion_device.profile as dp
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.pyplot import plot, figure
+from matplotlib.pyplot import plot, figure, imshow
 import os
 from diffusion_device.json import full_fit
-
+from matplotlib.image import NonUniformImage
+#%%
 #==============================================================================
 # Settings
 #==============================================================================
 
 #File Name.
-settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings.json'
+settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings_poly_2.json'
 outpath = 'output'
 plotpos = [0, 10, 15]
 #==============================================================================
@@ -34,12 +35,10 @@ plotpos = [0, 10, 15]
 (radii, profiles_list, 
  fits_list, LSE, pixs, overexposed) = full_fit(settingsfn)
 
-
 #%%
 
 
 intensity = np.asarray([ np.nanmax(p) for p in profiles_list])
-radii = np.asarray(radii)
 LSE = np.asarray(LSE)
 pixs = np.asarray(pixs)
 
@@ -48,15 +47,31 @@ if outpath is not None:
                              os.path.splitext(os.path.basename(settingsfn))[0])
 
 #%%
-x=np.arange(len(radii))
-valid=np.logical_not(overexposed)
-figure()
-plot(x[valid],radii[valid]*1e9,'x',label='data')
-plt.xlabel('Frame number')
-plt.ylabel('Radius [nm]')
-if np.any(overexposed):
-    plot(x[overexposed],radii[overexposed]*1e9,'x',label='overexposed data')
-    plt.legend()
+if len(np.shape(radii)) == 3:
+    Rs= radii[0,0]*1e9
+    ylim = (0, len(radii))
+    xlim = (np.min(Rs), np.max(Rs))
+    figure()
+    im = NonUniformImage(plt.gca(), extent=(*xlim, *ylim))
+    im.set_data(Rs, np.arange(len(radii)), radii[:,1])
+    plt.gca().images.append(im)
+    plt.xlim(*xlim)
+    plt.ylim(*ylim)
+    plt.xlabel('Radius [nm]')
+    plt.ylabel('Frame number')
+    
+
+else:
+
+    x=np.arange(len(radii))
+    valid=np.logical_not(overexposed)
+    figure()
+    plot(x[valid],radii[valid]*1e9,'x',label='data')
+    plt.xlabel('Frame number')
+    plt.ylabel('Radius [nm]')
+    if np.any(overexposed):
+        plot(x[overexposed],radii[overexposed]*1e9,'x',label='overexposed data')
+        plt.legend()
 if outpath is not None:
     plt.savefig(base_name+'_R_fig.pdf')
     
@@ -69,7 +84,7 @@ if np.any(overexposed):
     plt.legend()
 if outpath is not None:
     plt.savefig(base_name+'_LSE_fig.pdf')
-    
+#%%  
 figure()
 plot(x[valid],intensity[valid],'x',label='regular')
 plt.xlabel('Frame number')
@@ -96,8 +111,6 @@ if outpath is not None:
     outsettingsfn = os.path.join(outpath, os.path.basename(settingsfn))
     shutil.copy(settingsfn, outsettingsfn)  
     with open(base_name+'_result.txt','wb') as f:
-        f.write('Radii:\n'.encode())
-        np.savetxt(f,radii)
         f.write('Least square error:\n'.encode())
         np.savetxt(f,LSE)
         if np.any(overexposed):
@@ -105,6 +118,14 @@ if outpath is not None:
             np.savetxt(f,overexposed)
         f.write('Pixel size:\n'.encode())
         np.savetxt(f,pixs)
+        if len(np.shape(radii)) == 3:
+            for r, spectrum in zip(Rs, radii[:,1]):
+                f.write('Spectrums for radius {:.4e}nm:\n'.format(r).encode())
+                np.savetxt(f, spectrum)
+            
+        else:
+            f.write('Radii:\n'.encode())
+            np.savetxt(f,radii)
         
 
         
