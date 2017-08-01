@@ -65,6 +65,12 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
     Rs: 1d array, defaults None
         Hydrodimamic radii to simulate in [m].
         If None: between .5 and 10 nm
+    Nprofs: integer
+        the numbers of channels
+    wall_width: float
+        The wall width in [m]
+    bg: path or image
+        The background to remove
     Zgrid: int, defaults 11
         Number of Z slices
     ignore: float, defaults 5e-6
@@ -79,6 +85,8 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         Positions to use in the fit
     flatten: Bool, defaut False
         (Bright field only) Should the image be flattened?
+    nspecies: int, default 1
+        Number of species to fit. 0=all.
         
     Returns
     -------

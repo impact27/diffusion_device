@@ -9,7 +9,7 @@ from .basis_generate import getprofiles
 import scipy
 gfilter = scipy.ndimage.filters.gaussian_filter1d
 import warnings
-from scipy.optimize import basinhopping, differential_evolution, minimize
+from scipy.optimize import basinhopping, minimize
 from itertools import combinations
 
 def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
@@ -22,7 +22,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     ----------
     profiles: 2d array
         List of profiles to fit
-    flowRate: float
+    Q: float
         Speed of the flow in [ul/h]
     Wz: float
         The channel height in [m]
@@ -45,11 +45,16 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         If not None, returns infos
     central_profile: Bool, default False
         Should use central profile?
+    nspecies: int, default 1
+        number of species to fit
       
     Returns
     -------
-    radii: float
-        The best radius fit
+    if nspecies==1:
+        radii: float
+            The best radius fit
+    else:
+        Rs, spectrum, the radii and corresponding spectrum
     """
     
     #convert ignore to px
@@ -548,6 +553,7 @@ def get_edge(profile):
     ----------
     profile:  1d array
         profile to analyse
+        
     Returns
     -------
     edgePos: float

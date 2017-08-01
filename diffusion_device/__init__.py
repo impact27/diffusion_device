@@ -1,1 +1,1 @@
-import diffusion_device.four_channels_image
+import diffusion_device.multi_channels_image

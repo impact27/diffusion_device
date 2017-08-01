@@ -22,6 +22,8 @@ def image_infos(im, Nprofs):
     ----------
     im: 2d array
         The image
+    Nprofs: integer
+        the numbers of channels
         
     Returns
     -------
@@ -51,6 +53,8 @@ def straight_image_infos(im, Nprofs):
     ----------
     im: 2d array
         The image
+    Nprofs: integer
+        the numbers of channels
         
     Returns
     -------
@@ -134,6 +138,12 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
     ----------
     im: 2d array
         The image
+    chwidth: float
+        The channel width in [m]
+    wallwidth: float
+        The wall width in [m]
+    Nprofs: integer
+        the numbers of channels
     frac: float
         fraction of the profile taken by fluorescence from channels
     infosOut: dict, defaults None
@@ -186,8 +196,14 @@ def extract_profiles_flatim(im, chwidth, wallwidth, infos, Nprofs):
     ----------
     im: 2d array
         The flat image
+    chwidth: float
+        The channel width in [m]
+    wallwidth: float
+        The wall width in [m]
     infos: dict
         dictionnary containing the return value of straight_image_infos
+    Nprofs: integer
+        the numbers of channels
         
     Returns
     -------
@@ -236,6 +252,12 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False):
     ----------
     im: 2d array
         The flat image
+    Nprofs: integer
+        the numbers of channels
+    chwidth: float
+        The channel width in [m]
+    wallwidth: float
+        The wall width in [m]
     flatten: Bool, Defaults False
         Should the image be flatten
         

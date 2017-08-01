@@ -264,18 +264,24 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         Channel height [m]  
     Zgrid:  integer, defaults 1
         Number of Z pixel if Cinit is unidimentional
-    qE: float, default 0
-        charge times transverse electric field[N]
+    muEoD: float, default 0
+        mobility times transverse electric field divided by diffusion constant
     fullGrid: bool , false
         Should return full grid?
-    outV: 2d float array
-        array to use for the poiseuiile flow
     central_profile: Bool, default False
         If true, returns only the central profile
     eta: float
         eta
     kT: float
         kT
+    normalize: Bool, default True
+        Should the profiles be normalized?
+    Zmirror: Bool, default True
+        Should the Z mirror be used to bet basis functions
+    stepMuE: Bool, default False
+        Radii is in fact muEs
+    dxfactor: float, default 1
+        Factor to change dx size if the step size seems too big (Useless?)
 
     Returns
     -------
@@ -409,8 +415,10 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
             used to pad the array
     Q:  float
         The flux in the channel in [ul/h]
-    Radii: 1d array
-        The simulated radius. Must be in increasing order [m]
+    absmuEoDs: array floats
+        absolute values of the muE/D to test
+    muE: array float
+        values od muE to test
     readingpos: 1d array float
         Position to read at
     Wy: float, defaults 300e-6 
@@ -419,8 +427,6 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
         Channel height [m]  
     Zgrid:  integer, defaults 1
         Number of Z pixel if Cinit is unidimentional
-    qE: float, default 0
-        charge times transverse electric field[N]
     fullGrid: bool , false
         Should return full grid?
     outV: 2d float array
@@ -431,6 +437,11 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
         eta
     kT: float
         kT
+    Zmirror: Bool, default True
+        Should the Z mirror be used to bet basis functions
+        
+    dxfactor: float, default 1
+        Factor to change dx size if the step size seems too big (Useless?)
 
     Returns
     -------

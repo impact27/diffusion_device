@@ -24,14 +24,15 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
     
     Parameters
     ----------
-    images: 1d list of images or file name OR 2x 1d list
+    images: 1d list of images or file name 
         If this is a string, it will be treated like a path
-        If one list, treated like regular fluorescence images
-        If two list, treated like images and backgrounds
+        If one list, treated like images
     Q: float
         Flow rate in [ul/h]
     Wz: float
         Height of the channel in [m]
+    Wy: float
+        The channel width in [m]
     pixsize: float
         Pixel size in [m]
     readingpos: 1d float array, defaults None
@@ -39,8 +40,10 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
     Rs: 1d array, defaults None
         Hydrodimamic radii to simulate in [m].
         If None: between .5 and 10 nm
-    Wy: float
-        The channel width in [m]
+    bgs: 1d list of images or file name, default None
+        If this is a string, it will be treated like a path
+        If one list, treated like background images
+        if None, no background image
     Zgrid: int, defaults 11
         Number of Z slices
     ignore: float, defaults 10e-6
@@ -53,6 +56,8 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
         Output to get the profiles and fits
     rebin: int, defaults 2
         Rebin factor to speed up code
+    nspecies: int, default 1
+        number of species to fit
         
     Returns
     -------
@@ -115,7 +120,7 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
                   nspecies=nspecies)
     
 
-def remove_bg(im,bg, pixsize, chanWidth=300e-6):
+def remove_bg(im,bg, pixsize, chanWidth):
     """
     Remove background from image
     
@@ -127,7 +132,7 @@ def remove_bg(im,bg, pixsize, chanWidth=300e-6):
         background
     pixsize: float
         pixel size in [m]
-    chanWidth: float, defaults 300e-6
+    chanWidth: float
         channel width  in [m]
         
     Returns
@@ -157,7 +162,7 @@ def remove_bg(im,bg, pixsize, chanWidth=300e-6):
     #Get data
     return rmbg.remove_curve_background(im,bg,maskim=mask)
 
-def flat_image(im, pixsize, chanWidth=300e-6):
+def flat_image(im, pixsize, chanWidth):
     """
     Flatten the image
     
@@ -209,7 +214,7 @@ def flat_image(im, pixsize, chanWidth=300e-6):
     
     return im
 
-def extract_profile(flatim, pixsize, chanWidth=300e-6,*,reflatten=True,ignore=10):
+def extract_profile(flatim, pixsize, chanWidth,*,reflatten=True,ignore=10):
     """
     Get profile from a flat image
     

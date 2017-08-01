@@ -4,7 +4,6 @@ Created on Wed Apr  5 16:58:39 2017
 @author: quentinpeter
 """
 import diffusion_device.profile as dp
-import diffusion_device.four_channels_image as dd4
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.pyplot import plot, figure

@@ -26,11 +26,15 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
     ----------
     bg:  2d array
         image containning the 4 channels 
-    approxwidth: integer
-        the approximate width
-    angle: float
+    chwidth: int
+        The channel width in pixels
+    wallwidth: int
+        The wall width in pixels
+    Nprofs: integer
+        the numbers of channels
+    angle: float, default None
         if given, angle at which the edges are 
-    std: integer
+    std: integer, default 10
         Tolerence on wall position in pixels
         
     Returns
@@ -95,8 +99,12 @@ def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
     ----------
     bg:  2d array
         image containning the 4 channels 
-    approxwidth: integer
-        the approximate width
+    chwidth: int
+        The channel width in pixels
+    wallwidth: int
+        The wall width in pixels
+    Nprofs: integer
+        the numbers of channels
     angle: float
         if given, angle at which the edges are 
     edgesOut: 1d array
@@ -128,6 +136,8 @@ def bg_angle(im, bg, Nprofs, infoDict=None):
         image containning the 4 channels
     bg:  2d array
         background 
+    Nprofs: integer
+        the numbers of channels
     infoDict: dict
         infos out
         
@@ -152,6 +162,12 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
         list of images containning the 4 channels 
     bg: 2d array
         Background corresponding to the list
+    chwidth: float
+        The channel width in [m]
+    wallwidth: float
+        The wall width in [m]
+    Nprofs: integer
+        the numbers of channels
     edgesOut: 1d array
         output for the edges
         
@@ -199,6 +215,12 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth):
         image containning the 4 channels 
     bg: 2d array
         Background image
+    Nprofs: integer
+        the numbers of channels
+    chwidth: float
+        The channel width in [m]
+    wallwidth: float
+        The wall width in [m]
         
     Returns
     -------
