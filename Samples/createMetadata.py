@@ -19,10 +19,12 @@ readingpos = [
         0.0465
     ] #m
 pixelsize = 1e-6 #m
+wallwidth = 100e-6
+nchannels = 4
 
 ########################
 
 filename = os.path.basename(imfn)
 metafn = metadata_fn(imfn)
-createMetadata(metafn, filename, Wz, Wy, Q, readingpos,pixelsize, bgfn)
-
+createMetadata(metafn, filename, Wz, Wy, Q, readingpos, pixelsize, 
+               bgfn, wallwidth, nchannels)
