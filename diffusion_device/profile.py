@@ -247,15 +247,81 @@ def fit_monodisperse_radius(M, b, psquare, Rs=None):
     return r
 
 def fun(C, M, b, psquare):
+    """Residus of the fitting
+    
+    Parameters
+    ----------
+    C: 1d array
+        Coefficient for the basis function
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+        
+    Returns
+    -------
+    Residus: float
+        sum((d-p)^2)
+    """
     return psquare + C@M@C -2*C@b
 
 def jac(C, M, b, psquare):
+    """Jacobian of the Residus function
+    
+    Parameters
+    ----------
+    C: 1d array
+        Coefficient for the basis function
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+        
+    Returns
+    -------
+    jacobian: 1d array
+        The jacobian of fun
+    """
     return 2*C@M -2*b
 
 def hess(C, M, b, psquare):
+    """Hessian matrix of the Residus function
+    
+    Parameters
+    ----------
+    C: 1d array
+        Coefficient for the basis function
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+        
+    Returns
+    -------
+    hess: 2d array
+        The hessian matrix
+    """
     return 2*M
 
-def getconstr(Nb):
+def get_constraints(Nb):
+    """Get constraints such as C>0
+    
+    Parameters
+    ----------
+    Nb: int
+        number of coefficients
+        
+    Returns
+    -------
+    constr_dict: dict
+        dictionnary containing constraints    
+    """
     constr = []
     
     # Need C[i]>0
@@ -307,7 +373,7 @@ def fit_N_radius(M, b, psquare, nspecies):
         Mi = M[idx][:, idx]
         min_res = minimize(fun, C0, args=(Mi, bi, psquare),
                    jac=jac, hess=hess, 
-                   constraints=getconstr(nspecies))
+                   constraints=get_constraints(nspecies))
         if min_res.fun < best:
             best = min_res.fun
             print('New best: ',best)
@@ -528,6 +594,7 @@ def init_process(profile, mode, ignore):
             Apply a gaussian filter of 2 px std
     ignore: int or None
         The number of pixels to ignore on the edges
+    
     Returns
     -------
     profile: 1d array
