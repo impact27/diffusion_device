@@ -189,10 +189,10 @@ def flat_image(im, pixsize, chanWidth):
     im=ir.rotate_scale(im,-angle,1,borderValue=np.nan)
     
     #Get center
-    prof=np.nanmean(im,0)
+    prof=np.nanmean(im,0)#TODO: Maybe median?
     flatprof=prof-np.nanmedian(prof)
     flatprof[np.isnan(flatprof)]=0
-    x=np.arange(len(prof))-dp.center(flatprof)
+    x=np.arange(len(prof))-dp.center(flatprof)#TODO: Fail ->np.argmax?
     x=x*pixsize
     
     #Create mask
