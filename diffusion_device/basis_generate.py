@@ -158,14 +158,17 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         udiag2 = np.ones(Ygrid*Zgrid-2)
         udiag2[Ygrid-1::Ygrid] = 0
         udiag2[Ygrid-2::Ygrid] = 0
-        Cy = (np.diag(-udiag2, -2)
-            + np.diag(8*udiag1, -1)
-            + np.diag(-8*udiag1, 1)
-            + np.diag(udiag2, 2))
+        Cy = (np.diag(udiag2, -2)
+            + np.diag(-8*udiag1, -1)
+            + np.diag(8*udiag1, 1)
+            + np.diag(-udiag2, 2))
            
         for i in range(0, Ygrid*Zgrid, Ygrid):
-            Cy[i:i+2, i] = 7
-            Cy[i+Ygrid-2:i+Ygrid, i+Ygrid-1] = -7
+            #if we have an advection in one way, the other wall is set to 0
+            if muEoD < 0:
+                Cy[i:i+2, i] = -7
+            else:
+                Cy[i+Ygrid-2:i+Ygrid, i+Ygrid-1] = 7
         Cy /= (12*dy)
         
     Lapl = np.dot(np.diag(1/V), Cyy+Czz - muEoD*Cy)
@@ -174,12 +177,11 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
     dxtD = np.min((dy, dz))**2*V.min()/2
     
-    if muEoD > 0:
-        dxtD2 = dy*V.min()/muEoD/2
+    if muEoD != 0:
+        dxtD2 = V.min()/np.abs(muEoD)**2
         dxtD = np.min([dxtD, dxtD2])
         
     dxtD *= dxfactor
-    
     dF = dxtD*Lapl
 
     #Get step matrix
@@ -202,41 +204,6 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dxtD
-
-
-
-
-
-# def dxtDd(Zgrid, Ygrid, Wz, Wy, Q, outV=None):
-#     """
-#     Compute the position step
-#     
-#     Parameters
-#     ----------
-#     Zgrid:  integer
-#         Number of Z pixel
-#     Ygrid:  integer
-#         Number of Y pixel
-#     Wz: float
-#         Channel height [m]
-#     Wy: float 
-#         Channel width [m]
-#     Q:  float
-#         The flux in the channel in [ul/h]
-#     outV: 2d float array
-#         array to use for the return
-#     Returns
-#     -------
-#     dxtD: float 
-#         The position step multiplied by the diffusion coefficient
-#     """
-#     V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, outV)
-#     #% Get The step matrix
-#     dy = Wy/Ygrid
-#     dz = Wz/Zgrid    
-# 
-#     dxtD = np.min((dy, dz))**2*V.min()/2
-#     return dxtD
 
 
 #@profile

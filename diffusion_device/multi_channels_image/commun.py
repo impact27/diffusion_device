@@ -106,11 +106,20 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
     if im.dtype.type==np.str_:
         im = imread(str(im))
         
+    #Check shape
+    if not len(np.shape(im)) == 2:
+        raise RuntimeError("Incorrect image shape: "+str(np.shape(im)))
+        
     if bg is not None:
         bg = np.asarray(bg)
          #load bg if string
         if bg.dtype.type==np.str_:
             bg = imread(str(bg))
+        
+        #Check shape
+        if not len(np.shape(bg)) == 2:
+            raise RuntimeError("Incorrect background shape: "
+                               +str(np.shape(bg)))
         
             
     try:
