@@ -256,7 +256,7 @@ def loadJSON(settingsfn):
     default(Settings, KEY_STG_POS0FILTER, 'none')
     default(Settings, KEY_STG_FITPOS, None)
     default(Settings, KEY_STG_BFFLAT, False)
-    default(Settings, KEY_STG_BORDER, [None, None, None,None])
+    default(Settings, KEY_STG_BORDER, [None, None, None, None])
     default(Settings, KEY_STG_FRAMESSLICES, [None, None])
     default(Settings, KEY_STG_NSPECIES, 1)
         
@@ -306,7 +306,7 @@ def full_fit(settingsfn):
     imborder = Settings[KEY_STG_BORDER]
     framesSlice = Settings[KEY_STG_FRAMESSLICES]
     nspecies = Settings[KEY_STG_NSPECIES]
-    test_radii=np.arange(rmin,rmax,rstep) 
+    test_radii=np.arange(rmin, rmax, rstep) 
     
     nchannels = Metadata[KEY_MD_NCHANNELS]
     wall_width = Metadata[KEY_MD_WALLWIDTH]
@@ -318,7 +318,7 @@ def full_fit(settingsfn):
         ims = imread(filename)
         if len(np.shape(ims)) == 3:
             #Check for full 0 
-            ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1,2)))])
+            ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
             
         if len(np.shape(ims)) == 3:
             #movie
@@ -337,7 +337,7 @@ def full_fit(settingsfn):
             bg = imread(bgfn)
             if len(np.shape(bg)) == 3:
                 #Check for full 0 
-                bg = np.squeeze(bg[np.logical_not(np.all(bg == 0, (1,2)))])
+                bg = np.squeeze(bg[np.logical_not(np.all(bg == 0, (1, 2)))])
     
     
     if nchannels == 1:
@@ -417,7 +417,7 @@ def read_data_dict(data_dict):
         
         #Get profiles and fit
         profiles=data_dict['profiles']
-        fits=[data_dict['initprof'],*data_dict['fits']]
+        fits=[data_dict['initprof'], *data_dict['fits']]
         pixel_size=data_dict['pixsize']
     
     return profiles, fits, lse, pixel_size

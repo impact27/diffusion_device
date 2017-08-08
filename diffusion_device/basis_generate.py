@@ -126,7 +126,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     if Zmirror:
         Zodd = Zgrid%2==1
         halfZgrid = (Zgrid+1)//2 
-        V = V[:halfZgrid,:]
+        V = V[:halfZgrid, :]
         Viy = Viy[:halfZgrid, :]
         Zgrid = halfZgrid
     
@@ -203,13 +203,13 @@ def getQy(Zgrid, Ygrid):
         
     for i in range(0, Zgrid*Ygrid, Ygrid):
         #border 
-        q[-2,i:i+2,i]=1
-        q[-1,i,i]=1
-        q[1,i+Ygrid-1,i+Ygrid-1]=1
-        q[2,i+Ygrid-2:i+Ygrid,i+Ygrid-1]=1
+        q[-2, i:i+2, i]=1
+        q[-1, i, i]=1
+        q[1, i+Ygrid-1, i+Ygrid-1]=1
+        q[2, i+Ygrid-2:i+Ygrid, i+Ygrid-1]=1
         if i>0:
-            q[:,i:i+2, i-2:i] = 0
-            q[:,i-2:i, i:i+2] = 0
+            q[:, i:i+2, i-2:i] = 0
+            q[:, i-2:i, i:i+2] = 0
     return q
 
 def getQz(Zgrid, Ygrid, Zmirror, Zodd):    
@@ -227,28 +227,28 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
         
         if i == 1:
             if Zmirror and Zodd:
-                q[i][(np.arange(-Ygrid,0), 
-                      np.arange(-Ygrid,0)-Ygrid)] = 1
+                q[i][(np.arange(-Ygrid, 0), 
+                      np.arange(-Ygrid, 0)-Ygrid)] = 1
             else:
-                q[i][(np.arange(-Ygrid,0), 
-                      np.arange(-Ygrid,0))] = 1
+                q[i][(np.arange(-Ygrid, 0), 
+                      np.arange(-Ygrid, 0))] = 1
         if i == 2:
             if Zmirror:
                 if Zodd:
-                    q[i][(np.arange(-Ygrid,0)-Ygrid, 
-                          np.arange(-Ygrid,0)-Ygrid)] = 1
-                    q[i][(np.arange(-Ygrid,0), 
-                          np.arange(-Ygrid,0)-2*Ygrid)] = 1
+                    q[i][(np.arange(-Ygrid, 0)-Ygrid, 
+                          np.arange(-Ygrid, 0)-Ygrid)] = 1
+                    q[i][(np.arange(-Ygrid, 0), 
+                          np.arange(-Ygrid, 0)-2*Ygrid)] = 1
                 else:
-                    q[i][(np.arange(-Ygrid,0)-Ygrid, 
-                          np.arange(-Ygrid,0))] = 1
-                    q[i][(np.arange(-Ygrid,0), 
-                          np.arange(-Ygrid,0)-Ygrid)] = 1
+                    q[i][(np.arange(-Ygrid, 0)-Ygrid, 
+                          np.arange(-Ygrid, 0))] = 1
+                    q[i][(np.arange(-Ygrid, 0), 
+                          np.arange(-Ygrid, 0)-Ygrid)] = 1
             else:
-                q[i][(np.arange(-Ygrid,0), 
-                      np.arange(-Ygrid,0))] = 1
-                q[i][(np.arange(-Ygrid,0)-Ygrid, 
-                      np.arange(-Ygrid,0))] = 1
+                q[i][(np.arange(-Ygrid, 0), 
+                      np.arange(-Ygrid, 0))] = 1
+                q[i][(np.arange(-Ygrid, 0)-Ygrid, 
+                      np.arange(-Ygrid, 0))] = 1
     
     return q
 
@@ -401,7 +401,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)       
 
     #Get Nsteps for each radius and position
-    Nsteps = np.empty((NRs*Nrp,), dtype=int)         
+    Nsteps = np.empty((NRs*Nrp, ), dtype=int)         
     for i, v in enumerate(Radii):
         if stepMuE:
             dx = np.abs(dxtD*muEoD/v)
