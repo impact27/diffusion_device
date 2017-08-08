@@ -214,7 +214,7 @@ def flat_image(im, pixsize, chanWidth):
     
     return im
 
-def extract_profile(flatim, pixsize, chanWidth,*,reflatten=True,ignore=10):
+def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
     """
     Get profile from a flat image
     

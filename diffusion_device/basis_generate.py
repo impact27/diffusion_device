@@ -46,7 +46,7 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
                       (np.sin(nz*np.pi*(i+.5)/Zgrid)*
                        np.sin(ny*np.pi*(j+.5)/Ygrid)))
     Q /= 3600*1e9 #transorm in m^3/s
-    #Normalize
+    #Normalise
     normfactor = Q/(np.mean(V)* Wy *Wz)
     V *= normfactor
     
@@ -113,8 +113,8 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     dxtD: float 
         The position step multiplied by the diffusion coefficient
     """
-    
-    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)    
+     
+    V, Viy, __ = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=True)
     
     if outV is not None:
         outV[:] = V
@@ -127,55 +127,45 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         Zodd = Zgrid%2==1
         halfZgrid = (Zgrid+1)//2 
         V = V[:halfZgrid,:]
+        Viy = Viy[:halfZgrid, :]
         Zgrid = halfZgrid
     
     #flatten V
     V = np.ravel(V)
+    qy = getQy(Zgrid, Ygrid)
+    qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
     
     #get Cyy
-    udiag = np.ones(Ygrid*Zgrid-1)
-    udiag[Ygrid-1::Ygrid] = 0
-    Cyy = np.diag(udiag, 1)+np.diag(udiag, -1)
-    Cyy -= np.diag(np.sum(Cyy, 1))
-    Cyy /= dy**2
+    Cyy = np.diag(1/V)@((qy[-1]-2*qy[0]+qy[1])/dy**2)
     
     #get Czz
     Czz = 0
     if Zgrid>1:
-        udiag = np.ones(Ygrid*(Zgrid-1))
-        Czz = np.diag(udiag, Ygrid)
-        if Zmirror and Zodd:
-            udiag[-Ygrid:] = 2
-        Czz += np.diag(udiag, -Ygrid)
-        Czz -= np.diag(np.sum(Czz, 1))
-        Czz /= dz**2
+#        udiag = 1/V[:-Ygrid]
+#        ldiag = 1/V[Ygrid:]
+#        Czz = np.diag(udiag, Ygrid)
+#        if Zmirror and Zodd:
+#            ldiag[-Ygrid:] = 2*ldiag[-Ygrid:]
+#        Czz += np.diag(ldiag, -Ygrid)
+#        Czz -= np.diag(np.sum(Czz, 1))
+#        Czz /= dz**2
+#        Czz2 = Czz
         
-    Cy = 0
-    if muEoD != 0:
-        #get grad y operator   
-        udiag1 = np.ones(Ygrid*Zgrid-1)
-        udiag1[Ygrid-1::Ygrid] = 0
-        udiag2 = np.ones(Ygrid*Zgrid-2)
-        udiag2[Ygrid-1::Ygrid] = 0
-        udiag2[Ygrid-2::Ygrid] = 0
-        Cy = (np.diag(udiag2, -2)
-            + np.diag(-8*udiag1, -1)
-            + np.diag(8*udiag1, 1)
-            + np.diag(-udiag2, 2))
-           
-        for i in range(0, Ygrid*Zgrid, Ygrid):
-            #if we have an advection in one way, the other wall is set to 0
-            if muEoD < 0:
-                Cy[i:i+2, i] = -7
-            else:
-                Cy[i+Ygrid-2:i+Ygrid, i+Ygrid-1] = 7
-        Cy /= (12*dy)
+        Czz = np.diag(1/V)@((qz[-1]-2*qz[0]+qz[1])/dz**2)
         
-    Lapl = np.dot(np.diag(1/V), Cyy+Czz - muEoD*Cy)
+     
     #get F
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
     dxtD = np.min((dy, dz))**2*V.min()/2
+    
+    Cy = 0
+    if muEoD != 0:
+#        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy)
+        Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy)
+    
+    Lapl = Cyy+Czz - muEoD*Cy
+    
     
     if muEoD != 0:
         dxtD2 = V.min()/np.abs(muEoD)**2
@@ -205,6 +195,111 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dxtD
 
+def getQy(Zgrid, Ygrid):
+    #Create the q matrices
+    q = np.zeros((5, Zgrid*Ygrid, Zgrid*Ygrid))
+    for i in range(-2, 3):
+        q[i]=np.diag(np.ones(Zgrid*Ygrid-np.abs(i)), i)
+        
+    for i in range(0, Zgrid*Ygrid, Ygrid):
+        #border 
+        q[-2,i:i+2,i]=1
+        q[-1,i,i]=1
+        q[1,i+Ygrid-1,i+Ygrid-1]=1
+        q[2,i+Ygrid-2:i+Ygrid,i+Ygrid-1]=1
+        if i>0:
+            q[:,i:i+2, i-2:i] = 0
+            q[:,i-2:i, i:i+2] = 0
+    return q
+
+def getQz(Zgrid, Ygrid, Zmirror, Zodd):    
+    #Create the q matrices
+    q = np.zeros((5, Zgrid*Ygrid, Zgrid*Ygrid))
+    for i in range(-2, 3):
+        q[i]=np.diag(np.ones(Ygrid*(Zgrid-np.abs(i))), i*Ygrid)
+        #Border
+        if i < 0:
+            q[i][(np.arange(Ygrid), 
+                  np.arange(Ygrid))] = 1
+        if i < -1:
+            q[i][(np.arange(Ygrid)+Ygrid, 
+                  np.arange(Ygrid))] = 1
+        
+        if i == 1:
+            if Zmirror and Zodd:
+                q[i][(np.arange(-Ygrid,0), 
+                      np.arange(-Ygrid,0)-Ygrid)] = 1
+            else:
+                q[i][(np.arange(-Ygrid,0), 
+                      np.arange(-Ygrid,0))] = 1
+        if i == 2:
+            if Zmirror:
+                if Zodd:
+                    q[i][(np.arange(-Ygrid,0)-Ygrid, 
+                          np.arange(-Ygrid,0)-Ygrid)] = 1
+                    q[i][(np.arange(-Ygrid,0), 
+                          np.arange(-Ygrid,0)-2*Ygrid)] = 1
+                else:
+                    q[i][(np.arange(-Ygrid,0)-Ygrid, 
+                          np.arange(-Ygrid,0))] = 1
+                    q[i][(np.arange(-Ygrid,0), 
+                          np.arange(-Ygrid,0)-Ygrid)] = 1
+            else:
+                q[i][(np.arange(-Ygrid,0), 
+                      np.arange(-Ygrid,0))] = 1
+                q[i][(np.arange(-Ygrid,0)-Ygrid, 
+                      np.arange(-Ygrid,0))] = 1
+    
+    return q
+
+def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy):
+    
+    q = getQy(Zgrid, Ygrid)
+    
+    Cy = q[-2] - 8*q[-1] + 8*q[1] - q[2]
+    Cy /= (12*dy)
+    Cy = np.diag(1/V)@Cy
+    return Cy
+
+def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
+    #ravel the Viy with 1 zero between each z
+    iVyp = np.ravel(np.concatenate((1/Viy, np.zeros((Zgrid, 1))), 1))
+    iVym = np.concatenate(([0], iVyp[:-1]))
+    
+    iVyp = np.diag(iVyp)
+    iVym = np.diag(iVym)
+    
+    q = getQy(Zgrid, Ygrid)
+    
+    sigdy = np.zeros((3, Zgrid*Ygrid, Zgrid*Ygrid))
+    for i in range(-1, 2):
+        sigdy[i] = (q[i+1] - q[i-1])/2
+    
+    
+    #Get nu
+    nu = muEoD*dxtD
+    
+    #We want to represent the following equation as a matrix
+    """\frac{1}{\Delta y}\left[ 
+        \left( \frac{q_{i-1}}{V_{i-1/2}} - \frac{q_{i}}{V_{i+1/2}} \right) 
+        + \frac{1}{2}\left( 
+            \left( \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}} 
+                - \frac{\Delta y \sigma_{i}}{V_{i+1/2}} \right) 
+            - \frac{u\Delta x}{\Delta y} \left( 
+                \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}^2} 
+                - \frac{\Delta y \sigma_{i}}{V_{i+1/2}^2} 
+    \right)\right) \right]"""
+    
+    neg =   muEoD < 0
+    
+    Cy = (iVym@q[-1+neg] - iVyp@q[0+neg] 
+          + (.5-neg)*((iVym@sigdy[-1+neg] - iVyp@sigdy[0+neg])
+              - nu*(iVym**2@sigdy[-1+neg] - iVyp**2@sigdy[0+neg])))
+    
+    Cy /= dy
+    
+    # minus to he a differntial operator
+    return -Cy 
 
 #@profile
 def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
@@ -313,7 +408,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         else:
             D = kT/(6*np.pi*eta*v)
             dx = dxtD/D
-        Nsteps[Nrp*i:Nrp*(i+1)] = np.asarray(readingpos//dx, dtype=int)
+        Nsteps[Nrp*i:Nrp*(i+1)] = np.asarray(readingpos/dx, dtype=int)
      
     print('{} steps'.format(Nsteps.max()))
     #transform Nsteps to binary array
@@ -361,12 +456,12 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     else:
         #Take mean
         profilespos = np.mean(profilespos, -2)
-    
+        
     if normalize:
-        #Normalize to avoid mass destruction / creation
+        #Normalize as the z position is not known
         profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
                         / np.sum(Cinit/Zgrid))
-    
+        
     return profilespos
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
@@ -437,7 +532,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
             ret[:] = getprofiles(Cinit, Q, muEs, readingpos,  Wy, Wz, Zgrid, 
                                  muEoD, fullGrid=fullGrid, eta=eta, kT=kT, 
                                  Zmirror=Zmirror, 
-                                 central_profile=central_profile, 
+                                 central_profile=central_profile,
                                  normalize=False, stepMuE=True, 
                                  dxfactor=dxfactor)
         return rets
