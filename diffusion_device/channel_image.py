@@ -17,7 +17,7 @@ from scipy import interpolate
 warnings.filterwarnings('ignore', 'Mean of empty slice',RuntimeWarning)
 
 def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
-                Zgrid=11, ignore=0e-6, normalize_profiles=True, 
+                Zgrid=11, ignore=0e-6, normalise_profiles=True, 
                 initmode='none', data_dict=None, rebin=2, nspecies=1):
     """
     Get the hydrodynamic radius from the images
@@ -48,8 +48,8 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
         Number of Z slices
     ignore: float, defaults 10e-6
         Distance to sides to ignore
-    normalize_profiles: Bool, defaults True
-        Should the profiles be normalized?
+    normalise_profiles: Bool, defaults True
+        Should the profiles be normalised?
     initmode: str, defaults 'none'
         The processing mode for the initial profile (See profiles.py)
     data_dict: dict, defaults None
@@ -115,7 +115,7 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
         data_dict['profiles']=profiles  
 
     return dp.size_profiles(profiles,Q,Wz,pixsize,readingpos,Rs,
-                  initmode=initmode,normalize_profiles=normalize_profiles,
+                  initmode=initmode,normalise_profiles=normalise_profiles,
                   Zgrid=Zgrid, ignore=ignore,data_dict=data_dict,
                   nspecies=nspecies)
     

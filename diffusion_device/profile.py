@@ -13,7 +13,7 @@ from scipy.optimize import basinhopping, minimize
 from itertools import combinations
 
 def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
-                  initmode='none', normalize_profiles=True, Zgrid=11,
+                  initmode='none', normalise_profiles=True, Zgrid=11,
                   ignore=10e-6, data_dict=None,
                   central_profile=False, nspecies=1):
     """Size the profiles
@@ -35,8 +35,8 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     initmode: string, default 'none'
         How should the initial profile be processed 
         See init_process
-    normalize_profiles: Bool, default True
-        Should normalize profiles?
+    normalise_profiles: Bool, default True
+        Should normalise profiles?
     Zgrid: integer, default 11
         Number of Z slices
     ignore: float, default 10e-6
@@ -69,8 +69,8 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     readingpos = np.asarray(readingpos)
     profiles = np.asarray(profiles)
     
-    #normalize if needed
-    if normalize_profiles:
+    #normalise if needed
+    if normalise_profiles:
         #if profile is mainly negative, error
         if np.any(np.sum((profiles*(profiles>0))[:, pslice],1) < 
                   5*-np.sum((profiles*(profiles<0))[:, pslice],1)):

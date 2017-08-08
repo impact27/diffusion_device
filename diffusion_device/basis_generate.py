@@ -304,7 +304,7 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
 #@profile
 def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
                 muEoD=0, *, fullGrid=False, central_profile=False,
-                eta=1e-3, kT=1.38e-23*295, normalize=True, Zmirror=True,
+                eta=1e-3, kT=1.38e-23*295, normalise=True, Zmirror=True,
                 stepMuE=False, dxfactor=1):
     """Returns the theorical profiles for the input variables
     
@@ -336,8 +336,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         eta
     kT: float
         kT
-    normalize: Bool, default True
-        Should the profiles be normalized?
+    normalise: Bool, default True
+        Should the profiles be normalised?
     Zmirror: Bool, default True
         Should the Z mirror be used to bet basis functions
     stepMuE: Bool, default False
@@ -457,7 +457,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         #Take mean
         profilespos = np.mean(profilespos, -2)
         
-    if normalize:
+    if normalise:
         #Normalize as the z position is not known
         profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
                         / np.sum(Cinit/Zgrid))
@@ -533,7 +533,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
                                  muEoD, fullGrid=fullGrid, eta=eta, kT=kT, 
                                  Zmirror=Zmirror, 
                                  central_profile=central_profile,
-                                 normalize=False, stepMuE=True, 
+                                 normalise=False, stepMuE=True, 
                                  dxfactor=dxfactor)
         return rets
     

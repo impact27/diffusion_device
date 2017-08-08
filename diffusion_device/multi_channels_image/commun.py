@@ -41,7 +41,7 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 
 
 def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
-                Zgrid=11, ignore=5e-6, normalize_profiles=True, 
+                Zgrid=11, ignore=5e-6, normalise_profiles=True, 
                 initmode='none', data_dict=None, fit_position_number=None,
                 flatten=False, nspecies=1, ignore_error=False, plotim=False):
     
@@ -75,8 +75,8 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         Number of Z slices
     ignore: float, defaults 5e-6
         Distance to sides to ignore
-    normalize_profiles: Bool, defaults True
-        Should the profiles be normalized?
+    normalise_profiles: Bool, defaults True
+        Should the profiles be normalised?
     initmode: str, defaults 'none'
         The processing mode for the initial profile (See profiles.py)
     data_dict: dict, defaults None
@@ -150,6 +150,6 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         data_dict['pixsize'] = pixsize
         data_dict['profiles'] = profiles
     return dp.size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs,
-                  initmode=initmode, normalize_profiles=normalize_profiles,
+                  initmode=initmode, normalise_profiles=normalise_profiles,
                   Zgrid=Zgrid, ignore=ignore, data_dict=data_dict,
                   nspecies=nspecies)
