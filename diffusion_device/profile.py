@@ -86,7 +86,8 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     Wy = pixsize*len(init)
     Basis = getprofiles(init, Q, Rs, Wy=Wy, Wz=Wz,
                       Zgrid=Zgrid, readingpos=readingposfit,
-                      central_profile=central_profile) 
+                      central_profile=central_profile, 
+                      normalise=normalise_profiles) 
     
     
     
@@ -100,7 +101,8 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
             data_dict['fits'] = getprofiles(init,Q=Q, Radii=[r],
                                             Wy=Wy, Wz=Wz, Zgrid=Zgrid,
                                             readingpos=readingposfit,
-                                            central_profile=central_profile)[0]
+                                            central_profile=central_profile, 
+                                            normalise=normalise_profiles)[0]
             
         return r
     else:
