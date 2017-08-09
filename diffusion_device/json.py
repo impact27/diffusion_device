@@ -270,6 +270,18 @@ def loadMetadata(metadatafn):
     return Metadata
 
 def getType(metadatafn):
+    """Get the type of data this is
+    
+    Parameters
+    ----------
+    metadatafn: path
+        path to the metadata file
+        
+    Returns
+    -------
+    dtype: str
+        a string describing the type of data
+    """
     Metadata = loadMetadata(metadatafn)
     nchannels = Metadata[KEY_MD_NCHANNELS]
     if nchannels == 1:
@@ -294,6 +306,8 @@ def full_fit(settingsfn, metadatafn):
     ----------
     settingsfn: path
         path to the fit settings file
+    metadatafn: path
+        path to the metadata file
         
     Returns
     -------

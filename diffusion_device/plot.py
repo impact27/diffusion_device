@@ -21,6 +21,20 @@ from matplotlib.image import NonUniformImage
 import shutil
 
 def plotpos(settingsfn, metadatafn, outpath=None, plotpos=None):
+    """Plot the sizing data
+    
+    Parameters
+    ----------
+    settingsfn: path
+        path to the fit settings file
+    metadatafn: path
+        path to the metadata file
+    outpath: path
+        Folder where to save the figures and data
+    plotpos: array of ints
+        Positions to plot if this is a stack
+        
+    """
     dtype = json.getType(metadatafn)
     if dtype == '4pos':
         plot4pos(settingsfn, metadatafn, outpath)
@@ -30,6 +44,18 @@ def plotpos(settingsfn, metadatafn, outpath=None, plotpos=None):
         plot12pos(settingsfn, metadatafn, outpath)
         
 def plot4pos(settingsfn, metadatafn, outpath=None):
+    """Plot the sizing data
+    
+    Parameters
+    ----------
+    settingsfn: path
+        path to the fit settings file
+    metadatafn: path
+        path to the metadata file
+    outpath: path
+        Folder where to save the figures and data
+        
+    """
 
     
     #==========================================================================
@@ -92,6 +118,21 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
             np.savetxt(f,fits)
 
 def prepare_output(outpath, settingsfn):
+    """Prepare output folder
+    
+    Parameters
+    ----------
+    outpath: path
+        Folder where to save the figures and data
+    settingsfn: path
+        path to the fit settings file
+    
+    Returns
+    -------
+    base_name: path
+        The prefix to use to save data
+        
+    """
     base_name=None
     if outpath is not None:
         if not os.path.exists(outpath):
@@ -102,6 +143,18 @@ def prepare_output(outpath, settingsfn):
     return base_name
         
 def plot12pos(settingsfn, metadatafn, outpath=None):
+    """Plot the sizing data
+    
+    Parameters
+    ----------
+    settingsfn: path
+        path to the fit settings file
+    metadatafn: path
+        path to the metadata file
+    outpath: path
+        Folder where to save the figures and data
+        
+    """
     radius, profiles, fits, lse, pixel_size = full_fit(settingsfn, metadatafn)
     
     # =========================================================================
@@ -157,6 +210,20 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
             
             
 def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
+    """Plot the sizing data
+    
+    Parameters
+    ----------
+    settingsfn: path
+        path to the fit settings file
+    metadatafn: path
+        path to the metadata file
+    outpath: path
+        Folder where to save the figures and data
+    plotpos: array of ints
+        Positions to plot if this is a stack
+        
+    """
     # Infer variables    
     (radii, profiles_list, 
      fits_list, LSE, pixs, overexposed) = full_fit(settingsfn, metadatafn)
