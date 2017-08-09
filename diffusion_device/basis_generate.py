@@ -7,6 +7,257 @@ Created on Mon Jan  9 09:32:10 2017
 import numpy as np
 
 #%%
+#@profile
+def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
+                muEoD=0, *, fullGrid=False, central_profile=False,
+                eta=1e-3, kT=1.38e-23*295, normalise=True, Zmirror=True,
+                stepMuE=False, dxfactor=1):
+    """Returns the theorical profiles for the input variables
+    
+    Parameters
+    ----------
+    Cinit:  1d array or 2d array
+            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
+            used to pad the array
+    Q:  float
+        The flux in the channel in [ul/h]
+    Radii: 1d array
+        The simulated radius. Must be in increasing order [m]
+        OR: The mobilities (if stepMuE is True)
+    readingpos: 1d array float
+        Position to read at
+    Wy: float
+        Channel width [m]
+    Wz: float
+        Channel height [m]  
+    Zgrid:  integer, defaults 1
+        Number of Z pixel if Cinit is unidimentional
+    muEoD: float, default 0
+        mobility times transverse electric field divided by diffusion constant
+    fullGrid: bool , false
+        Should return full grid?
+    central_profile: Bool, default False
+        If true, returns only the central profile
+    eta: float
+        eta
+    kT: float
+        kT
+    normalise: Bool, default True
+        Should the profiles be normalised?
+    Zmirror: Bool, default True
+        Should the Z mirror be used to bet basis functions
+    stepMuE: Bool, default False
+        Radii is in fact muEs
+    dxfactor: float, default 1
+        Factor to change dx size if the step size seems too big (Useless?)
+
+    Returns
+    -------
+    profilespos: 3d array
+        The list of profiles for the 12 positions at the required radii
+    
+    """  
+    Radii = np.array(Radii)
+    if stepMuE:
+        if muEoD == 0:
+            raise RuntimeError("Can't calculate for 0 qE")
+    else:
+        if np.any(Radii<=0):
+            raise RuntimeError("Can't work with negative radii!")
+    #Functions to access F
+    def getF(Fdir, NSteps):
+        if NSteps not in Fdir:
+            Fdir[NSteps] = np.dot(Fdir[NSteps//2], Fdir[NSteps//2])
+        return Fdir[NSteps]  
+    
+    def initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor):
+        key = (Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)
+        if not hasattr(getprofiles, 'dirFList') :
+            getprofiles.dirFList = {}
+        #Create dictionnary if doesn't exist
+        if key in getprofiles.dirFList:
+            return getprofiles.dirFList[key]
+        else:
+            Fdir = {}
+            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, muEoD=muEoD, 
+                                        Zmirror=Zmirror, dxfactor=dxfactor)
+            getprofiles.dirFList[key] = (Fdir, dxtd)
+            return Fdir, dxtd
+        
+    #Prepare input and Initialize arrays
+    readingpos = np.asarray(readingpos)
+    
+    ZgridEffective = Zgrid
+    if Zmirror:
+        ZgridEffective = (Zgrid+1)//2
+    
+    Cinit = np.array(Cinit, dtype=float)
+    if len(Cinit.shape)<2:
+        Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
+        Cinit = Cinit/Zgrid
+    else:
+        if Cinit.shape[0]!=ZgridEffective:
+            raise RuntimeError("Cinit Z dim and Zgrid not aligned.")
+        
+    Ygrid = Cinit.shape[1];
+    NRs = len(Radii)
+    Nrp = len(readingpos)
+    profilespos = np.tile(np.ravel(Cinit), (NRs*Nrp, 1))
+    
+    #get step matrix
+    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)       
+
+    #Get Nsteps for each radius and position
+    Nsteps = np.empty((NRs*Nrp, ), dtype=int)         
+    for i, v in enumerate(Radii):
+        if stepMuE:
+            dx = np.abs(dxtD*muEoD/v)
+        else:
+            D = kT/(6*np.pi*eta*v)
+            dx = dxtD/D
+        Nsteps[Nrp*i:Nrp*(i+1)] = np.asarray(readingpos/dx, dtype=int)
+     
+    print('{} steps'.format(Nsteps.max()))
+    #transform Nsteps to binary array
+    pow2 = 1<<np.arange(int(np.floor(np.log2(Nsteps.max())+1)))
+    pow2 = pow2[:, None]
+    binSteps = np.bitwise_and(Nsteps[None, :], pow2)>0
+    
+    #Sort for less calculations
+    sortedbs = np.argsort([str(num) 
+                            for num in np.asarray(binSteps, dtype=int).T])
+    
+    #for each unit
+    for i, bsUnit in enumerate(binSteps):
+        F = getF(Fdir, 2**i)
+        #save previous number
+        prev = np.zeros(i+1, dtype=bool)
+        for j, bs in enumerate(bsUnit[sortedbs]):#[sortedbs]
+            prof = profilespos[sortedbs[j], :]
+            act = binSteps[:i+1, sortedbs[j]]
+            #If we have a one, multiply by the current step function
+            if bs:
+                #If this is the same as before, no need to recompute
+                if (act==prev).all():
+                    prof[:] = profilespos[sortedbs[j-1]]
+                else:
+                    prof[:] = np.dot(F, prof)
+            prev = act
+         
+    #reshape correctly
+    profilespos.shape = (NRs, Nrp, ZgridEffective, Ygrid)
+    
+    if Zmirror:
+        profilespos = np.concatenate((profilespos, 
+                                      profilespos[:, :, -1-Zgrid%2::-1, :]), 2)
+        Cinit = np.concatenate((Cinit, Cinit[-1-Zgrid%2::-1, :]), 0)
+    
+    #If full grid, stop here
+    if fullGrid:
+        return profilespos
+    
+    if central_profile:
+        #Take central profile
+        central_idx = int((Zgrid-1)/2)
+        profilespos = profilespos[:, :, central_idx, :]
+    else:
+        #Take sum
+        profilespos = np.sum(profilespos, -2)
+        
+    if normalise:
+        #Normalize as the z position is not known
+        profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
+                        / np.sum(Cinit))
+        
+    return profilespos
+
+def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
+                       Wz, Zgrid=1, *, fullGrid=False, central_profile=False,
+                       eta=1e-3, kT=1.38e-23*295, Zmirror=True, dxfactor=1):
+    """Returns the theorical profiles for the input variables
+    
+    Parameters
+    ----------
+    Cinit:  1d array or 2d array
+            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
+            used to pad the array
+    Q:  float
+        The flux in the channel in [ul/h]
+    absmuEoDs: array floats
+        absolute values of the muE/D to test
+    muE: array float
+        values od muE to test
+    readingpos: 1d array float
+        Position to read at
+    Wy: float 
+        Channel width [m]
+    Wz: float
+        Channel height [m]  
+    Zgrid:  integer, defaults 1
+        Number of Z pixel if Cinit is unidimentional
+    fullGrid: bool , false
+        Should return full grid?
+    outV: 2d float array
+        array to use for the poiseuiile flow
+    central_profile: Bool, default False
+        If true, returns only the central profile
+    eta: float
+        eta
+    kT: float
+        kT
+    Zmirror: Bool, default True
+        Should the Z mirror be used to bet basis functions
+        
+    dxfactor: float, default 1
+        Factor to change dx size if the step size seems too big (Useless?)
+
+    Returns
+    -------
+    profilespos: 3d array
+        The list of profiles for the 12 positions at the required radii
+    
+    """ 
+
+    muEs = np.asarray(muEs)
+    absmuEoDs = np.abs(absmuEoDs)
+    NqE = len(absmuEoDs)
+    negmuE = muEs[muEs<0]
+    posmuE = muEs[muEs>0]
+    
+    Nrp = len(readingpos)
+    Ygrid = Cinit.shape[-1]
+    
+    def getret(muEs, muEoDs):
+        NuEs = len(muEs)
+        if fullGrid:
+            rets = np.zeros((NqE, NuEs, Nrp, Zgrid, Ygrid))
+        else:
+            rets = np.zeros((NqE, NuEs, Nrp, Ygrid))
+            
+        for muEoD, ret in zip(muEoDs, rets):
+            ret[:] = getprofiles(Cinit, Q, muEs, readingpos,  Wy, Wz, Zgrid, 
+                                 muEoD, fullGrid=fullGrid, eta=eta, kT=kT, 
+                                 Zmirror=Zmirror, 
+                                 central_profile=central_profile,
+                                 normalise=False, stepMuE=True, 
+                                 dxfactor=dxfactor)
+        return rets
+    
+    N_neg_muEs = len(negmuE)
+    N_pos_muEs = len(posmuE)
+    NmuEs = N_neg_muEs + N_pos_muEs
+    if fullGrid:
+        rets = np.zeros((NqE, NmuEs, Nrp, Zgrid, Ygrid))
+    else:
+        rets = np.zeros((NqE, NmuEs, Nrp, Ygrid))
+        
+    if N_neg_muEs>0:
+        rets[:, :N_neg_muEs] = getret(negmuE, -absmuEoDs)
+    if N_pos_muEs>0:   
+        rets[:, N_neg_muEs:] = getret(posmuE, absmuEoDs)
+    
+    return rets
+
 def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
     """
     Compute the poiseuille flow profile
@@ -370,271 +621,3 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
     # minus to be a differntial operator
     return -Cy 
 
-#@profile
-def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
-                muEoD=0, *, fullGrid=False, central_profile=False,
-                eta=1e-3, kT=1.38e-23*295, normalise=True, Zmirror=True,
-                stepMuE=False, dxfactor=1):
-    """Returns the theorical profiles for the input variables
-    
-    Parameters
-    ----------
-    Cinit:  1d array or 2d array
-            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
-            used to pad the array
-    Q:  float
-        The flux in the channel in [ul/h]
-    Radii: 1d array
-        The simulated radius. Must be in increasing order [m]
-        OR: The mobilities (if stepMuE is True)
-    readingpos: 1d array float
-        Position to read at
-    Wy: float, defaults 300e-6 
-        Channel width [m]
-    Wz: float, defaults 50e-6
-        Channel height [m]  
-    Zgrid:  integer, defaults 1
-        Number of Z pixel if Cinit is unidimentional
-    muEoD: float, default 0
-        mobility times transverse electric field divided by diffusion constant
-    fullGrid: bool , false
-        Should return full grid?
-    central_profile: Bool, default False
-        If true, returns only the central profile
-    eta: float
-        eta
-    kT: float
-        kT
-    normalise: Bool, default True
-        Should the profiles be normalised?
-    Zmirror: Bool, default True
-        Should the Z mirror be used to bet basis functions
-    stepMuE: Bool, default False
-        Radii is in fact muEs
-    dxfactor: float, default 1
-        Factor to change dx size if the step size seems too big (Useless?)
-
-    Returns
-    -------
-    profilespos: 3d array
-        The list of profiles for the 12 positions at the required radii
-    
-    """  
-    Radii = np.array(Radii)
-    if stepMuE:
-        if muEoD == 0:
-            raise RuntimeError("Can't calculate for 0 qE")
-    else:
-        if np.any(Radii<=0):
-            raise RuntimeError("Can't work with negative radii!")
-    #Functions to access F
-    def getF(Fdir, NSteps):
-        if NSteps not in Fdir:
-            Fdir[NSteps] = np.dot(Fdir[NSteps//2], Fdir[NSteps//2])
-        return Fdir[NSteps]  
-    
-    def initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor):
-        key = (Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)
-        if not hasattr(getprofiles, 'dirFList') :
-            getprofiles.dirFList = {}
-        #Create dictionnary if doesn't exist
-        if key in getprofiles.dirFList:
-            return getprofiles.dirFList[key]
-        else:
-            Fdir = {}
-            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, muEoD=muEoD, 
-                                        Zmirror=Zmirror, dxfactor=dxfactor)
-            getprofiles.dirFList[key] = (Fdir, dxtd)
-            return Fdir, dxtd
-        
-    #Prepare input and Initialize arrays
-    readingpos = np.asarray(readingpos)
-    
-    ZgridEffective = Zgrid
-    if Zmirror:
-        ZgridEffective = (Zgrid+1)//2
-    
-    Cinit = np.array(Cinit, dtype=float)
-    if len(Cinit.shape)<2:
-        Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
-        Cinit = Cinit/Zgrid
-    else:
-        if Cinit.shape[0]!=ZgridEffective:
-            raise RuntimeError("Cinit Z dim and Zgrid not aligned.")
-        
-    Ygrid = Cinit.shape[1];
-    NRs = len(Radii)
-    Nrp = len(readingpos)
-    profilespos = np.tile(np.ravel(Cinit), (NRs*Nrp, 1))
-    
-    #get step matrix
-    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)       
-
-    #Get Nsteps for each radius and position
-    Nsteps = np.empty((NRs*Nrp, ), dtype=int)         
-    for i, v in enumerate(Radii):
-        if stepMuE:
-            dx = np.abs(dxtD*muEoD/v)
-        else:
-            D = kT/(6*np.pi*eta*v)
-            dx = dxtD/D
-        Nsteps[Nrp*i:Nrp*(i+1)] = np.asarray(readingpos/dx, dtype=int)
-     
-    print('{} steps'.format(Nsteps.max()))
-    #transform Nsteps to binary array
-    pow2 = 1<<np.arange(int(np.floor(np.log2(Nsteps.max())+1)))
-    pow2 = pow2[:, None]
-    binSteps = np.bitwise_and(Nsteps[None, :], pow2)>0
-    
-    #Sort for less calculations
-    sortedbs = np.argsort([str(num) 
-                            for num in np.asarray(binSteps, dtype=int).T])
-    
-    #for each unit
-    for i, bsUnit in enumerate(binSteps):
-        F = getF(Fdir, 2**i)
-        #save previous number
-        prev = np.zeros(i+1, dtype=bool)
-        for j, bs in enumerate(bsUnit[sortedbs]):#[sortedbs]
-            prof = profilespos[sortedbs[j], :]
-            act = binSteps[:i+1, sortedbs[j]]
-            #If we have a one, multiply by the current step function
-            if bs:
-                #If this is the same as before, no need to recompute
-                if (act==prev).all():
-                    prof[:] = profilespos[sortedbs[j-1]]
-                else:
-                    prof[:] = np.dot(F, prof)
-            prev = act
-         
-    #reshape correctly
-    profilespos.shape = (NRs, Nrp, ZgridEffective, Ygrid)
-    
-    if Zmirror:
-        profilespos = np.concatenate((profilespos, 
-                                      profilespos[:, :, -1-Zgrid%2::-1, :]), 2)
-        Cinit = np.concatenate((Cinit, Cinit[-1-Zgrid%2::-1, :]), 0)
-    
-    """
-    import matplotlib.pyplot as plt
-#    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)
-#    plt.figure()
-#    plt.plot(np.sum(Cinit*V, (-2, -1)), 'x')
-#    plt.plot(np.sum(profilespos*V[None, None], (-2, -1)), 'x')
-    plt.figure()
-    for pr in profilespos:
-        plt.plot(np.sum([Cinit, *pr], (-2, -1)).T, '-x')
-    #"""
-    #If full grid, stop here
-    if fullGrid:
-        return profilespos
-    
-    if central_profile:
-        #Take central profile
-        central_idx = int((Zgrid-1)/2)
-        profilespos = profilespos[:, :, central_idx, :]
-    else:
-        #Take sum
-        profilespos = np.sum(profilespos, -2)
-        
-    if normalise:
-        #Normalize as the z position is not known
-        profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
-                        / np.sum(Cinit/Zgrid))
-    """ 
-    a = np.asarray([np.sum(Cinit, -2), *np.reshape(profilespos, (-1, np.shape(profilespos)[-1]))])
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.plot(np.sum(a, 1), 'x-')
-    plt.figure()
-    plt.plot(np.ravel(a))
-    #"""
-    return profilespos
-
-def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
-                       Wz=50e-6, 
-                       Zgrid=1, *, fullGrid=False, central_profile=False,
-                       eta=1e-3, kT=1.38e-23*295, Zmirror=True, dxfactor=1):
-    """Returns the theorical profiles for the input variables
-    
-    Parameters
-    ----------
-    Cinit:  1d array or 2d array
-            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
-            used to pad the array
-    Q:  float
-        The flux in the channel in [ul/h]
-    absmuEoDs: array floats
-        absolute values of the muE/D to test
-    muE: array float
-        values od muE to test
-    readingpos: 1d array float
-        Position to read at
-    Wy: float, defaults 300e-6 
-        Channel width [m]
-    Wz: float, defaults 50e-6
-        Channel height [m]  
-    Zgrid:  integer, defaults 1
-        Number of Z pixel if Cinit is unidimentional
-    fullGrid: bool , false
-        Should return full grid?
-    outV: 2d float array
-        array to use for the poiseuiile flow
-    central_profile: Bool, default False
-        If true, returns only the central profile
-    eta: float
-        eta
-    kT: float
-        kT
-    Zmirror: Bool, default True
-        Should the Z mirror be used to bet basis functions
-        
-    dxfactor: float, default 1
-        Factor to change dx size if the step size seems too big (Useless?)
-
-    Returns
-    -------
-    profilespos: 3d array
-        The list of profiles for the 12 positions at the required radii
-    
-    """ 
-
-    muEs = np.asarray(muEs)
-    absmuEoDs = np.abs(absmuEoDs)
-    NqE = len(absmuEoDs)
-    negmuE = muEs[muEs<0]
-    posmuE = muEs[muEs>0]
-    
-    Nrp = len(readingpos)
-    Ygrid = Cinit.shape[-1]
-    
-    def getret(muEs, muEoDs):
-        NuEs = len(muEs)
-        if fullGrid:
-            rets = np.zeros((NqE, NuEs, Nrp, Zgrid, Ygrid))
-        else:
-            rets = np.zeros((NqE, NuEs, Nrp, Ygrid))
-            
-        for muEoD, ret in zip(muEoDs, rets):
-            ret[:] = getprofiles(Cinit, Q, muEs, readingpos,  Wy, Wz, Zgrid, 
-                                 muEoD, fullGrid=fullGrid, eta=eta, kT=kT, 
-                                 Zmirror=Zmirror, 
-                                 central_profile=central_profile,
-                                 normalise=False, stepMuE=True, 
-                                 dxfactor=dxfactor)
-        return rets
-    
-    N_neg_muEs = len(negmuE)
-    N_pos_muEs = len(posmuE)
-    NmuEs = N_neg_muEs + N_pos_muEs
-    if fullGrid:
-        rets = np.zeros((NqE, NmuEs, Nrp, Zgrid, Ygrid))
-    else:
-        rets = np.zeros((NqE, NmuEs, Nrp, Ygrid))
-        
-    if N_neg_muEs>0:
-        rets[:, :N_neg_muEs] = getret(negmuE, -absmuEoDs)
-    if N_pos_muEs>0:   
-        rets[:, N_neg_muEs:] = getret(posmuE, absmuEoDs)
-    
-    return rets
