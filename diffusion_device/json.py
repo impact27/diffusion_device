@@ -23,9 +23,6 @@ KEY_MD_Q = 'Q[ulph]'
 KEY_MD_RPOS = 'Read Positions [m]'
 KEY_MD_PIXSIZE = 'Pixel Size [m]'
 
-
-
-KEY_STG_MDFN = 'Metadata file name'
 KEY_STG_R = 'Radii[m] (min, max, step)'
 KEY_STG_NSPECIES = 'Number of species to fit'
 KEY_STG_IGNORE = 'Ignore Edge[m]'
@@ -94,7 +91,7 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
     with open(metafn, 'w') as f:
         json.dump(Metadata, f, indent=4)
 
-def createFitSettings(settingsfn, metafn, rmin, rmax, rstep, 
+def createFitSettings(settingsfn, rmin, rmax, rstep, 
                       ignore=None, firstmethod=None,
                       fitpos=None, flatten=None, border=None, 
                       framesSlices=None, nspecies=1):
@@ -126,7 +123,6 @@ def createFitSettings(settingsfn, metafn, rmin, rmax, rstep,
     
     """
     Settings = {}
-    Settings[KEY_STG_MDFN] = metafn
     Settings[KEY_STG_R] = (rmin, rmax, rstep)
     #Optional
     optional(Settings, KEY_STG_IGNORE, ignore)
@@ -213,8 +209,8 @@ def listmakeabs(prefix, filename):
     else:
         return makeabs(prefix, filename)
 
-def loadJSON(settingsfn): 
-    """Load fit settings and metadata from a settings file
+def loadSettings(settingsfn): 
+    """Load fit settings from a json file
     
     Parameters
     ----------
@@ -223,8 +219,6 @@ def loadJSON(settingsfn):
         
     Returns
     -------
-    Metadata: dict
-        Dictionnary containing metadata
     Settings: dict
         Dictionnary containing fit settings
     
@@ -233,11 +227,30 @@ def loadJSON(settingsfn):
         print()
         Settings = json.load(f)
         
-    Settings[KEY_STG_MDFN] = makeabs(os.path.dirname(settingsfn),
-                                 Settings[KEY_STG_MDFN])
+    default(Settings, KEY_STG_IGNORE, 0)
+    default(Settings, KEY_STG_POS0FILTER, 'none')
+    default(Settings, KEY_STG_FITPOS, None)
+    default(Settings, KEY_STG_BFFLAT, False)
+    default(Settings, KEY_STG_BORDER, [None, None, None, None])
+    default(Settings, KEY_STG_FRAMESSLICES, [None, None])
+    default(Settings, KEY_STG_NSPECIES, 1)        
         
-    metadatafn = Settings[KEY_STG_MDFN]
+    return Settings
     
+def loadMetadata(metadatafn):   
+    """Load metadata from a json file
+    
+    Parameters
+    ----------
+    metadatafn: path
+        path to the metadata file
+        
+    Returns
+    -------
+    Metadata: dict
+        Dictionnary containing metadata
+    
+    """
     with open(metadatafn, 'r') as f:
         Metadata = json.load(f)
         
@@ -252,17 +265,29 @@ def loadJSON(settingsfn):
                                    Metadata[KEY_MD_FN])
         
     
-    default(Settings, KEY_STG_IGNORE, 0)
-    default(Settings, KEY_STG_POS0FILTER, 'none')
-    default(Settings, KEY_STG_FITPOS, None)
-    default(Settings, KEY_STG_BFFLAT, False)
-    default(Settings, KEY_STG_BORDER, [None, None, None, None])
-    default(Settings, KEY_STG_FRAMESSLICES, [None, None])
-    default(Settings, KEY_STG_NSPECIES, 1)
-        
-    return Metadata, Settings
 
-def full_fit(settingsfn):   
+        
+    return Metadata
+
+def getType(metadatafn):
+    Metadata = loadMetadata(metadatafn)
+    nchannels = Metadata[KEY_MD_NCHANNELS]
+    if nchannels == 1:
+        return '12pos'
+    elif nchannels != 4:
+        return 'unknown'
+    filename = Metadata[KEY_MD_FN]
+    if isinstance(filename, (list, tuple)):
+        ims = np.asarray([imread(fn) for fn in filename])
+    else:
+        ims = imread(filename)
+    if len(ims.shape) ==2:
+        return '4pos'
+    elif len(ims.shape) ==3:
+        return '4pos_stack'
+    return 'unknown'
+    
+def full_fit(settingsfn, metadatafn):   
     """Perform a fit with the imformations found in the settings file
     
     Parameters
@@ -289,7 +314,8 @@ def full_fit(settingsfn):
         The detected pixel size. List for movie.
     """
     
-    Metadata, Settings = loadJSON(settingsfn)
+    Metadata = loadMetadata(metadatafn)
+    Settings = loadSettings(settingsfn)
     
     filename = Metadata[KEY_MD_FN]
     bgfn = Metadata[KEY_MD_BGFN]
