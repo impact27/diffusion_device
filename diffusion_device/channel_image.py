@@ -8,7 +8,7 @@ import numpy as np
 import background_rm as rmbg
 import registrator.image as ir
 import registrator.channel as cr
-import diffusion_device.profile as dp
+from . import profile as dp
 import scipy
 import matplotlib.image as mpimg
 import warnings

@@ -8,8 +8,8 @@ import json
 import numpy as np
 import os
 from tifffile import imread
-import diffusion_device.multi_channels_image as dd4
-import diffusion_device.channel_image as ddx
+from . import multi_channels_image as dd4
+from . import channel_image as ddx
 from registrator.image import is_overexposed
 
 

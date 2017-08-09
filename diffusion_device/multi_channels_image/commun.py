@@ -7,7 +7,7 @@ Created on Tue Apr  4 11:21:01 2017
 import numpy as np
 from tifffile import imread
 from . import bright, background
-import diffusion_device.profile as dp
+from .. import profile as dp
 
 
 def defaultReadingPos(startpos=400e-6, isFolded=True):
