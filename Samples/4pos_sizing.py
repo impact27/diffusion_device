@@ -14,7 +14,7 @@ from diffusion_device.json import full_fit
 
 #Settings file location
 settingsfn='../diffusion_device/tests/test_data/UVim300ulph_fitSettings_poly_all.json'
-#settingsfn='../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
+settingsfn='../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
 
 #Where to save the run
 outpath = 'output'
@@ -35,7 +35,7 @@ if outpath is not None:
                              os.path.splitext(os.path.basename(settingsfn))[0])
     shutil.copy(settingsfn, base_name + '.json')
     
-if len(np.shape(radius))>0:
+if len(np.shape(radius)) > 0:
     Rs, spectrum = radius
     figure()
     plot(Rs*1e9, spectrum, 'x-')

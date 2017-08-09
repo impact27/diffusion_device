@@ -74,7 +74,7 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
             
     Viz *= normfactor
     return V, Viy, Viz
-#%%    
+   
 def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None, 
                method='Trapezoid', dxfactor=1, Zmirror=False):
     """
@@ -113,18 +113,20 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     dxtD: float 
         The position step multiplied by the diffusion coefficient
     """
-     
-    V, Viy, __ = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=True)
     
+    #Get Poiseille flow
+    V, Viy, __ = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=True)
     if outV is not None:
         outV[:] = V
     
-    #% Get The step matrix
+    # Get steps
     dy = Wy/Ygrid
     dz = Wz/Zgrid
     
+    #If the Z is a mirror, make adjustments
+    Zodd = False
     if Zmirror:
-        Zodd = Zgrid%2==1
+        Zodd = Zgrid%2 == 1
         halfZgrid = (Zgrid+1)//2 
         V = V[:halfZgrid, :]
         Viy = Viy[:halfZgrid, :]
@@ -132,49 +134,34 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     
     #flatten V
     V = np.ravel(V)
-    qy = getQy(Zgrid, Ygrid)
-    qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
     
-    #get Cyy
-    Cyy = np.diag(1/V)@((qy[-1]-2*qy[0]+qy[1])/dy**2)
-    
-    #get Czz
-    Czz = 0
-    if Zgrid>1:
-#        udiag = 1/V[:-Ygrid]
-#        ldiag = 1/V[Ygrid:]
-#        Czz = np.diag(udiag, Ygrid)
-#        if Zmirror and Zodd:
-#            ldiag[-Ygrid:] = 2*ldiag[-Ygrid:]
-#        Czz += np.diag(ldiag, -Ygrid)
-#        Czz -= np.diag(np.sum(Czz, 1))
-#        Czz /= dz**2
-#        Czz2 = Czz
-        
-        Czz = np.diag(1/V)@((qz[-1]-2*qz[0]+qz[1])/dz**2)
-        
-     
-    #get F
+    #get dx
     #The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     #Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
     dxtD = np.min((dy, dz))**2*V.min()/2
-    
-    Cy = 0
-    if muEoD != 0:
-#        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy)
-        Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy)
-    
-    Lapl = Cyy+Czz - muEoD*Cy
-    
-    
     if muEoD != 0:
         dxtD2 = V.min()/np.abs(muEoD)**2
         dxtD = np.min([dxtD, dxtD2])
-        
     dxtD *= dxfactor
-    dF = dxtD*Lapl
+    
+    
+    #Get the dF matrix
+    qy = getQy(Zgrid, Ygrid)
+    qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
+    Cyy = np.diag(1/V)@((qy[-1]-2*qy[0]+qy[1])/dy**2)
+    if Zgrid>1:        
+        Czz = np.diag(1/V)@((qz[-1]-2*qz[0]+qz[1])/dz**2)
+    else:
+        Czz = 0
+    if muEoD == 0:
+        Cy = 0
+    else:
+#        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy)
+        Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy)
+       
+    dF = dxtD*(Cyy+Czz - muEoD*Cy)
 
-    #Get step matrix
+    #Get F
     I = np.eye(Ygrid*Zgrid, dtype=float)
     if method == 'Explicit':
         #Explicit
@@ -188,14 +175,27 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     else:
         raise RuntimeError("Unknown integration Method: {}".format(method))
         
-        
-    #The maximal eigenvalue should be <=1! otherwhise no stability
+    #The maximal eigenvalue should be <= 1! otherwhise no stability
     #The above dx should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dxtD
 
 def getQy(Zgrid, Ygrid):
+    """Get matrices to access neibours in y with correct boundary conditions
+    
+    Parameters
+    ----------
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+        
+    Returns
+    -------
+    qy:  3d array
+        A list of matrices to access [-2, +2] y neighbors
+    """
     #Create the q matrices
     q = np.zeros((5, Zgrid*Ygrid, Zgrid*Ygrid))
     for i in range(-2, 3):
@@ -212,48 +212,92 @@ def getQy(Zgrid, Ygrid):
             q[:, i-2:i, i:i+2] = 0
     return q
 
-def getQz(Zgrid, Ygrid, Zmirror, Zodd):    
+def getQz(Zgrid, Ygrid, Zmirror, Zodd):
+    """Get matrices to access neibours in z with correct boundary conditions
+    
+    Parameters
+    ----------
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    Zmirror: bool
+        Is there a mirror at the bottom?
+    Zodd: bool
+        Is the mirror at the center ot the edge of the pixel?
+    
+        
+    Returns
+    -------
+    qz:  3d array
+        A list of matrices to access [-2, +2] z neighbors
+    """
+    def midx(i, j):
+        if i<0:
+            I = np.arange(-Ygrid, 0) + (i+1)*Ygrid
+        else:
+            I = np.arange(Ygrid) + i*Ygrid
+        if j < 0:
+            J = np.arange(-Ygrid, 0) + (j+1)*Ygrid
+        else:
+            J = np.arange(Ygrid) + j*Ygrid
+        return (I, J)
+    
+    
     #Create the q matrices
     q = np.zeros((5, Zgrid*Ygrid, Zgrid*Ygrid))
     for i in range(-2, 3):
         q[i]=np.diag(np.ones(Ygrid*(Zgrid-np.abs(i))), i*Ygrid)
         #Border
         if i < 0:
-            q[i][(np.arange(Ygrid), 
-                  np.arange(Ygrid))] = 1
+            q[i][midx(0, 0)] = 1
         if i < -1:
-            q[i][(np.arange(Ygrid)+Ygrid, 
-                  np.arange(Ygrid))] = 1
+            q[i][midx(1, 0)] = 1
         
         if i == 1:
             if Zmirror and Zodd:
-                q[i][(np.arange(-Ygrid, 0), 
-                      np.arange(-Ygrid, 0)-Ygrid)] = 1
+                q[i][midx(-1, -2)] = 1
             else:
-                q[i][(np.arange(-Ygrid, 0), 
-                      np.arange(-Ygrid, 0))] = 1
+                q[i][midx(-1, -1)] = 1
         if i == 2:
             if Zmirror:
                 if Zodd:
-                    q[i][(np.arange(-Ygrid, 0)-Ygrid, 
-                          np.arange(-Ygrid, 0)-Ygrid)] = 1
-                    q[i][(np.arange(-Ygrid, 0), 
-                          np.arange(-Ygrid, 0)-2*Ygrid)] = 1
+                    q[i][midx(-2, -2)] = 1
+                    q[i][midx(-1, -3)] = 1
                 else:
-                    q[i][(np.arange(-Ygrid, 0)-Ygrid, 
-                          np.arange(-Ygrid, 0))] = 1
-                    q[i][(np.arange(-Ygrid, 0), 
-                          np.arange(-Ygrid, 0)-Ygrid)] = 1
+                    q[i][midx(-2, -1)] = 1
+                    q[i][midx(-1, -2)] = 1
             else:
-                q[i][(np.arange(-Ygrid, 0), 
-                      np.arange(-Ygrid, 0))] = 1
-                q[i][(np.arange(-Ygrid, 0)-Ygrid, 
-                      np.arange(-Ygrid, 0))] = 1
+                q[i][midx(-1, -1)] = 1
+                q[i][midx(-2, -1)] = 1
     
     return q
 
 def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy):
+    """Get Cy using the 5 point stencil technique
     
+    Parameters
+    ----------
+    muEoD: float
+        q*E/k/T = muE/D[m^-1]
+    dxtD: float
+        Time step multiplied by the diffusion coefficient    
+    V: 1d array
+        Poiseulle flow. Size should be Zgrid*Ygrid
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    dy: float
+        Y step.
+    
+        
+    Returns
+    -------
+    Cy:  2d array
+        The 1/V*(d/dy) matrix
+        
+    """
     q = getQy(Zgrid, Ygrid)
     
     Cy = q[-2] - 8*q[-1] + 8*q[1] - q[2]
@@ -262,6 +306,30 @@ def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy):
     return Cy
 
 def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
+    """Get Cy using the flux conserving Fromm technique
+    
+    Parameters
+    ----------
+    muEoD: float
+        q*E/k/T = muE/D[m^-1]
+    dxtD: float
+        Time step multiplied by the diffusion coefficient    
+    Viy: 1d array
+        Poiseulle flow at the middle y points. Size should be Zgrid*(Ygrid-1)
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    dy: float
+        Y step.
+    
+        
+    Returns
+    -------
+    Cy:  2d array
+        The 1/V*(d/dy) matrix
+        
+    """
     #ravel the Viy with 1 zero between each z
     iVyp = np.ravel(np.concatenate((1/Viy, np.zeros((Zgrid, 1))), 1))
     iVym = np.concatenate(([0], iVyp[:-1]))
@@ -273,6 +341,7 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
     
     sigdy = np.zeros((3, Zgrid*Ygrid, Zgrid*Ygrid))
     for i in range(-1, 2):
+        #Fromm choise of sigma
         sigdy[i] = (q[i+1] - q[i-1])/2
     
     
@@ -298,7 +367,7 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
     
     Cy /= dy
     
-    # minus to he a differntial operator
+    # minus to be a differntial operator
     return -Cy 
 
 #@profile
@@ -353,7 +422,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     """  
     Radii = np.array(Radii)
     if stepMuE:
-        if muEoD==0:
+        if muEoD == 0:
             raise RuntimeError("Can't calculate for 0 qE")
     else:
         if np.any(Radii<=0):
@@ -385,9 +454,10 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
     if Zmirror:
         ZgridEffective = (Zgrid+1)//2
     
-    Cinit = np.asarray(Cinit, dtype=float)
+    Cinit = np.array(Cinit, dtype=float)
     if len(Cinit.shape)<2:
         Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
+        Cinit = Cinit/Zgrid
     else:
         if Cinit.shape[0]!=ZgridEffective:
             raise RuntimeError("Cinit Z dim and Zgrid not aligned.")
@@ -445,6 +515,16 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
                                       profilespos[:, :, -1-Zgrid%2::-1, :]), 2)
         Cinit = np.concatenate((Cinit, Cinit[-1-Zgrid%2::-1, :]), 0)
     
+    """
+    import matplotlib.pyplot as plt
+#    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)
+#    plt.figure()
+#    plt.plot(np.sum(Cinit*V, (-2, -1)), 'x')
+#    plt.plot(np.sum(profilespos*V[None, None], (-2, -1)), 'x')
+    plt.figure()
+    for pr in profilespos:
+        plt.plot(np.sum([Cinit, *pr], (-2, -1)).T, '-x')
+    #"""
     #If full grid, stop here
     if fullGrid:
         return profilespos
@@ -454,14 +534,21 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy=300e-6, Wz=50e-6, Zgrid=1,
         central_idx = int((Zgrid-1)/2)
         profilespos = profilespos[:, :, central_idx, :]
     else:
-        #Take mean
-        profilespos = np.mean(profilespos, -2)
+        #Take sum
+        profilespos = np.sum(profilespos, -2)
         
     if normalise:
         #Normalize as the z position is not known
         profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
                         / np.sum(Cinit/Zgrid))
-        
+    """ 
+    a = np.asarray([np.sum(Cinit, -2), *np.reshape(profilespos, (-1, np.shape(profilespos)[-1]))])
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(np.sum(a, 1), 'x-')
+    plt.figure()
+    plt.plot(np.ravel(a))
+    #"""
     return profilespos
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy=300e-6,
