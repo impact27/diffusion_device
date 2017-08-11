@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from diffusion_device.json import full_fit
+from ..json import full_fit
 import numpy as np
 from . import __file__ 
 import os

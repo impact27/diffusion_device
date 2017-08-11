@@ -11,7 +11,7 @@ import numpy as np
 def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
                 muEoD=0, *, fullGrid=False, central_profile=False,
                 eta=1e-3, kT=1.38e-23*295, normalise=True, Zmirror=True,
-                stepMuE=False, dxfactor=1):
+                stepMuE=False, dxfactor=1, yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -50,6 +50,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
         Radii is in fact muEs
     dxfactor: float, default 1
         Factor to change dx size if the step size seems too big (Useless?)
+    yboundary: 'Neumann' or 'Dirichlet'
+        constant derivative or value
 
     Returns
     -------
@@ -70,8 +72,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
             Fdir[NSteps] = np.dot(Fdir[NSteps//2], Fdir[NSteps//2])
         return Fdir[NSteps]  
     
-    def initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor):
-        key = (Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)
+    def initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor, yboundary):
+        key = (Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor, yboundary)
         if not hasattr(getprofiles, 'dirFList') :
             getprofiles.dirFList = {}
         #Create dictionnary if doesn't exist
@@ -80,7 +82,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
         else:
             Fdir = {}
             Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, muEoD=muEoD, 
-                                        Zmirror=Zmirror, dxfactor=dxfactor)
+                                        Zmirror=Zmirror, dxfactor=dxfactor, 
+                                        yboundary=yboundary)
             getprofiles.dirFList[key] = (Fdir, dxtd)
             return Fdir, dxtd
         
@@ -105,7 +108,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
     profilespos = np.tile(np.ravel(Cinit), (NRs*Nrp, 1))
     
     #get step matrix
-    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor)       
+    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, 
+                       Zmirror, dxfactor, yboundary)       
 
     #Get Nsteps for each radius and position
     Nsteps = np.empty((NRs*Nrp, ), dtype=int)         
@@ -173,7 +177,8 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
                        Wz, Zgrid=1, *, fullGrid=False, central_profile=False,
-                       eta=1e-3, kT=1.38e-23*295, Zmirror=True, dxfactor=1):
+                       eta=1e-3, kT=1.38e-23*295, Zmirror=True, dxfactor=1,
+                       yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
     
     Parameters
@@ -207,9 +212,10 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
         kT
     Zmirror: Bool, default True
         Should the Z mirror be used to bet basis functions
-        
     dxfactor: float, default 1
         Factor to change dx size if the step size seems too big (Useless?)
+    yboundary: 'Neumann' or 'Dirichlet'
+        constant derivative or value
 
     Returns
     -------
@@ -240,7 +246,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
                                  Zmirror=Zmirror, 
                                  central_profile=central_profile,
                                  normalise=False, stepMuE=True, 
-                                 dxfactor=dxfactor)
+                                 dxfactor=dxfactor,
+                                 yboundary=yboundary)
         return rets
     
     N_neg_muEs = len(negmuE)
@@ -327,7 +334,8 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
     return V, Viy, Viz
    
 def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None, 
-               method='Trapezoid', dxfactor=1, Zmirror=False):
+               method='Trapezoid', dxfactor=1, Zmirror=False,
+               yboundary='Neumann'):
     """
     Compute the step matrix and corresponding position step
     
@@ -356,6 +364,8 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         Factor to change the value of dx
     Zmirror: bool, default False
         should we use a mirror for Z?
+    yboundary: 'Neumann' or 'Dirichlet'
+        constant derivative or value
         
     Returns
     -------
@@ -397,20 +407,20 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     
     
     #Get the dF matrix
-    qy = getQy(Zgrid, Ygrid)
-    qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
+    qy = getQy(Zgrid, Ygrid, boundary=yboundary)
     Cyy = np.diag(1/V)@((qy[-1]-2*qy[0]+qy[1])/dy**2)
-    if Zgrid>1:        
+    if Zgrid>1:   
+        qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
         Czz = np.diag(1/V)@((qz[-1]-2*qz[0]+qz[1])/dz**2)
     else:
         Czz = 0
     if muEoD == 0:
         Cy = 0
     else:
-#        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy)
-        Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy)
+#        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
+        Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary=yboundary)
        
-    dF = dxtD*(Cyy+Czz - muEoD*Cy)
+    dF = dxtD*(Cyy+Czz - muEoD*Cy)    
 
     #Get F
     I = np.eye(Ygrid*Zgrid, dtype=float)
@@ -432,7 +442,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
     return F, dxtD
 
-def getQy(Zgrid, Ygrid):
+def getQy(Zgrid, Ygrid, boundary='Neumann'):
     """Get matrices to access neibours in y with correct boundary conditions
     
     Parameters
@@ -441,6 +451,9 @@ def getQy(Zgrid, Ygrid):
         Number of Z pixel
     Ygrid:  integer
         Number of Y pixel
+    bounday: 'Neumann' or 'Dirichlet'
+        constant derivative or value
+        
         
     Returns
     -------
@@ -461,6 +474,10 @@ def getQy(Zgrid, Ygrid):
         if i>0:
             q[:, i:i+2, i-2:i] = 0
             q[:, i-2:i, i:i+2] = 0
+            
+    if boundary == 'Dirichlet':
+        q[:,::Ygrid,:]=0
+        q[:,Ygrid-1::Ygrid,:]=0
     return q
 
 def getQz(Zgrid, Ygrid, Zmirror, Zodd):
@@ -524,7 +541,7 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
     
     return q
 
-def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy):
+def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary='Neumann'):
     """Get Cy using the 5 point stencil technique
     
     Parameters
@@ -541,6 +558,8 @@ def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy):
         Number of Y pixel
     dy: float
         Y step.
+    bounday: 'Neumann' or 'Dirichlet'
+        constant derivative or value
     
         
     Returns
@@ -549,14 +568,14 @@ def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy):
         The 1/V*(d/dy) matrix
         
     """
-    q = getQy(Zgrid, Ygrid)
+    q = getQy(Zgrid, Ygrid, boundary=boundary)
     
     Cy = q[-2] - 8*q[-1] + 8*q[1] - q[2]
     Cy /= (12*dy)
     Cy = np.diag(1/V)@Cy
     return Cy
 
-def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
+def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
     """Get Cy using the flux conserving Fromm technique
     
     Parameters
@@ -573,6 +592,8 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
         Number of Y pixel
     dy: float
         Y step.
+    bounday: 'Neumann' or 'Dirichlet'
+        constant derivative or value
     
         
     Returns
@@ -588,13 +609,12 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
     iVyp = np.diag(iVyp)
     iVym = np.diag(iVym)
     
-    q = getQy(Zgrid, Ygrid)
+    q = getQy(Zgrid, Ygrid, boundary=boundary)
     
     sigdy = np.zeros((3, Zgrid*Ygrid, Zgrid*Ygrid))
     for i in range(-1, 2):
         #Fromm choise of sigma
         sigdy[i] = (q[i+1] - q[i-1])/2
-    
     
     #Get nu
     nu = muEoD*dxtD
@@ -608,13 +628,14 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy):
             - \frac{u\Delta x}{\Delta y} \left( 
                 \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}^2} 
                 - \frac{\Delta y \sigma_{i}}{V_{i+1/2}^2} 
-    \right)\right) \right]"""
+    \right)\right) \right]
+    """
     
     neg =   muEoD < 0
     
     Cy = (iVym@q[-1+neg] - iVyp@q[0+neg] 
           + (.5-neg)*((iVym@sigdy[-1+neg] - iVyp@sigdy[0+neg])
-              - nu*(iVym**2@sigdy[-1+neg] - iVyp**2@sigdy[0+neg])))
+              - nu/dy*(iVym**2@sigdy[-1+neg] - iVyp**2@sigdy[0+neg])))
     
     Cy /= dy
     

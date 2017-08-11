@@ -10,7 +10,7 @@ Created on Wed Apr  5 16:58:39 2017
 
 @author: quentinpeter
 """
-import diffusion_device.profile as dp
+from . import profile as dp
 import matplotlib.pyplot as plt
 import numpy as np
 from .json import full_fit
