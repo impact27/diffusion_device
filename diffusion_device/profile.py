@@ -86,8 +86,12 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     Wy = pixsize*len(init)
     Basis = getprofiles(init, Q, Rs, Wy=Wy, Wz=Wz,
                       Zgrid=Zgrid, readingpos=readingposfit,
-                      central_profile=central_profile, 
-                      normalise=normalise_profiles) 
+                      central_profile=central_profile) 
+    
+    if normalise_profiles:
+        #Normalize basis in the same way as profiles
+        Basis /= np.sum(Basis[...,pslice], -1)[..., np.newaxis]
+                        
     
     
     
@@ -98,11 +102,14 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         #fill data if needed
         if data_dict is not None:
             data_dict['initprof'] = init
-            data_dict['fits'] = getprofiles(init, Q=Q, Radii=[r],
+            fits =  getprofiles(init, Q=Q, Radii=[r],
                                             Wy=Wy, Wz=Wz, Zgrid=Zgrid,
                                             readingpos=readingposfit,
-                                            central_profile=central_profile, 
-                                            normalise=normalise_profiles)[0]
+                                            central_profile=central_profile)[0]
+            if normalise_profiles:
+                #Normalize basis in the same way as profiles
+                fits /= np.sum(fits[..., pslice], -1)[..., np.newaxis]
+            data_dict['fits'] = fits
             
         return r
     else:

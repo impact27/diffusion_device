@@ -192,9 +192,9 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
         plt.figure()
         plt.imshow(im)
         plt.imshow(mask, alpha=.5)
-#        plt.figure()
-#        plt.imshow(rmbg.polyfit2d(im, mask=mask))
-#        plt.colorbar()
+        plt.figure()
+        plt.plot(np.nanmean(im,0))
+        plt.plot(np.zeros(np.shape(im)[1]))
     
     if infosOut is not None:
         infosOut['infos'] = (w, a, origin)

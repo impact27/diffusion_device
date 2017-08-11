@@ -300,7 +300,7 @@ def getType(metadatafn):
         return '4pos_stack'
     return 'unknown'
     
-def full_fit(settingsfn, metadatafn):   
+def full_fit(settingsfn, metadatafn, plotim=False):   
     """Perform a fit with the imformations found in the settings file
     
     Parameters
@@ -406,7 +406,7 @@ def full_fit(settingsfn, metadatafn):
             return (radius, *read_data_dict(data_dict))
         
         if len(ims.shape) == 2:
-            return process_im(ims, plotim=True)
+            return process_im(ims, plotim=plotim)
         else:
             #movie
             radius_list = []

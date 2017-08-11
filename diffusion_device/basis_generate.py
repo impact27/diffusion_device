@@ -10,7 +10,7 @@ import numpy as np
 #@profile
 def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
                 muEoD=0, *, fullGrid=False, central_profile=False,
-                eta=1e-3, kT=1.38e-23*295, normalise=True, Zmirror=True,
+                eta=1e-3, kT=1.38e-23*295, Zmirror=True,
                 stepMuE=False, dxfactor=1, yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
     
@@ -42,8 +42,6 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
         eta
     kT: float
         kT
-    normalise: Bool, default True
-        Should the profiles be normalised?
     Zmirror: Bool, default True
         Should the Z mirror be used to bet basis functions
     stepMuE: Bool, default False
@@ -167,11 +165,6 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
     else:
         #Take sum
         profilespos = np.sum(profilespos, -2)
-        
-    if normalise:
-        #Normalize as the z position is not known
-        profilespos /= (np.sum(profilespos, -1)[:, :, np.newaxis]
-                        / np.sum(Cinit))
         
     return profilespos
 

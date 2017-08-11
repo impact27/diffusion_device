@@ -9,21 +9,19 @@ import os
 from glob import glob
 import re
 
-imfn = '../diffusion_device/tests/test_data/*.tif'
-for fn in glob(imfn):
-
-    
+imfn = '/Users/quentinpeter/Documents/PHD/Python/People project/Therese_sizing/Diffusion sample data/170713d26b5/cam_*r.tif'
+for fn in glob(imfn):    
     bgfn = None #relative to the image file
-    Wz = 5.3e-05 #m
-    Wy = 100e-6 #m
+    Wz = 2.663e-05 #m
+    Wy = 0.0001 #m
     Q = float(re.findall('([\d\.]+)ul?p?_?-?h', fn)[0])
     readingpos = [
-            0.0,
-            0.003956,
-            0.021953,
-            0.0465
-        ] #m
-    pixelsize = 1e-6 #m
+        .0013596,
+        .0096404,
+        .0203596,
+        .0396404
+    ] #m
+    pixelsize = 1.6e-06 #m
     wallwidth = 100e-6
     nchannels = 4
     
