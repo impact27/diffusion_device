@@ -46,7 +46,7 @@ setup(name='diffusion_device',
       ],
       dependency_links=[
               'https://github.com/impact27/registrator/tarball/master#egg=registrator-0.1.0',
-              'https://github.com/impact27/background_rm/dist#egg=background_rm-0.1.0'],
+              'https://github.com/impact27/background_rm/tarball/master#egg=background_rm-0.1.0'],
       test_suite='nose.collector',
       tests_require=['nose', 'nose-cover3'],
       include_package_data=True,
