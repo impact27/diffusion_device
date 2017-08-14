@@ -37,11 +37,11 @@ def plotpos(settingsfn, metadatafn, outpath=None, plotpos=None):
     """
     dtype = json.getType(metadatafn)
     if dtype == '4pos':
-        plot4pos(settingsfn, metadatafn, outpath)
+        return plot4pos(settingsfn, metadatafn, outpath)
     elif dtype == '4pos_stack':
-        plot4posstack(settingsfn, metadatafn, outpath, plotpos)
+        return plot4posstack(settingsfn, metadatafn, outpath, plotpos)
     elif dtype == '12pos':
-        plot12pos(settingsfn, metadatafn, outpath)
+        return plot12pos(settingsfn, metadatafn, outpath)
         
 def plot4pos(settingsfn, metadatafn, outpath=None):
     """Plot the sizing data
@@ -64,7 +64,7 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
     
     radius, profiles, fits, lse, pixel_size = full_fit(settingsfn, metadatafn)
     
-    base_name = prepare_output(outpath, settingsfn)
+    base_name = prepare_output(outpath, settingsfn, metadatafn)
         
     if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
@@ -116,8 +116,9 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
             np.savetxt(f,profiles)
             f.write('Fits:\n'.encode())
             np.savetxt(f,fits)
+    return radius
 
-def prepare_output(outpath, settingsfn):
+def prepare_output(outpath, settingsfn, metadatafn):
     """Prepare output folder
     
     Parameters
@@ -135,9 +136,11 @@ def prepare_output(outpath, settingsfn):
     """
     base_name=None
     if outpath is not None:
-        if not os.path.exists(outpath):
-            os.makedirs(outpath)
-        base_name = os.path.join(outpath,  
+        newoutpath = os.path.join(outpath, 
+                            os.path.splitext(os.path.basename(metadatafn))[0])
+        if not os.path.exists(newoutpath):
+            os.makedirs(newoutpath)
+        base_name = os.path.join(newoutpath,
                             os.path.splitext(os.path.basename(settingsfn))[0])
         shutil.copy(settingsfn, base_name + '.json')
     return base_name
@@ -161,7 +164,7 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
     # Plot
     # =========================================================================
     
-    base_name = prepare_output(outpath, settingsfn)
+    base_name = prepare_output(outpath, settingsfn, metadatafn)
         
     X=np.arange(len(dp.get_fax(profiles)))*pixel_size*1e6
     
@@ -207,7 +210,7 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
             np.savetxt(f,profiles)
             f.write('Fits:\n'.encode())
             np.savetxt(f,fits)
-            
+    return radius
             
 def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
     """Plot the sizing data
@@ -232,7 +235,7 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
     LSE = np.asarray(LSE)
     pixs = np.asarray(pixs)
     
-    base_name = prepare_output(outpath, settingsfn)
+    base_name = prepare_output(outpath, settingsfn, metadatafn)
     
     x=np.arange(len(radii))
     valid=np.logical_not(overexposed)
@@ -337,3 +340,5 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
                     radii[pos]*1e9, LSE[pos], pixs[pos]*1e6))   
             plt.xlabel('Position [$\mu$m]')
             plt.ylabel('Normalised amplitude')
+            
+    return radii
