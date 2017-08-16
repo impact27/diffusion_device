@@ -35,7 +35,7 @@ KEY_STG_FRAMESSLICES = 'Frames slice'
 
 def optional(dic, key, val):
     """Set valur in dictionnary if not None
-    
+
     Parameters
     ----------
     dic: dictionnary
@@ -47,11 +47,12 @@ def optional(dic, key, val):
     """
     if val is not None:
         dic[key] = val
-        
-def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize, 
+
+
+def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
                    bgfn=None, wallwidth=None, nchannels=None):
     """Creates the metadata for a file name
-    
+
     Parameters
     ----------
     metafn: path
@@ -85,18 +86,18 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
     Metadata[KEY_MD_Q] = Q
     Metadata[KEY_MD_RPOS] = readingpos
     Metadata[KEY_MD_PIXSIZE] = pixelsize
-    #Optional
-    
-    
+    # Optional
+
     with open(metafn, 'w') as f:
         json.dump(Metadata, f, indent=4)
 
-def createFitSettings(settingsfn, rmin, rmax, rstep, 
+
+def createFitSettings(settingsfn, rmin, rmax, rstep,
                       ignore=None, firstmethod=None,
-                      fitpos=None, flatten=None, border=None, 
+                      fitpos=None, flatten=None, border=None,
                       framesSlices=None, nspecies=1):
     """Creates the fit settings for the fitting
-    
+
     Parameters
     ----------
     settingsfn: path
@@ -120,27 +121,27 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
         If this is a movie, the slice to apply
     nspecies: int
         The number of species to fit. 0=all.
-    
+
     """
     Settings = {}
     Settings[KEY_STG_R] = (rmin, rmax, rstep)
-    #Optional
+    # Optional
     optional(Settings, KEY_STG_IGNORE, ignore)
     optional(Settings, KEY_STG_POS0FILTER, firstmethod)
     optional(Settings, KEY_STG_FITPOS, fitpos)
     optional(Settings, KEY_STG_BFFLAT, flatten)
     optional(Settings, KEY_STG_BORDER, border)
-    #For multi frames
+    # For multi frames
     optional(Settings, KEY_STG_FRAMESSLICES, framesSlices)
     Settings[KEY_STG_NSPECIES] = nspecies
-     
+
     with open(settingsfn, 'w') as f:
         json.dump(Settings, f, indent=4)
 
 
 def default(dic, key, value):
     """Set valur in dictionnary if None
-    
+
     Parameters
     ----------
     dic: dictionnary
@@ -152,15 +153,16 @@ def default(dic, key, value):
     """
     if key not in dic or dic[key] is None:
         dic[key] = value
-        
+
+
 def metadata_fn(filename):
     """Create a metadata file name from an image file name
-    
+
     Parameters
     ----------
     filename: path
         the path to an image
-        
+
     Returns
     -------
     metadatafn: path
@@ -168,37 +170,39 @@ def metadata_fn(filename):
     """
     return os.path.splitext(filename)[0] + '_Metadata.json'
 
+
 def makeabs(prefix, filename):
     """Combine a prefix and a filename to create an absolute path.
-    
+
     Parameters
     ----------
     prefix: path
         Prefix to combine with the file name. Can be relative.
     filename: path
         Path to the file
-        
+
     Returns
     -------
     filename: path
         absolute path
     """
-    if (filename is not None and 
-        not os.path.isabs(filename)):
+    if (filename is not None and
+            not os.path.isabs(filename)):
         filename = os.path.join(prefix, filename)
         filename = os.path.abspath(filename)
     return filename
 
+
 def listmakeabs(prefix, filename):
     """Combine a prefix and a list of filenames to create absolute paths.
-    
+
     Parameters
     ----------
     prefix: path
         Prefix to combine with the file name. Can be relative.
     filename: path or list of paths
         Path to the file
-        
+
     Returns
     -------
     filenames: path or path list
@@ -209,74 +213,74 @@ def listmakeabs(prefix, filename):
     else:
         return makeabs(prefix, filename)
 
-def loadSettings(settingsfn): 
+
+def loadSettings(settingsfn):
     """Load fit settings from a json file
-    
+
     Parameters
     ----------
     settingsfn: path
         path to the fit settings file
-        
+
     Returns
     -------
     Settings: dict
         Dictionnary containing fit settings
-    
+
     """
     with open(settingsfn, 'r') as f:
         print()
         Settings = json.load(f)
-        
+
     default(Settings, KEY_STG_IGNORE, 0)
     default(Settings, KEY_STG_POS0FILTER, 'none')
     default(Settings, KEY_STG_FITPOS, None)
     default(Settings, KEY_STG_BFFLAT, False)
     default(Settings, KEY_STG_BORDER, [None, None, None, None])
     default(Settings, KEY_STG_FRAMESSLICES, [None, None])
-    default(Settings, KEY_STG_NSPECIES, 1)        
-        
+    default(Settings, KEY_STG_NSPECIES, 1)
+
     return Settings
-    
-def loadMetadata(metadatafn):   
+
+
+def loadMetadata(metadatafn):
     """Load metadata from a json file
-    
+
     Parameters
     ----------
     metadatafn: path
         path to the metadata file
-        
+
     Returns
     -------
     Metadata: dict
         Dictionnary containing metadata
-    
+
     """
     with open(metadatafn, 'r') as f:
         Metadata = json.load(f)
-        
+
     default(Metadata, KEY_MD_BGFN, None)
     default(Metadata, KEY_MD_WALLWIDTH, None)
     default(Metadata, KEY_MD_NCHANNELS, 1)
-    
+
     if Metadata[KEY_MD_BGFN] is not None:
         Metadata[KEY_MD_BGFN] = listmakeabs(os.path.dirname(metadatafn),
-                                         Metadata[KEY_MD_BGFN])
+                                            Metadata[KEY_MD_BGFN])
     Metadata[KEY_MD_FN] = listmakeabs(os.path.dirname(metadatafn),
-                                   Metadata[KEY_MD_FN])
-        
-    
+                                      Metadata[KEY_MD_FN])
 
-        
     return Metadata
+
 
 def getType(metadatafn):
     """Get the type of data this is
-    
+
     Parameters
     ----------
     metadatafn: path
         path to the metadata file
-        
+
     Returns
     -------
     dtype: str
@@ -294,22 +298,23 @@ def getType(metadatafn):
     else:
         ims = imread(filename)
     ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
-    if len(ims.shape) ==2:
+    if len(ims.shape) == 2:
         return '4pos'
-    elif len(ims.shape) ==3:
+    elif len(ims.shape) == 3:
         return '4pos_stack'
     return 'unknown'
-    
-def full_fit(settingsfn, metadatafn, plotim=False):   
+
+
+def full_fit(settingsfn, metadatafn, plotim=False):
     """Perform a fit with the imformations found in the settings file
-    
+
     Parameters
     ----------
     settingsfn: path
         path to the fit settings file
     metadatafn: path
         path to the metadata file
-        
+
     Returns
     -------
     radius: float or list of floats or 2x list of floats
@@ -328,10 +333,10 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     pixel_size: float or list of floats
         The detected pixel size. List for movie.
     """
-    
+
     Metadata = loadMetadata(metadatafn)
     Settings = loadSettings(settingsfn)
-    
+
     filename = Metadata[KEY_MD_FN]
     bgfn = Metadata[KEY_MD_BGFN]
     readingpos = Metadata[KEY_MD_RPOS]
@@ -347,29 +352,29 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     imborder = Settings[KEY_STG_BORDER]
     framesSlice = Settings[KEY_STG_FRAMESSLICES]
     nspecies = Settings[KEY_STG_NSPECIES]
-    test_radii=np.arange(rmin, rmax, rstep) 
-    
+    test_radii = np.arange(rmin, rmax, rstep)
+
     nchannels = Metadata[KEY_MD_NCHANNELS]
     wall_width = Metadata[KEY_MD_WALLWIDTH]
-    
-    #load images
+
+    # load images
     if isinstance(filename, (list, tuple)):
         ims = np.asarray([imread(fn) for fn in filename])
     else:
         ims = imread(filename)
         if len(np.shape(ims)) == 3:
-            #Check for full 0 
+            # Check for full 0
             ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
-            
+
         if len(np.shape(ims)) == 3:
-            #movie
-            ims = ims[framesSlice[0]:framesSlice[1]]            
-      
-    #Remove Border
+            # movie
+            ims = ims[framesSlice[0]:framesSlice[1]]
+
+    # Remove Border
     ims = ims[..., imborder[0]:imborder[1],
-                   imborder[2]:imborder[3]]
-    
-    #load background
+              imborder[2]:imborder[3]]
+
+    # load background
     bg = None
     if bgfn is not None:
         if isinstance(bgfn, (list, tuple)):
@@ -377,38 +382,37 @@ def full_fit(settingsfn, metadatafn, plotim=False):
         else:
             bg = imread(bgfn)
             if len(np.shape(bg)) == 3:
-                #Check for full 0 
+                # Check for full 0
                 bg = np.squeeze(bg[np.logical_not(np.all(bg == 0, (1, 2)))])
-    
-    
+
     if nchannels == 1:
         if len(ims.shape) == 2:
             raise RuntimeError('Only 1 channel in 1 image. Please set "'
-                               +KEY_MD_NCHANNELS + '".')
-        data_dict={}
-        radius=ddx.size_images(ims, ActualFlowRate, Wz, Wy, pixsize,
-                                   readingpos, Rs=test_radii, bgs=bg,
-                                   data_dict=data_dict, ignore=ignore,
-                                   initmode=initmode, 
-                                   nspecies=nspecies)
+                               + KEY_MD_NCHANNELS + '".')
+        data_dict = {}
+        radius = ddx.size_images(ims, ActualFlowRate, Wz, Wy, pixsize,
+                                 readingpos, Rs=test_radii, bgs=bg,
+                                 data_dict=data_dict, ignore=ignore,
+                                 initmode=initmode,
+                                 nspecies=nspecies)
         return (radius, *read_data_dict(data_dict))
-        
+
     else:
         def process_im(im, ignore_error=False, plotim=False):
-            data_dict={}
-            radius=dd4.size_image(im, ActualFlowRate, Wz, Wy, readingpos,
-                                  test_radii, bg=bg, data_dict=data_dict, 
-                                  ignore=ignore, initmode=initmode, 
-                                  fit_position_number=fit_position_number, 
-                                  flatten=flatten, nspecies=nspecies,
-                                  Nprofs=nchannels, wall_width=wall_width,
-                                  ignore_error=ignore_error, plotim=plotim)
+            data_dict = {}
+            radius = dd4.size_image(im, ActualFlowRate, Wz, Wy, readingpos,
+                                    test_radii, bg=bg, data_dict=data_dict,
+                                    ignore=ignore, initmode=initmode,
+                                    fit_position_number=fit_position_number,
+                                    flatten=flatten, nspecies=nspecies,
+                                    Nprofs=nchannels, wall_width=wall_width,
+                                    ignore_error=ignore_error, plotim=plotim)
             return (radius, *read_data_dict(data_dict))
-        
+
         if len(ims.shape) == 2:
             return process_im(ims, plotim=plotim)
         else:
-            #movie
+            # movie
             radius_list = []
             profiles_list = []
             fits_list = []
@@ -416,29 +420,27 @@ def full_fit(settingsfn, metadatafn, plotim=False):
             pixel_size_list = []
             for im in ims:
                 radius, profiles, fits, lse, pixel_size = \
-                                    process_im(im, ignore_error=True)
+                    process_im(im, ignore_error=True)
                 radius_list.append(radius)
                 profiles_list.append(profiles)
                 fits_list.append(fits)
                 lse_list.append(lse)
                 pixel_size_list.append(pixel_size)
-    
-            overexposed=[is_overexposed(im) for im in ims]
-            return (np.asarray(radius_list), profiles_list, fits_list, 
-                    np.asarray(lse_list), np.asarray(pixel_size_list), 
+
+            overexposed = [is_overexposed(im) for im in ims]
+            return (np.asarray(radius_list), profiles_list, fits_list,
+                    np.asarray(lse_list), np.asarray(pixel_size_list),
                     overexposed)
-    
-    
-    
+
 
 def read_data_dict(data_dict):
     """Extract interesting data from a data dict
-    
+
     Parameters
     ----------
     data_dict: dict
         The data dictionnary
-        
+
     Returns
     -------
     profiles: 1d list of floats
@@ -451,14 +453,14 @@ def read_data_dict(data_dict):
         The detected pixel size
     """
     profiles, fits, lse, pixel_size = np.nan, np.nan, np.nan, np.nan
-    
+
     if 'profiles' in data_dict and 'fits'in data_dict:
-        lse=np.sqrt(np.mean(np.square(data_dict['profiles'][1:]
-                                    - data_dict['fits'])))
-        
-        #Get profiles and fit
-        profiles=data_dict['profiles']
-        fits=[data_dict['initprof'], *data_dict['fits']]
-        pixel_size=data_dict['pixsize']
-    
+        lse = np.sqrt(np.mean(np.square(data_dict['profiles'][1:]
+                                        - data_dict['fits'])))
+
+        # Get profiles and fit
+        profiles = data_dict['profiles']
+        fits = [data_dict['initprof'], *data_dict['fits']]
+        pixel_size = data_dict['pixsize']
+
     return profiles, fits, lse, pixel_size
