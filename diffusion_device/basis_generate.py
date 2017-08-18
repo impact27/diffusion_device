@@ -403,16 +403,16 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
 
     # Get the dF matrix
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
-    Cyy = np.diag(1 / V)@((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
+    Cyy = (1 / V)[:, np.newaxis]*((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
     if Zgrid > 1:
         qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
-        Czz = np.diag(1 / V)@((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
+        Czz = (1 / V)[:, np.newaxis]*((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
     else:
         Czz = 0
     if muEoD == 0:
         Cy = 0
     else:
-        #        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
+        # Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
         Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary=yboundary)
 
     dF = dxtD * (Cyy + Czz - muEoD * Cy)
@@ -569,7 +569,7 @@ def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary='Neumann'):
 
     Cy = q[-2] - 8 * q[-1] + 8 * q[1] - q[2]
     Cy /= (12 * dy)
-    Cy = np.diag(1 / V)@Cy
+    Cy = (1 / V)[:, np.newaxis]*Cy
     return Cy
 
 
@@ -604,8 +604,8 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
     iVyp = np.ravel(np.concatenate((1 / Viy, np.zeros((Zgrid, 1))), 1))
     iVym = np.concatenate(([0], iVyp[:-1]))
 
-    iVyp = np.diag(iVyp)
-    iVym = np.diag(iVym)
+    iVyp = iVyp[:, np.newaxis]
+    iVym = iVym[:, np.newaxis]
 
     q = getQy(Zgrid, Ygrid, boundary=boundary)
 
@@ -631,9 +631,10 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
 
     neg = muEoD < 0
 
-    Cy = (iVym@q[-1 + neg] - iVyp@q[0 + neg]
-          + (.5 - neg) * ((iVym@sigdy[-1 + neg] - iVyp@sigdy[0 + neg])
-                          - nu / dy * (iVym**2@sigdy[-1 + neg] - iVyp**2@sigdy[0 + neg])))
+    Cy = (iVym*q[-1 + neg] - iVyp*q[0 + neg]
+          + (.5 - neg) * ((iVym*sigdy[-1 + neg] - iVyp*sigdy[0 + neg])
+                          - nu / dy * (iVym**2*sigdy[-1 + neg] 
+                          - iVyp**2*sigdy[0 + neg])))
 
     Cy /= dy
 

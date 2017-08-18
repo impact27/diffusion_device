@@ -297,7 +297,8 @@ def getType(metadatafn):
         ims = np.asarray([imread(fn) for fn in filename])
     else:
         ims = imread(filename)
-    ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
+    if len(ims.shape) == 3:
+        ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
     if len(ims.shape) == 2:
         return '4pos'
     elif len(ims.shape) == 3:
