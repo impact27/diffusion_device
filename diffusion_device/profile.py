@@ -98,7 +98,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         r = fit_radius(profiles[1:], Basis, Rs, ignore, nspecies=1)
 
         # fill data if needed
-        if data_dict is not None:
+        if data_dict is not None and not np.isnan(r):
             data_dict['initprof'] = init
             fits = getprofiles(init, Q=Q, Radii=[r],
                                Wy=Wy, Wz=Wz, Zgrid=Zgrid,
