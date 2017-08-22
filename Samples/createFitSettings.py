@@ -30,8 +30,11 @@ firstmethod='none'
 fitpos=None # None means all
 flatten=True #For bright Images
 nspecies = 1
+Zgrid = 11
+normalise = True
 
 createFitSettings(settingsfn, rmin, rmax, rstep, 
                       ignore, firstmethod,
                       fitpos, flatten, border, 
-                      framesSlices, nspecies)
+                      framesSlices, nspecies,
+                      Zgrid, normalise)

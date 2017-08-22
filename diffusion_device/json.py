@@ -31,6 +31,8 @@ KEY_STG_FITPOS = 'Pos to fit'
 KEY_STG_BFFLAT = 'Flatten bright field'
 KEY_STG_BORDER = 'Image border[px] (t, d, l, r)'
 KEY_STG_FRAMESSLICES = 'Frames slice'
+KEY_STG_ZGRID = "Number of z slices"
+KEY_STG_NORMALISE = "Normalise the profiles?"
 
 
 def optional(dic, key, val):
@@ -95,7 +97,8 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
 def createFitSettings(settingsfn, rmin, rmax, rstep,
                       ignore=None, firstmethod=None,
                       fitpos=None, flatten=None, border=None,
-                      framesSlices=None, nspecies=1):
+                      framesSlices=None, nspecies=1, Zgrid=None,
+                      normalise=None):
     """Creates the fit settings for the fitting
 
     Parameters
@@ -133,6 +136,8 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     optional(Settings, KEY_STG_BORDER, border)
     # For multi frames
     optional(Settings, KEY_STG_FRAMESSLICES, framesSlices)
+    optional(Settings, KEY_STG_ZGRID, Zgrid)
+    optional(Settings, KEY_STG_NORMALISE, normalise)
     Settings[KEY_STG_NSPECIES] = nspecies
 
     with open(settingsfn, 'w') as f:
@@ -239,6 +244,8 @@ def loadSettings(settingsfn):
     default(Settings, KEY_STG_BORDER, [None, None, None, None])
     default(Settings, KEY_STG_FRAMESSLICES, [None, None])
     default(Settings, KEY_STG_NSPECIES, 1)
+    default(Settings, KEY_STG_ZGRID, 11)
+    default(Settings, KEY_STG_NORMALISE, True)
 
     return Settings
 
@@ -345,6 +352,9 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     Wy = Metadata[KEY_MD_WY]
     ActualFlowRate = Metadata[KEY_MD_Q]
     pixsize = Metadata[KEY_MD_PIXSIZE]
+    nchannels = Metadata[KEY_MD_NCHANNELS]
+    wall_width = Metadata[KEY_MD_WALLWIDTH]
+
     rmin, rmax, rstep = Settings[KEY_STG_R]
     ignore = Settings[KEY_STG_IGNORE]
     initmode = Settings[KEY_STG_POS0FILTER]
@@ -354,9 +364,8 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     framesSlice = Settings[KEY_STG_FRAMESSLICES]
     nspecies = Settings[KEY_STG_NSPECIES]
     test_radii = np.arange(rmin, rmax, rstep)
-
-    nchannels = Metadata[KEY_MD_NCHANNELS]
-    wall_width = Metadata[KEY_MD_WALLWIDTH]
+    Zgrid = Settings[KEY_STG_ZGRID]
+    normalise_profiles = Settings[KEY_STG_NORMALISE]
 
     # load images
     if isinstance(filename, (list, tuple)):
@@ -395,7 +404,9 @@ def full_fit(settingsfn, metadatafn, plotim=False):
                                  readingpos, Rs=test_radii, bgs=bg,
                                  data_dict=data_dict, ignore=ignore,
                                  initmode=initmode,
-                                 nspecies=nspecies)
+                                 nspecies=nspecies,
+                                 Zgrid=Zgrid,
+                                 normalise_profiles=normalise_profiles)
         return (radius, *read_data_dict(data_dict))
 
     else:
@@ -407,7 +418,10 @@ def full_fit(settingsfn, metadatafn, plotim=False):
                                     fit_position_number=fit_position_number,
                                     flatten=flatten, nspecies=nspecies,
                                     Nprofs=nchannels, wall_width=wall_width,
-                                    ignore_error=ignore_error, plotim=plotim)
+                                    ignore_error=ignore_error, plotim=plotim,
+                                    Zgrid=Zgrid,
+                                    normalise_profiles=normalise_profiles)
+
             return (radius, *read_data_dict(data_dict))
 
         if len(ims.shape) == 2:
