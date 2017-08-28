@@ -12,6 +12,7 @@ from .. import profile as dp
 import background_rm as rmbg
 import registrator.image as ir
 from scipy import interpolate
+from . import commun
 
 
 def image_infos(im, Nprofs):
@@ -201,14 +202,14 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
     return im
 
 
-def extract_profiles_flatim(im, chwidth, wallwidth, infos, Nprofs):
+def cut_profile(image_profile, chwidth, wallwidth, infos, Nprofs):
     '''
-    Extract profiles from flat image
+    cut the image profile into profiles
 
     Parameters
     ----------
-    im: 2d array
-        The flat image
+    image_profile: 1d array
+        The image profile
     chwidth: float
         The channel width in [m]
     wallwidth: float
@@ -225,7 +226,6 @@ def extract_profiles_flatim(im, chwidth, wallwidth, infos, Nprofs):
     '''
     # Find positions
     w, a, origin = infos
-    image_profile = np.nanmean(im, 0)
 
     chwidth_pixels = w * chwidth / (chwidth + wallwidth)
 
@@ -304,6 +304,9 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth,
     plot(np.ravel(profiles0))
     plot(np.ravel(profiles1))
     #"""
-    profiles = extract_profiles_flatim(
-        im, chwidth, wallwidth, infos['infos'], Nprofs)
+    
+    image_profile = commun.image_profile(im)
+    
+    profiles = cut_profile(
+        image_profile, chwidth, wallwidth, infos['infos'], Nprofs)
     return profiles

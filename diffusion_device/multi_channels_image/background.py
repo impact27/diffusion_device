@@ -10,7 +10,7 @@ import scipy.ndimage.measurements as msr
 import background_rm as rmbg
 from .. import profile as dp
 import scipy
-from . import bright
+from . import bright, commun
 gfilter = scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.morphology import binary_erosion
 import warnings
@@ -240,7 +240,7 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth):
     if (edges[1] + edges[0]) / 2 < width:
         raise RuntimeError("Edges incorrectly detected.")
     # Profile
-    imProf = np.nanmean(flat_im, 0)
+    imProf =  commun.image_profile(flat_im)
     # Output profiles
     profiles = np.empty((Nprofs, width), dtype=float)
     # Extract profiles
@@ -278,28 +278,3 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth):
     #"""
 
     return profiles
-
-# def apparent_pixel_size(bg, estimated_pix_size, im=None):
-#    """
-#    Compute the apparent pixel size
-#
-#    Parameters
-#    ----------
-#    bg: 2d array
-#        Background image
-#    estimated_pix_size: float
-#        The estimated pixel size in [m]
-#
-#    Returns
-#    -------
-#    pixsize: float
-#        The apparent pixel size
-#    """
-#    if im is None:
-#        a = ir.orientation_angle(bg) - np.pi/2
-#    else:
-#        a = bg_angle(im, bg)
-#    edges = channels_edges(bg, estimated_pix_size, a)
-#    #2000 is (channel width + gap ) *10
-#    return np.mean([20*_umChannelWidth/np.mean(np.diff(edges[::2])),
-#                    20*_umChannelWidth/np.mean(np.diff(edges[1::2]))])

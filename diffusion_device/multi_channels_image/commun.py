@@ -122,8 +122,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         # get profiles
         if bg is None:
             # Single image
-            profiles = bright.extract_profiles(im, Nprofs,
-                                               Wy, wall_width,
+            profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
                                                flatten=flatten, plotim=plotim)
 
         else:
@@ -145,6 +144,11 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         data_dict['pixsize'] = pixsize
         data_dict['profiles'] = profiles
     return dp.size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs,
-                            initmode=initmode, normalise_profiles=normalise_profiles,
+                            initmode=initmode, 
+                            normalise_profiles=normalise_profiles,
                             Zgrid=Zgrid, ignore=ignore, data_dict=data_dict,
                             nspecies=nspecies)
+
+def image_profile(im):
+    """Returns the profile of the flattened image"""
+    return np.nanmean(im, 0)
