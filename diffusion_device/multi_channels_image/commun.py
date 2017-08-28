@@ -42,7 +42,8 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
                Zgrid=11, ignore=5e-6, normalise_profiles=True,
                initmode='none', data_dict=None, fit_position_number=None,
-               flatten=False, nspecies=1, ignore_error=False, plotim=False):
+               flatten=False, nspecies=1, ignore_error=False, plotim=False,
+               imslice=None):
     """
     Get the hydrodynamic radius from the images
 
@@ -125,12 +126,14 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
             # Single image
             profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
                                                flatten=flatten, plotim=plotim,
-                                               ignore=ignore)
+                                               ignore=ignore, 
+                                               imslice=imslice)
 
         else:
             #images and background
             profiles = background.extract_profiles(im, bg, Nprofs, Wy,
-                                                   wall_width, ignore=ignore)
+                                                   wall_width, ignore=ignore, 
+                                                   imslice=imslice)
     except RuntimeError as error:
         print(error.args[0])
         if ignore_error:
@@ -152,7 +155,8 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
                             nspecies=nspecies)
 
 
-def extract_profiles(im, centers, chwidth, ignore, pixsize):
+def extract_profiles(im, centers, chwidth, ignore, pixsize,
+                     imslice=None):
     '''cut the image profile into profiles
 
     Parameters
@@ -180,7 +184,11 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize):
 
     Nprofs = len(centers)
     Npix = int(np.round(chwidth / pixsize))
-    image_profile = np.nanmean(im, 0)
+    
+    if imslice == None:
+        image_profile = np.nanmean(im, 0)
+    else:
+        image_profile = imageProfileSlice(im, imslice[0], imslice[1], pixsize)
 
     profiles = np.empty((Nprofs, Npix), dtype=float)
 
@@ -230,13 +238,25 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize):
     return profiles
 
 
-#    for i, c in enumerate(centers):
-#        X = np.arange(len(image_profile)) - c
-#        Xc = np.arange(Npix) - (Npix - 1) / 2
-#        finterp = interpolate.interp1d(X, image_profile)
-#        protoprof = finterp(Xc)
-#        # switch if uneven
-#        if i % 2 == 1:
-#            protoprof = protoprof[::-1]
-#
-#        profiles[i] = protoprof
+def imageProfileSlice(im, center, width, pixsize):
+    '''Get the image profile corresponding to a center and width
+
+    Parameters
+    ----------
+    im: 2d array
+        The flat image
+    center:
+    width:
+    pixsize:
+        
+    Returns
+    -------
+    
+    '''
+    center = len(im)//2 + int(np.round(center/pixsize))
+    width = int(np.round(width/pixsize))
+    amin = (2*center - width)//2
+    amax = (2*center + width)//2
+    if amin < 0 or amax > len(im):
+        raise RuntimeError("Poorly defined slice")
+    return np.nanmean(im[amin:amax], 0)

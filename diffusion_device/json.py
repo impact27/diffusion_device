@@ -33,6 +33,7 @@ KEY_STG_BORDER = 'Image border[px] (t, d, l, r)'
 KEY_STG_FRAMESSLICES = 'Frames slice'
 KEY_STG_ZGRID = "Number of z slices"
 KEY_STG_NORMALISE = "Normalise the profiles?"
+KEY_STG_SLICE = "Slice [m] (center(±), width(+))"
 
 
 def optional(dic, key, val):
@@ -98,7 +99,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
                       ignore=None, firstmethod=None,
                       fitpos=None, flatten=None, border=None,
                       framesSlices=None, nspecies=1, Zgrid=None,
-                      normalise=None):
+                      normalise=None, imslices=None):
     """Creates the fit settings for the fitting
 
     Parameters
@@ -138,6 +139,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     optional(Settings, KEY_STG_FRAMESSLICES, framesSlices)
     optional(Settings, KEY_STG_ZGRID, Zgrid)
     optional(Settings, KEY_STG_NORMALISE, normalise)
+    optional(Settings, KEY_STG_SLICE, imslices)
     Settings[KEY_STG_NSPECIES] = nspecies
 
     with open(settingsfn, 'w') as f:
@@ -246,7 +248,7 @@ def loadSettings(settingsfn):
     default(Settings, KEY_STG_NSPECIES, 1)
     default(Settings, KEY_STG_ZGRID, 11)
     default(Settings, KEY_STG_NORMALISE, True)
-
+    default(Settings, KEY_STG_SLICE, None)
     return Settings
 
 
@@ -366,6 +368,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     test_radii = np.arange(rmin, rmax, rstep)
     Zgrid = Settings[KEY_STG_ZGRID]
     normalise_profiles = Settings[KEY_STG_NORMALISE]
+    imslice = Settings[KEY_STG_SLICE]
 
     # load images
     if isinstance(filename, (list, tuple)):
@@ -410,17 +413,23 @@ def full_fit(settingsfn, metadatafn, plotim=False):
         return (radius, *read_data_dict(data_dict))
 
     else:
+        if imslice is not None:
+            shift = np.resize([1,-1], nchannels)*imslice[0]
+            readingpos = readingpos + shift
+        
         def process_im(im, ignore_error=False, plotim=False):
             data_dict = {}
-            radius = dd4.size_image(im, ActualFlowRate, Wz, Wy, readingpos,
-                                    test_radii, bg=bg, data_dict=data_dict,
-                                    ignore=ignore, initmode=initmode,
-                                    fit_position_number=fit_position_number,
-                                    flatten=flatten, nspecies=nspecies,
-                                    Nprofs=nchannels, wall_width=wall_width,
-                                    ignore_error=ignore_error, plotim=plotim,
-                                    Zgrid=Zgrid,
-                                    normalise_profiles=normalise_profiles)
+            radius = dd4.size_image(
+                    im, ActualFlowRate, Wz, Wy, readingpos,
+                    test_radii, bg=bg, data_dict=data_dict,
+                    ignore=ignore, initmode=initmode,
+                    fit_position_number=fit_position_number,
+                    flatten=flatten, nspecies=nspecies,
+                    Nprofs=nchannels, wall_width=wall_width,
+                    ignore_error=ignore_error, plotim=plotim,
+                    Zgrid=Zgrid,
+                    normalise_profiles=normalise_profiles,
+                    imslice=imslice)
 
             return (radius, *read_data_dict(data_dict))
 

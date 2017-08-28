@@ -32,9 +32,10 @@ flatten = True  # For bright Images
 nspecies = 1
 Zgrid = 11
 normalise = True
+imslice = (0e-6, 10e-6)
 
 createFitSettings(settingsfn, rmin, rmax, rstep,
                   ignore, firstmethod,
                   fitpos, flatten, border,
                   framesSlices, nspecies,
-                  Zgrid, normalise)
+                  Zgrid, normalise, imslice)

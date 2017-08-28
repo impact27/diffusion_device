@@ -202,8 +202,8 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
     return im
 
 
-def extract_profiles(im, Nprofs, chwidth, wallwidth,
-                     flatten=False, plotim=False, ignore=0):
+def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False, 
+                     plotim=False, ignore=0, imslice=None):
     '''
     Extract profiles from image
 
@@ -240,78 +240,7 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth,
     w, a, origin = infos['infos']
     centers = origin + np.arange(Nprofs) * w
     pixsize = (chwidth + wallwidth) / w
-    profiles = commun.extract_profiles(im, centers, chwidth, ignore, pixsize)
+    profiles = commun.extract_profiles(im, centers, chwidth, ignore, pixsize,
+                                       imslice=imslice)
 
     return profiles
-
-#    """
-#    profiles0 = extract_profiles_flatim(im[:100], infos['infos'])
-#    for p in profiles0:
-#        p /= np.mean(p)
-#    profiles1=extract_profiles_flatim(im[-100:], infos['infos'])
-#    for p in profiles1:
-#        p /= np.mean(p)
-#    from matplotlib.pyplot import plot, figure, imshow
-#    figure()
-#    plot(np.ravel(profiles0))
-#    plot(np.ravel(profiles1))
-#    #"""
-#    image_profile = commun.image_profile(im)
-#    profiles = cut_profile(
-#        image_profile, chwidth, wallwidth, infos['infos'], Nprofs)
-#
-#
-# def cut_profile(image_profile, chwidth, wallwidth, infos, Nprofs):
-#    '''
-#    cut the image profile into profiles
-#
-#    Parameters
-#    ----------
-#    image_profile: 1d array
-#        The image profile
-#    chwidth: float
-#        The channel width in [m]
-#    wallwidth: float
-#        The wall width in [m]
-#    infos: dict
-#        dictionnary containing the return value of straight_image_infos
-#    Nprofs: integer
-#        the numbers of channels
-#
-#    Returns
-#    -------
-#    profiles: 2d array
-#        The four profiles
-#    '''
-#    # Find positions
-#    w, a, origin = infos
-#
-#    chwidth_pixels = w * chwidth / (chwidth + wallwidth)
-#
-#    # Extract one by one
-#    Npix = int(np.round(chwidth_pixels))
-#    profiles = np.zeros((Nprofs, Npix))
-#
-#    for i in range(Nprofs):
-#        X = np.arange(len(image_profile)) - (origin + i * w)
-#        Xc = np.arange(Npix) - (Npix - 1) / 2
-#        finterp = interpolate.interp1d(X, image_profile)
-#        protoprof = finterp(Xc)
-#        # switch if uneven
-#        if i % 2 == 1:
-#            protoprof = protoprof[::-1]
-#
-#        profiles[i] = protoprof
-#
-#    # If image upside down, turn
-#    if profiles[-1].max() > profiles[0].max():
-#        profiles = profiles[::-1]
-#
-#    """
-#    from matplotlib.pyplot import plot, figure, imshow
-#    figure()
-#    imshow(im)
-#    figure()
-#    plot(image_profile)
-#    #"""
-#    return profiles

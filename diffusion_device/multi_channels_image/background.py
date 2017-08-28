@@ -207,7 +207,8 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
     return ret
 
 
-def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0):
+def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
+                     imslice=None):
     """
     Extract diffusion profiles
 
@@ -243,7 +244,7 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0):
     centers = (edges[1::2] + edges[::2]) / 2
 
     profiles = commun.extract_profiles(flat_im, centers, chwidth, ignore,
-                                       chwidth / widthpx)
+                                       chwidth / widthpx, imslice=imslice)
 
     return profiles
 
