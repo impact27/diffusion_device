@@ -35,6 +35,11 @@ KEY_STG_ZGRID = "Number of z slices"
 KEY_STG_NORMALISE = "Normalise the profiles?"
 KEY_STG_SLICE = "Slice [m] (center(±), width(+))"
 
+def myimread(fn):
+    ims = imread(fn)            
+    if len(ims.shape) == 3:
+        ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
+    return ims
 
 def optional(dic, key, val):
     """Set valur in dictionnary if not None
@@ -303,11 +308,9 @@ def getType(metadatafn):
         return 'unknown'
     filename = Metadata[KEY_MD_FN]
     if isinstance(filename, (list, tuple)):
-        ims = np.asarray([imread(fn) for fn in filename])
+        ims = np.asarray([myimread(fn) for fn in filename])
     else:
-        ims = imread(filename)
-    if len(ims.shape) == 3:
-        ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
+        ims = myimread(filename)
     if len(ims.shape) == 2:
         return '4pos'
     elif len(ims.shape) == 3:
@@ -372,12 +375,10 @@ def full_fit(settingsfn, metadatafn, plotim=False):
 
     # load images
     if isinstance(filename, (list, tuple)):
-        ims = np.asarray([imread(fn) for fn in filename])
+        ims = np.asarray([myimread(fn) for fn in filename])
     else:
-        ims = imread(filename)
-        if len(np.shape(ims)) == 3:
-            # Check for full 0
-            ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
+        ims = myimread(filename)
+
 
         if len(np.shape(ims)) == 3:
             # movie
@@ -391,12 +392,9 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     bg = None
     if bgfn is not None:
         if isinstance(bgfn, (list, tuple)):
-            bg = np.asarray([imread(fn) for fn in bgfn])
+            bg = np.asarray([myimread(fn) for fn in bgfn])
         else:
-            bg = imread(bgfn)
-            if len(np.shape(bg)) == 3:
-                # Check for full 0
-                bg = np.squeeze(bg[np.logical_not(np.all(bg == 0, (1, 2)))])
+            bg = myimread(bgfn)
 
     if nchannels == 1:
         if len(ims.shape) == 2:
