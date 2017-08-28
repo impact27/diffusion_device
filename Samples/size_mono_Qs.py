@@ -21,13 +21,13 @@ settingsfn = '/Users/quentinpeter/Documents/PHD/Python/People project/Therese_si
 Rs = []
 Qs = []
 for fn in glob(metadatafn):
-    radius = ddplot.plotpos(settingsfn, fn, outpath )
+    radius = ddplot.plotpos(settingsfn, fn, outpath)
     Q = float(re.findall('([\d\.]+)ul?p?_?-?h', fn)[0])
     Rs.append(radius)
     Qs.append(Q)
-    
+
 plt.figure()
-plt.plot(Qs, np.asarray(Rs)*1e9, 'x')
+plt.plot(Qs, np.asarray(Rs) * 1e9, 'x')
 plt.xlabel('Flow Rate [ul-h]')
 plt.ylabel('Radius [nm]')
 plt.savefig(os.path.join(outpath, 'RvsQ.pdf'))

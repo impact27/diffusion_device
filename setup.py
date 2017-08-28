@@ -16,19 +16,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from setuptools import setup, find_packages
 
+
 def readme():
     with open('README.md') as f:
         return f.read()
+
 
 setup(name='diffusion_device',
       version='0.1.0',
       description='Image processing on diffusion device images',
       long_description=readme(),
       classifiers=[
-        'Development Status :: 4 - Beta',
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
-        'Programming Language :: Python :: 3 :: Only',
-        'Topic :: Scientific/Engineering',
+          'Development Status :: 4 - Beta',
+          'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
+          'Programming Language :: Python :: 3 :: Only',
+          'Topic :: Scientific/Engineering',
       ],
       keywords='sizing microfluidics',
       url='https://github.com/impact27/diffusion_device',
@@ -45,13 +47,9 @@ setup(name='diffusion_device',
           'registrator'
       ],
       dependency_links=[
-              'https://github.com/impact27/registrator/tarball/master#egg=registrator-0.1.0',
-              'https://github.com/impact27/background_rm/tarball/master#egg=background_rm-0.1.0'],
+          'https://github.com/impact27/registrator/tarball/master#egg=registrator-0.1.0',
+          'https://github.com/impact27/background_rm/tarball/master#egg=background_rm-0.1.0'],
       test_suite='nose.collector',
       tests_require=['nose', 'nose-cover3'],
       include_package_data=True,
       zip_safe=False)
-
-
-
- 

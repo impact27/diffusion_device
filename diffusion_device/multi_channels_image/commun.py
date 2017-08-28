@@ -8,6 +8,7 @@ import numpy as np
 from tifffile import imread
 from . import bright, background
 from .. import profile as dp
+from scipy import interpolate
 
 
 def defaultReadingPos(startpos=400e-6, isFolded=True):
@@ -123,12 +124,13 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         if bg is None:
             # Single image
             profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
-                                               flatten=flatten, plotim=plotim)
+                                               flatten=flatten, plotim=plotim,
+                                               ignore=ignore)
 
         else:
             #images and background
-            profiles = background.extract_profiles(im, bg, Nprofs,
-                                                   Wy, wall_width)
+            profiles = background.extract_profiles(im, bg, Nprofs, Wy,
+                                                   wall_width, ignore=ignore)
     except RuntimeError as error:
         print(error.args[0])
         if ignore_error:
@@ -144,11 +146,97 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         data_dict['pixsize'] = pixsize
         data_dict['profiles'] = profiles
     return dp.size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs,
-                            initmode=initmode, 
+                            initmode=initmode,
                             normalise_profiles=normalise_profiles,
                             Zgrid=Zgrid, ignore=ignore, data_dict=data_dict,
                             nspecies=nspecies)
 
-def image_profile(im):
-    """Returns the profile of the flattened image"""
-    return np.nanmean(im, 0)
+
+def extract_profiles(im, centers, chwidth, ignore, pixsize):
+    '''cut the image profile into profiles
+
+    Parameters
+    ----------
+    im: 2d array
+        The flat image
+    centers: 1d array
+        The position of the centers [px]
+    Npix: int
+        the width of the channel
+
+    Returns
+    -------
+    profiles: 2d array
+        The profiles
+    '''
+
+    # convert ignore to px
+    ignore = int(ignore / pixsize)
+
+    if ignore == 0:
+        pslice = slice(None)
+    else:
+        pslice = slice(ignore, -ignore)
+
+    Nprofs = len(centers)
+    Npix = int(np.round(chwidth / pixsize))
+    image_profile = np.nanmean(im, 0)
+
+    profiles = np.empty((Nprofs, Npix), dtype=float)
+
+    # Extract profiles
+    firstcenter = None
+    for i, cent in enumerate(centers):
+
+        X = np.arange(len(image_profile)) - cent
+        Xc = np.arange(Npix) - (Npix - 1) / 2
+        finterp = interpolate.interp1d(X, image_profile)
+        p = finterp(Xc)
+
+        # switch if uneven
+        if i % 2 == 1:
+            p = p[::-1]
+
+        # If the profile is not too flat
+        if np.max(p[pslice]) > 2 * np.mean(p[pslice]):
+            # Align by detecting center
+            c = dp.center(p[pslice]) + ignore
+            if firstcenter is not None:
+                diff = c - firstcenter
+                if i % 2 == 1:
+                    diff *= -1
+                X = np.arange(len(image_profile)) - cent - diff
+                finterp = interpolate.interp1d(X, image_profile)
+                p = finterp(Xc)
+                if i % 2 == 1:
+                    p = p[::-1]
+
+            else:
+                firstcenter = c
+
+        profiles[i] = p
+
+    # If image upside down, turn
+    if profiles[-1].max() > profiles[0].max():
+        profiles = profiles[::-1]
+
+    """
+    from matplotlib.pyplot import plot, figure, imshow
+    figure()
+    imshow(im)
+    figure()
+    plot(image_profile)
+    #"""
+    return profiles
+
+
+#    for i, c in enumerate(centers):
+#        X = np.arange(len(image_profile)) - c
+#        Xc = np.arange(Npix) - (Npix - 1) / 2
+#        finterp = interpolate.interp1d(X, image_profile)
+#        protoprof = finterp(Xc)
+#        # switch if uneven
+#        if i % 2 == 1:
+#            protoprof = protoprof[::-1]
+#
+#        profiles[i] = protoprof

@@ -57,7 +57,6 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     else:
         Rs, spectrum, the radii and corresponding spectrum
     """
-
     # convert ignore to px
     ignore = int(ignore / pixsize)
 
