@@ -101,7 +101,7 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
              for im, bg in zip(images, bgs)])
 
     if rebin > 1:
-        size = tuple(np.array(np.shape(flatimages)[1:]) // rebin)
+        size = tuple(np.array(np.shape(flatimages)[1:][::-1]) // rebin)
         flatimages = np.array([cv2.resize(im, size, interpolation=cv2.INTER_AREA)
                                for im in flatimages])
         pixsize *= rebin
@@ -191,7 +191,9 @@ def flat_image(im, pixsize, chanWidth):
 
     # Get center
     prof = np.nanmean(im, 0)  # TODO: Maybe median?
-    flatprof = prof - np.nanmedian(prof)
+    flatprof = prof - np.linspace(np.nanmean(prof[:len(prof)//10]),
+                                  np.nanmean(prof[-len(prof)//10:]),
+                                  len(prof))
     flatprof[np.isnan(flatprof)] = 0
     x = np.arange(len(prof)) - dp.center(flatprof)  # TODO: Fail ->np.argmax?
     x = x * pixsize
