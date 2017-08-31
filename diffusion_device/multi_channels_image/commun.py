@@ -100,6 +100,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
 
     # Check images is numpy array
     im = np.asarray(im)
+    readingpos = np.asarray(readingpos)
 
     # load images if string
     if im.dtype.type == np.str_:
@@ -143,6 +144,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
 
     if fit_position_number is not None:
         profiles = profiles[np.sort(fit_position_number)]
+        readingpos = readingpos[np.sort(fit_position_number)]
 
     pixsize = Wy / np.shape(profiles)[1]
     if data_dict is not None:
@@ -206,7 +208,8 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize,
             p = p[::-1]
 
         # If the profile is not too flat
-        if np.max(p[pslice]) > 2 * np.mean(p[pslice]):
+        testflat = np.max(p[pslice]) > 1.2 * np.mean(p[pslice])
+        if testflat:
             # Align by detecting center
             c = dp.center(p[pslice]) + ignore
             if firstcenter is not None:
