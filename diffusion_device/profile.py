@@ -57,6 +57,9 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     else:
         Rs, spectrum, the radii and corresponding spectrum
     """
+    if len(readingpos) != len(profiles):
+        raise RuntimeError(
+                "Number of profiles and reading positions mismatching.")
     # convert ignore to px
     ignore = int(ignore / pixsize)
 
@@ -191,7 +194,7 @@ def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
             The best radius fit
     """
 
-    M, b, psquare = get_matrices(profiles, Basis, ignore=0)
+    M, b, psquare = get_matrices(profiles, Basis, ignore=ignore)
 
     if nspecies == 1 and Rs is not None:
         return fit_monodisperse_radius(M, b, psquare, Rs)
