@@ -15,8 +15,8 @@ import os
 outpath = 'output'
 plotpos = None
 
-metadatafn = '/Users/quentinpeter/Documents/PHD/Python/People project/Therese_sizing/Diffusion sample data/170713d26b5/cam_*_Metadata.json'
-settingsfn = '/Users/quentinpeter/Documents/PHD/Python/People project/Therese_sizing/Diffusion sample data/170713d26b5/cam_003ddm01cacl210nacl10t75_80ulhr_fitSettings.json'
+metadatafn = '170815d301b3/*_Metadata.json'
+settingsfn = '170815d301b3/50nm_h2o_fitSettings.json'
 
 Rs = []
 Qs = []
@@ -25,9 +25,20 @@ for fn in glob(metadatafn):
     Q = float(re.findall('([\d\.]+)ul?p?_?-?h', fn)[0])
     Rs.append(radius)
     Qs.append(Q)
-
-plt.figure()
-plt.plot(Qs, np.asarray(Rs) * 1e9, 'x')
-plt.xlabel('Flow Rate [ul-h]')
-plt.ylabel('Radius [nm]')
-plt.savefig(os.path.join(outpath, 'RvsQ.pdf'))
+#%%
+Rs = np.asarray(Rs)
+if len(np.shape(Rs))==1:
+    plt.figure()
+    plt.plot(Qs, Rs * 1e9, 'x')
+    plt.xlabel('Flow Rate [ul-h]')
+    plt.ylabel('Radius [nm]')
+    plt.savefig(os.path.join(outpath, 'RvsQ.pdf'))
+else:
+    arg = np.argwhere(Rs[:,1]>0)
+    plt.figure()
+    for idx in arg:
+        plt.plot(Qs[idx[0]], Rs[0,0,idx[1]], 'bx')
+    plt.xlabel('Flow Rate [ul-h]')
+    plt.ylabel('Radius [nm]')
+    plt.savefig(os.path.join(outpath, 'RvsQ.pdf'))
+    
