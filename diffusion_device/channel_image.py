@@ -191,8 +191,8 @@ def flat_image(im, pixsize, chanWidth):
 
     # Get center
     prof = np.nanmean(im, 0)  # TODO: Maybe median?
-    flatprof = prof - np.linspace(np.nanmean(prof[:len(prof)//10]),
-                                  np.nanmean(prof[-len(prof)//10:]),
+    flatprof = prof - np.linspace(np.nanmean(prof[:len(prof) // 10]),
+                                  np.nanmean(prof[-len(prof) // 10:]),
                                   len(prof))
     flatprof[np.isnan(flatprof)] = 0
     x = np.arange(len(prof)) - dp.center(flatprof)  # TODO: Fail ->np.argmax?

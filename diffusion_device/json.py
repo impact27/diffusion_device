@@ -35,11 +35,13 @@ KEY_STG_ZGRID = "Number of z slices"
 KEY_STG_NORMALISE = "Normalise the profiles?"
 KEY_STG_SLICE = "Slice [m] (center(±), width(+))"
 
+
 def myimread(fn):
-    ims = imread(fn)            
+    ims = imread(fn)
     if len(ims.shape) == 3:
         ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
     return ims
+
 
 def optional(dic, key, val):
     """Set valur in dictionnary if not None
@@ -379,7 +381,6 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     else:
         ims = myimread(filename)
 
-
         if len(np.shape(ims)) == 3:
             # movie
             ims = ims[framesSlice[0]:framesSlice[1]]
@@ -412,22 +413,22 @@ def full_fit(settingsfn, metadatafn, plotim=False):
 
     else:
         if imslice is not None:
-            shift = np.resize([1,-1], nchannels)*imslice[0]
+            shift = np.resize([1, -1], nchannels) * imslice[0]
             readingpos = readingpos + shift
-        
+
         def process_im(im, ignore_error=False, plotim=False):
             data_dict = {}
             radius = dd4.size_image(
-                    im, ActualFlowRate, Wz, Wy, readingpos,
-                    test_radii, bg=bg, data_dict=data_dict,
-                    ignore=ignore, initmode=initmode,
-                    fit_position_number=fit_position_number,
-                    flatten=flatten, nspecies=nspecies,
-                    Nprofs=nchannels, wall_width=wall_width,
-                    ignore_error=ignore_error, plotim=plotim,
-                    Zgrid=Zgrid,
-                    normalise_profiles=normalise_profiles,
-                    imslice=imslice)
+                im, ActualFlowRate, Wz, Wy, readingpos,
+                test_radii, bg=bg, data_dict=data_dict,
+                ignore=ignore, initmode=initmode,
+                fit_position_number=fit_position_number,
+                flatten=flatten, nspecies=nspecies,
+                Nprofs=nchannels, wall_width=wall_width,
+                ignore_error=ignore_error, plotim=plotim,
+                Zgrid=Zgrid,
+                normalise_profiles=normalise_profiles,
+                imslice=imslice)
 
             return (radius, *read_data_dict(data_dict))
 
@@ -477,12 +478,13 @@ def read_data_dict(data_dict):
     profiles, fits, lse, pixel_size = np.nan, np.nan, np.nan, np.nan
 
     if 'profiles' in data_dict and 'fits'in data_dict:
-        lse = np.sqrt(np.mean(np.square(data_dict['profiles'][1:]
-                                        - data_dict['fits'])))
-
-        # Get profiles and fit
         profiles = data_dict['profiles']
-        fits = [data_dict['initprof'], *data_dict['fits']]
+        fits = data_dict['fits']
+        
+        if len(profiles)-1 == len(fits):
+            fits = [data_dict['initprof'], *data_dict['fits']]
+            
+        lse = np.sqrt(np.mean(np.square(profiles - fits)))
         pixel_size = data_dict['pixsize']
 
     return profiles, fits, lse, pixel_size

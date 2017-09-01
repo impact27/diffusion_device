@@ -59,7 +59,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     """
     if len(readingpos) != len(profiles):
         raise RuntimeError(
-                "Number of profiles and reading positions mismatching.")
+            "Number of profiles and reading positions mismatching.")
     # convert ignore to px
     ignore = int(ignore / pixsize)
 
@@ -80,10 +80,18 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
             warnings.warn("Negative profile", RuntimeWarning)
         profiles /= np.sum(profiles[:, pslice], -1)[:, np.newaxis]
 
-    # treat init profile
-    init = init_process(profiles[0], initmode, ignore)
-    # First reading pos is initial profile
-    readingposfit = readingpos[1:] - readingpos[0]
+    if initmode == 'synthetic':
+        init = synthetic_init(profiles[0], pslice)
+        readingposfit = readingpos
+        profilesfit = profiles
+    else:
+        
+        # treat init profile
+        init = init_process(profiles[0], initmode, ignore)
+        # First reading pos is initial profile
+        readingposfit = readingpos[1:] - readingpos[0]
+        profilesfit = profiles[1:]
+        
 
     # Get basis function
     Wy = pixsize * len(init)
@@ -97,7 +105,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
     if nspecies == 1:
         # Get best fit
-        r = fit_radius(profiles[1:], Basis, Rs, ignore, nspecies=1)
+        r = fit_radius(profilesfit, Basis, Rs, ignore, nspecies=1)
 
         # fill data if needed
         if data_dict is not None and not np.isnan(r):
@@ -113,7 +121,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
         return r
     else:
-        spectrum = fit_radius(profiles[1:], Basis, Rs, ignore,
+        spectrum = fit_radius(profilesfit, Basis, Rs, ignore,
                               nspecies=nspecies)
 
         # fill data if needed
@@ -124,6 +132,15 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
         return Rs, spectrum
 
+def synthetic_init(prof0, pslice):
+    N = len(prof0)
+    init = np.zeros_like(prof0)
+    x = np.arange(N) - center(prof0)
+    init[np.abs(x) < 5/100*N] = 1
+    init *= np.sum(prof0[pslice], -1)/np.sum(init[pslice], -1)
+    return init
+    
+    
 
 def get_matrices(profiles, Basis, ignore=0):
     """Return matrix representation of sums
