@@ -133,10 +133,11 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         return Rs, spectrum
 
 def synthetic_init(prof0, pslice):
+    """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
     init = np.zeros_like(prof0)
     x = np.arange(N) - center(prof0)
-    init[np.abs(x) < 5/100*N] = 1
+    init[np.abs(x) < 1/22*N] = 1
     init *= np.sum(prof0[pslice], -1)/np.sum(init[pslice], -1)
     return init
     
