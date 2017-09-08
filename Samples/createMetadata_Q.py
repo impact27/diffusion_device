@@ -12,10 +12,23 @@ import re
 # GLob to find all the files
 imfn = '170713d26b5/cam_*r.tif'
 
-for fn in glob(imfn):
+for image_filename in glob(imfn):
+
+    # Exposure time of the image file
+    exposure = 1.5  # s
 
     # Background file, relative to the image file. None means no background
-    bgfn = 'bg_1500ms_m2d1t.tif'
+    background_filename = 'bg_1500ms_m2d1t.tif'
+
+    # Exposure time of the background file (None if no background)
+    background_exposure = 1.5  # s
+
+    # image file to remove the background coming from the optics (Not chip
+    # related)
+    optics_background_filename = None
+
+    # Exposure  time of the optics background image. None if no file
+    optics_background_exposure = None  # s
 
     # Height of the channel [m]
     Wz = 50e-06  # m
@@ -26,18 +39,18 @@ for fn in glob(imfn):
     # Width of the walls [m] (Only for multiple channel in an image)
     wallwidth = 100e-6  # m
 
-    # Flow [ulph]
-    Q = float(re.findall('([\d\.]+)ul?p?_?-?h', fn)[0])
-
     # Number of channels in the image
     nchannels = 4
 
+    # Flow [ulph]
+    Q = float(re.findall('([\d\.]+)ul?p?_?-?h', image_filename)[0])
+
     # Reading position at the middle of the image [m]
     readingpos = [
-        .0013596,
-        .0096404,
-        .0203596,
-        .0396404
+        0.0015692,
+        0.0110692,
+        0.0205692,
+        0.04106919999999999
     ]  # m
 
     # Pixe size
@@ -51,9 +64,6 @@ for fn in glob(imfn):
         None  # Right
     ]
 
-    # Exposure time
-    exposure = 1.5  # s
-
     # Date YYYMMDD
     date = "20170906"
 
@@ -63,10 +73,17 @@ for fn in glob(imfn):
     # Informations about the buffer
     buffer = "100mM phosphate pH8"
 
+    # Informations about the device
+    device = "m2d1t4"
+
     ########################
 
-    filename = os.path.basename(fn)
-    metafn = metadata_fn(fn)
-    createMetadata(metafn, filename, Wz, Wy, Q, readingpos, pixelsize,
-                   exposure, date, analyte, buffer,
-                   bgfn, wallwidth, nchannels, border)
+    filename = os.path.basename(image_filename)
+    metafn = metadata_fn(image_filename)
+    createMetadata(metafn,
+                   filename, exposure,
+                   background_filename, background_exposure,
+                   optics_background_filename, optics_background_exposure,
+                   Wz, Wy, Q, readingpos, pixelsize,
+                   date, analyte, buffer,
+                   background_filename, wallwidth, nchannels, border)

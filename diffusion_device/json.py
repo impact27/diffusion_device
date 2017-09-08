@@ -15,6 +15,10 @@ from registrator.image import is_overexposed
 
 KEY_MD_FN = 'Image file name'
 KEY_MD_BGFN = 'Background file name'
+KEY_MD_OPBGFN = 'Optics background file name'
+KEY_MD_EXP = "Image exposition time [s]"
+KEY_MD_BGEXP = "Background image exposition time [s]"
+KEY_MD_OPBGEXP = "Optics background image exposition time [s]"
 KEY_MD_WZ = 'Wz[m]'
 KEY_MD_WY = 'Wy[m]'
 KEY_MD_WALLWIDTH = 'Wall Width [m]'
@@ -23,10 +27,10 @@ KEY_MD_Q = 'Q[ulph]'
 KEY_MD_RPOS = 'Read Positions [m]'
 KEY_MD_PIXSIZE = 'Pixel Size [m]'
 KEY_MD_BORDER = 'Image border[px] (t, d, l, r)'
-KEY_MD_EXPOSURE = "Exposition time [s]"
 KEY_MD_DATE = "Date [YYYYMMDD]"
 KEY_MD_ANALYTE = "Analyte informations"
 KEY_MD_BUFFER = "Buffer informations"
+KEY_MD_DEVICE = "Device informations"
 
 KEY_STG_R = 'Radii[m] (min, max, step)'
 KEY_STG_NSPECIES = 'Number of species to fit'
@@ -63,17 +67,31 @@ def optional(dic, key, val):
         dic[key] = val
 
 
-def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
-                   exposure, date, analyte, buffer,
-                   bgfn=None, wallwidth=None, nchannels=None, border=None):
+def createMetadata(metadata_filename,
+                   filename, exposure,
+                   background_filename, background_exposure,
+                   optics_background_filename, optics_background_exposure,
+                   Wz, Wy, Q, readingpos, pixelsize,
+                   date, analyte, buffer, device,
+                   wallwidth, nchannels, border):
     """Creates the metadata for a file name
 
     Parameters
     ----------
-    metafn: path
+    metadata_filename: path
         Where to save the metadata
-    fn: path
+    filename: path
         The path to the image relative to the metadata file
+    exposure: float
+        Exposure time of the image [s]
+    background_filename: path
+        path to the background file
+    background_exposure: float
+        Exposure time of the background [s]
+    optics_background_filename: path
+        path to the optics background file
+    optics_background_exposure: float
+        Exposure time of the optics background [s]
     Wz: float
         Height of the channel in [m]
     Wy: float
@@ -84,8 +102,14 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
         The reading positions in [m]
     pixelsize: float
         The pixel size in [m]
-    bgfn: path, default None
-        If there is a background, the path relative to the metadata file
+    date: string
+        YYYYMMDD
+    analyte: string
+        Infos about the analyte
+    buffer: string
+        infos about the buffer
+    device: string
+        infos about the device
     wallwidth: float, default None
         If this is a multichannel image, the width of the wall in [m]
     nchannels: int, default None
@@ -94,25 +118,38 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
         The borber to apply on the image (t, d, l, r)
     """
     Metadata = {}
-    Metadata[KEY_MD_FN] = fn
-    optional(Metadata, KEY_MD_BGFN, bgfn)
+
+    Metadata[KEY_MD_FN] = filename
+    Metadata[KEY_MD_EXP] = exposure
+
+    optional(Metadata, KEY_MD_BGFN, background_filename)
+    optional(Metadata, KEY_MD_BGEXP, background_exposure)
+
+    optional(Metadata, KEY_MD_OPBGFN, optics_background_filename)
+    optional(Metadata, KEY_MD_OPBGEXP, optics_background_exposure)
+
     Metadata[KEY_MD_WZ] = Wz
     Metadata[KEY_MD_WY] = Wy
+
     optional(Metadata, KEY_MD_WALLWIDTH, wallwidth)
     optional(Metadata, KEY_MD_NCHANNELS, nchannels)
+
     Metadata[KEY_MD_Q] = Q
-    Metadata[KEY_MD_RPOS] = readingpos
     Metadata[KEY_MD_PIXSIZE] = pixelsize
+
+    Metadata[KEY_MD_RPOS] = readingpos
+
     if border == [None, None, None, None]:
         border = None
     optional(Metadata, KEY_MD_BORDER, border)
-    Metadata[KEY_MD_EXPOSURE] = exposure
+
     Metadata[KEY_MD_DATE] = date
     Metadata[KEY_MD_ANALYTE] = analyte
     Metadata[KEY_MD_BUFFER] = buffer
+    Metadata[KEY_MD_DEVICE] = device
     # Optional
 
-    with open(metafn, 'w') as f:
+    with open(metadata_filename, 'w') as f:
         json.dump(Metadata, f, indent=4)
 
 
@@ -127,7 +164,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     ----------
     settingsfn: path
         The name of the settings file
-    metafn: path
+    metadata_filename: path
         path to the metadata file relative to the settings
     rmin, rmax, rstep: 3 floats
         min, max, and step for the radius[m]
@@ -297,16 +334,17 @@ def loadMetadata(metadatafn):
     with open(metadatafn, 'r') as f:
         Metadata = json.load(f)
 
-    default(Metadata, KEY_MD_BGFN, None)
-    default(Metadata, KEY_MD_WALLWIDTH, None)
     default(Metadata, KEY_MD_NCHANNELS, 1)
     default(Metadata, KEY_MD_BORDER, [None, None, None, None])
 
-    if Metadata[KEY_MD_BGFN] is not None:
-        Metadata[KEY_MD_BGFN] = listmakeabs(os.path.dirname(metadatafn),
-                                            Metadata[KEY_MD_BGFN])
-    Metadata[KEY_MD_FN] = listmakeabs(os.path.dirname(metadatafn),
-                                      Metadata[KEY_MD_FN])
+    for key in [KEY_MD_FN, KEY_MD_BGFN, KEY_MD_OPBGFN]:
+        default(Metadata, key, None)
+        if Metadata[key] is not None:
+            Metadata[key] = listmakeabs(os.path.dirname(metadatafn),
+                                        Metadata[key])
+
+    for key in [KEY_MD_WALLWIDTH, KEY_MD_EXP, KEY_MD_BGEXP, KEY_MD_OPBGEXP]:
+        default(Metadata, key, None)
 
     return Metadata
 
@@ -342,6 +380,61 @@ def getType(metadatafn):
     return 'unknown'
 
 
+def loadfiles(Metadata):
+    """ Load the images files and do some preprocessing
+
+    Parameters
+    ----------
+    Metadata: dict
+        The metadata informations
+
+    Returns
+    -------
+    ims: array
+        image or array of images
+    bg: array
+        background or array of backgrounds
+    """
+
+    filename = Metadata[KEY_MD_FN]
+    bgfn = Metadata[KEY_MD_BGFN]
+    optics_bgfn = Metadata[KEY_MD_OPBGFN]
+    exposure = Metadata[KEY_MD_EXP]
+    background_exposure = Metadata[KEY_MD_BGEXP]
+    optics_background_exposure = Metadata[KEY_MD_OPBGEXP]
+    imborder = Metadata[KEY_MD_BORDER]
+
+    # load images
+    if isinstance(filename, (list, tuple)):
+        ims = np.asarray([myimread(fn) for fn in filename])
+    else:
+        ims = myimread(filename)
+
+    # load background
+    bg = None
+    if bgfn is not None:
+        if isinstance(bgfn, (list, tuple)):
+            bg = np.asarray([myimread(fn) for fn in bgfn])
+        else:
+            bg = myimread(bgfn)
+
+    # Remove background from optics
+    if optics_bgfn is not None:
+        optics = myimread(optics_bgfn) / optics_background_exposure
+        ims = ims / exposure - optics
+        if bg is not None:
+            bg = bg / background_exposure - optics
+
+    # Remove Border
+    ims = ims[..., imborder[0]:imborder[1],
+              imborder[2]:imborder[3]]
+    if bg is not None:
+        bg = bg[..., imborder[0]:imborder[1],
+                imborder[2]:imborder[3]]
+
+    return ims, bg
+
+
 def full_fit(settingsfn, metadatafn, plotim=False):
     """Perform a fit with the imformations found in the settings file
 
@@ -373,9 +466,6 @@ def full_fit(settingsfn, metadatafn, plotim=False):
 
     Metadata = loadMetadata(metadatafn)
     Settings = loadSettings(settingsfn)
-
-    filename = Metadata[KEY_MD_FN]
-    bgfn = Metadata[KEY_MD_BGFN]
     readingpos = Metadata[KEY_MD_RPOS]
     Wz = Metadata[KEY_MD_WZ]
     Wy = Metadata[KEY_MD_WY]
@@ -383,7 +473,6 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     pixsize = Metadata[KEY_MD_PIXSIZE]
     nchannels = Metadata[KEY_MD_NCHANNELS]
     wall_width = Metadata[KEY_MD_WALLWIDTH]
-    imborder = Metadata[KEY_MD_BORDER]
 
     rmin, rmax, rstep = Settings[KEY_STG_R]
     ignore = Settings[KEY_STG_IGNORE]
@@ -397,30 +486,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     normalise_profiles = Settings[KEY_STG_NORMALISE]
     imslice = Settings[KEY_STG_SLICE]
 
-    # load images
-    if isinstance(filename, (list, tuple)):
-        ims = np.asarray([myimread(fn) for fn in filename])
-    else:
-        ims = myimread(filename)
-
-        if len(np.shape(ims)) == 3:
-            # movie
-            ims = ims[framesSlice[0]:framesSlice[1]]
-
-    # Remove Border
-    ims = ims[..., imborder[0]:imborder[1],
-              imborder[2]:imborder[3]]
-
-    # load background
-    bg = None
-    if bgfn is not None:
-        if isinstance(bgfn, (list, tuple)):
-            bg = np.asarray([myimread(fn) for fn in bgfn])
-        else:
-            bg = myimread(bgfn)
-
-        bg = bg[..., imborder[0]:imborder[1],
-                imborder[2]:imborder[3]]
+    ims, bg = loadfiles(Metadata)
 
     if nchannels == 1:
         if len(ims.shape) == 2:
@@ -461,6 +527,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
             return process_im(ims, plotim=plotim)
         else:
             # movie
+            ims = ims[framesSlice[0]:framesSlice[1]]
             radius_list = []
             profiles_list = []
             fits_list = []

@@ -8,10 +8,22 @@ from diffusion_device.json import createMetadata, metadata_fn
 import os
 
 # Image file
-imfn = 'Data/10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif'
+image_filename = 'Data/10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif'
+
+# Exposure time of the image file
+exposure = 1.5  # s
 
 # Background file, relative to the image file. None means no background
-bgfn = 'bg_1500ms_m2d1t.tif'
+background_filename = 'bg_1500ms_m2d1t.tif'
+
+# Exposure time of the background file (None if no background)
+background_exposure = 1.5  # s
+
+# image file to remove the background coming from the optics (Not chip related)
+optics_background_filename = None
+
+# Exposure  time of the optics background image. None if no file
+optics_background_exposure = None  # s
 
 # Height of the channel [m]
 Wz = 50e-06  # m
@@ -22,11 +34,11 @@ Wy = 300e-6  # m
 # Width of the walls [m] (Only for multiple channel in an image)
 wallwidth = 100e-6  # m
 
-# Flow [ulph]
-Q = 200
-
 # Number of channels in the image
 nchannels = 4
+
+# Flow [ulph]
+Q = 200
 
 # Reading position at the middle of the image [m]
 readingpos = [
@@ -47,9 +59,6 @@ border = [
     None  # Right
 ]
 
-# Exposure time
-exposure = 1.5  # s
-
 # Date YYYMMDD
 date = "20170906"
 
@@ -59,10 +68,17 @@ analyte = "Lysozyme 5mgmL sonicated diluted centrifuged"
 # Informations about the buffer
 buffer = "100mM phosphate pH8"
 
+# Informations about the device
+device = "m2d1t4"
+
 ########################
 
-filename = os.path.basename(imfn)
-metafn = metadata_fn(imfn)
-createMetadata(metafn, filename, Wz, Wy, Q, readingpos, pixelsize,
-               exposure, date, analyte, buffer,
-               bgfn, wallwidth, nchannels, border, )
+filename = os.path.basename(image_filename)
+metafn = metadata_fn(image_filename)
+createMetadata(metafn,
+               filename, exposure,
+               background_filename, background_exposure,
+               optics_background_filename, optics_background_exposure,
+               Wz, Wy, Q, readingpos, pixelsize,
+               date, analyte, buffer, device,
+               background_filename, wallwidth, nchannels, border)
