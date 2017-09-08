@@ -25,7 +25,7 @@ for fn in glob(metadatafn):
     Q = float(re.findall('([\d\.]+)ul?p?_?-?h', fn)[0])
     Rs.append(radius)
     Qs.append(Q)
-#%%
+
 Rs = np.asarray(Rs)
 if len(np.shape(Rs)) == 1:
     plt.figure()

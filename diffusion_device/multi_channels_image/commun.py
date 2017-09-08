@@ -128,7 +128,8 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         if bg is None:
             # Single image
             profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
-                                               flatten=flatten, plotim=plotim,
+                                               flatten=flatten,
+                                               plotimage=plotim,
                                                ignore=ignore,
                                                imslice=imslice,
                                                data_dict=data_dict)

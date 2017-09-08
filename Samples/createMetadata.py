@@ -8,8 +8,7 @@ from diffusion_device.json import createMetadata, metadata_fn
 import os
 
 # Image file
-imfn = ('Data/20170906_Lyz_monomer_10mgmL_100mMphosphate_pH8/'
-        '10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif')
+imfn = 'Data/10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif'
 
 # Background file, relative to the image file. None means no background
 bgfn = 'bg_1500ms_m2d1t.tif'
@@ -42,10 +41,10 @@ pixelsize = 1e-6  # m
 
 # Border of the region of interest [px]
 border = [
-    230, # Top
+    None, # Top
     None, # Bottom
-    180, # Left
-    870 # Right
+    None, # Left
+    None # Right
 ]
 
 ########################
