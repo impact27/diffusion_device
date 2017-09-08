@@ -7,7 +7,7 @@ Created on Fri Mar 17 10:25:47 2017
 import numpy as np
 from .basis_generate import getprofiles
 import scipy
-gfilter = scipy.ndimage.filters.gaussian_filter1d
+from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import warnings
 from scipy.optimize import basinhopping, minimize
 from itertools import combinations

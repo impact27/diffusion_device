@@ -150,8 +150,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
     profilespos.shape = (NRs, Nrp, ZgridEffective, Ygrid)
 
     if Zmirror:
-        profilespos = np.concatenate((profilespos,
-                                      profilespos[:, :, -1 - Zgrid % 2::-1, :]), 2)
+        profilespos = np.concatenate(
+            (profilespos, profilespos[:, :, -1 - Zgrid % 2::-1, :]), 2)
         Cinit = np.concatenate((Cinit, Cinit[-1 - Zgrid % 2::-1, :]), 0)
 
     # If full grid, stop here
@@ -311,9 +311,10 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
         for i in range(Zgrid):
             nz = np.arange(1, 100, 2)[:, None]
             ny = np.arange(1, 100, 2)[None, :]
-            Viy[i, j - 1] = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2)) *
-                                   (np.sin(nz * np.pi * (i + .5) / Zgrid) *
-                                    np.sin(ny * np.pi * (j) / Ygrid)))
+            Viy[i, j - 1] = np.sum(
+                1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
+                * (np.sin(nz * np.pi * (i + .5) / Zgrid)
+                   * np.sin(ny * np.pi * (j) / Ygrid)))
     Viy *= normfactor
     # Z interface
     Viz = np.zeros((Zgrid - 1, Ygrid), dtype='float64')
@@ -321,9 +322,10 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
         for i in range(1, Zgrid):
             nz = np.arange(1, 100, 2)[:, None]
             ny = np.arange(1, 100, 2)[None, :]
-            Viz[i - 1, j] = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2)) *
-                                   (np.sin(nz * np.pi * (i) / Zgrid) *
-                                    np.sin(ny * np.pi * (j + .5) / Ygrid)))
+            Viz[i - 1, j] = np.sum(
+                1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
+                * (np.sin(nz * np.pi * (i) / Zgrid)
+                   * np.sin(ny * np.pi * (j + .5) / Ygrid)))
 
     Viz *= normfactor
     return V, Viy, Viz

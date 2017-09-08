@@ -7,35 +7,54 @@ Created on Wed Jul 19 11:57:15 2017
 
 from diffusion_device.json import createFitSettings
 
-settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings.json'
-radii = [
-    5e-10,
-    1e-08,
-    1e-10
+settingsfn = ('Data/20170906_Lyz_monomer_10mgmL_100mMphosphate_pH8/'
+            'fitSettings.json')
+
+# Test radii
+radii = [ 
+    5e-10, # Min [m]
+    1e-08, # Max [m]
+    1e-10 # Step [m]
 ]  # m
-rmin, rmax, rstep = radii
-border = [
-    150,
-    None,
-    None,
-    None
-]  # px
+
+# For movies, to analyse subset of frames
 framesSlices = [
-    None,
-    250
+    None, # First Frame
+    None # Last Frame
 ]
 
-ignore = 0e-6  # m
-firstmethod = 'none'
-fitpos = None  # None means all
-flatten = True  # For bright Images
-nspecies = 1
-Zgrid = 11
-normalise = True
-imslice = (0e-6, 10e-6)
+# Distance from wall ignored [m]
+ignore = 0e-6  
 
+# Method to process first profile. Leave 'none' for now.
+firstmethod = 'none' 
+
+# Positions to fit. None means all. Useful to ignore one of the channels
+# In a multiple channel image
+fitpos = None 
+
+# For bright Images, should the image be flattened?
+flatten = True  
+
+# Number of spieces to fit
+nspecies = 1
+
+# Number of Z slices
+Zgrid = 21
+
+# Should the profiles be normlised?
+normalise = True 
+
+# Option to only analyse a slice of the image
+imslice = [
+        None, # Y Distance from center [m]
+        None # Y Width [m]
+        ]
+
+########################
+rmin, rmax, rstep = radii
 createFitSettings(settingsfn, rmin, rmax, rstep,
                   ignore, firstmethod,
-                  fitpos, flatten, border,
+                  fitpos, flatten,
                   framesSlices, nspecies,
                   Zgrid, normalise, imslice)

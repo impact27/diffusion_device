@@ -4,12 +4,6 @@ Created on Wed Aug  9 19:30:34 2017
 
 @author: quentinpeter
 """
-
-"""
-Created on Wed Apr  5 16:58:39 2017
-
-@author: quentinpeter
-"""
 from . import profile as dp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,9 +54,9 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
 
     """
 
-    #==========================================================================
+    # =========================================================================
     # Fit
-    #==========================================================================
+    # =========================================================================
 
     radius, profiles, fits, lse, pixel_size, im = \
         full_fit(settingsfn, metadatafn)
@@ -84,9 +78,9 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
         figure()
         plt.title('r= {:.2f} nm, LSE = {:.4e}, pixel = {:.3f} um'.format(
             radius * 1e9, lse, pixel_size * 1e6))
-    #==========================================================================
+    # ==========================================================================
     # Plot
-    #==========================================================================
+    # ==========================================================================
 
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
@@ -140,12 +134,14 @@ def prepare_output(outpath, settingsfn, metadatafn):
     """
     base_name = None
     if outpath is not None:
-        newoutpath = os.path.join(outpath,
-                                  os.path.splitext(os.path.basename(metadatafn))[0])
+        newoutpath = os.path.join(
+            outpath,
+            os.path.splitext(os.path.basename(metadatafn))[0])
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
-        base_name = os.path.join(newoutpath,
-                                 os.path.splitext(os.path.basename(settingsfn))[0])
+        base_name = os.path.join(
+            newoutpath,
+            os.path.splitext(os.path.basename(settingsfn))[0])
         shutil.copy(settingsfn, base_name + '.json')
     return base_name
 
@@ -336,8 +332,9 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
                 plt.title('LSE = {:.2e}, pixel = {:.3f} um'.format(
                     LSE[pos], pixs[pos] * 1e6))
             else:
-                plt.title('r= {:.2f} nm, LSE = {:.2e}, pixel = {:.3f} um'.format(
-                    radii[pos] * 1e9, LSE[pos], pixs[pos] * 1e6))
+                plt.title(
+                    'r= {:.2f} nm, LSE = {:.2e}, pixel = {:.3f} um'.format(
+                        radii[pos] * 1e9, LSE[pos], pixs[pos] * 1e6))
             plt.xlabel('Position [$\mu$m]')
             plt.ylabel('Normalised amplitude')
 

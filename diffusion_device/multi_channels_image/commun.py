@@ -73,7 +73,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
     Zgrid: int, defaults 11
         Number of Z slices
     ignore: float, defaults 5e-6
-        Distance to sides to ignore
+        Distance to sides to ignore [m]
     normalise_profiles: Bool, defaults True
         Should the profiles be normalised?
     initmode: str, defaults 'none'
@@ -90,6 +90,8 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         Should the errors be ignored?
     plotim: Bool, default False
         Plot how the image is flattened
+    imslice: 2 floats, default None
+        [Y distance from center, Y width] [m]
 
     Returns
     -------
@@ -132,7 +134,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
                                                data_dict=data_dict)
 
         else:
-            #images and background
+            # images and background
             profiles = background.extract_profiles(im, bg, Nprofs, Wy,
                                                    wall_width, ignore=ignore,
                                                    imslice=imslice,
@@ -169,8 +171,14 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize,
         The flat image
     centers: 1d array
         The position of the centers [px]
-    Npix: int
-        the width of the channel
+    chwidth: float
+        Width of the channel [m]
+    ignore: float
+        Distance to sides to ignore [m]
+    pixsize: float
+        Size of the pixel [m]
+    imslice: 2 floats, default None
+        [Y distance from center, Y width] [m]
 
     Returns
     -------
@@ -250,12 +258,16 @@ def imageProfileSlice(im, center, width, pixsize):
     ----------
     im: 2d array
         The flat image
-    center:
-    width:
-    pixsize:
-
+    center: float
+        Y center of the slice [m]
+    width: float
+        Y width of the slice [m]
+    pixsize: float
+        Size of the pixel [m]
     Returns
     -------
+    prof: array of float
+        The profile corresponding to the slice
 
     '''
     center = len(im) // 2 + int(np.round(center / pixsize))

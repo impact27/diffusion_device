@@ -5,24 +5,23 @@ Created on Tue Apr  4 11:18:33 2017
 @author: quentinpeter
 """
 import numpy as np
-import scipy.ndimage
-gfilter = scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.filters import maximum_filter1d
-from .. import profile as dp
+from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import background_rm as rmbg
 import registrator.image as ir
+from .. import profile as dp
 from . import commun
 
 
-def image_infos(im, Nprofs):
+def image_infos(image, number_profiles):
     """
     Get the image angle, channel width, proteind offset, and origin
 
     Parameters
     ----------
-    im: 2d array
+    image: 2d array
         The image
-    Nprofs: integer
+    number_profiles: integer
         the numbers of channels
 
     Returns
@@ -32,10 +31,10 @@ def image_infos(im, Nprofs):
 
     """
     # Detect Angle
-    angle = dp.image_angle(im)
-    im = ir.rotate_scale(im, -angle, 1, borderValue=np.nan)
+    angle = dp.image_angle(image)
+    image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
     # Get channels infos
-    w, a, origin = straight_image_infos(im, Nprofs)
+    w, a, origin = straight_image_infos(image, number_profiles)
 
     retdict = {
         'angle': angle,
@@ -45,15 +44,15 @@ def image_infos(im, Nprofs):
     return retdict
 
 
-def straight_image_infos(im, Nprofs):
+def straight_image_infos(image, number_profiles):
     """
     Get the channel width, proteind offset, and origin from a straight image
 
     Parameters
     ----------
-    im: 2d array
+    image: 2d array
         The image
-    Nprofs: integer
+    number_profiles: integer
         the numbers of channels
 
     Returns
@@ -66,11 +65,11 @@ def straight_image_infos(im, Nprofs):
         Position of the first channel center
 
     """
-    assert Nprofs == 4, "Not implemented"
+    assert number_profiles == 4, "Not implemented"
 
-    width_pixels = np.shape(im)[1] // 10
+    width_pixels = np.shape(image)[1] // 10
 
-    profiles = np.nanmean(im - np.nanmedian(im), 0)
+    profiles = np.nanmean(image - np.nanmedian(image), 0)
 
     # Find max positions
     fprof = gfilter(profiles, 3)
@@ -79,7 +78,7 @@ def straight_image_infos(im, Nprofs):
     maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
     # Remove sides
     maxs = maxs[np.logical_and(maxs > 15, maxs < len(fprof) - 15)]
-    maxs = maxs[np.argsort(fprof[maxs])[- Nprofs:]][::-1]
+    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
 #    from matplotlib.pyplot import figure, show, plot, imshow
 #    figure()
 #    plot(fprof)
@@ -87,7 +86,7 @@ def straight_image_infos(im, Nprofs):
 #    for m in maxs:
 #        plot([m, m], [0, np.nanmax(fprof)])
 
-    if len(maxs) < Nprofs:
+    if len(maxs) < number_profiles:
         raise RuntimeError("Can't get image infos")
 
     profiles -= np.nanmin(profiles)
@@ -130,20 +129,20 @@ def straight_image_infos(im, Nprofs):
     return w, a, origin
 
 
-def flat_image(im, chwidth, wallwidth, Nprofs, *,
-               frac=.6, infosOut=None, subtract=False, plotim=False):
+def flat_image(image, chwidth, wallwidth, number_profiles, *,
+               frac=.6, infosOut=None, subtract=False, plotimage=False):
     """
     Flatten input images
 
     Parameters
     ----------
-    im: 2d array
+    image: 2d array
         The image
     chwidth: float
         The channel width in [m]
     wallwidth: float
         The wall width in [m]
-    Nprofs: integer
+    number_profiles: integer
         the numbers of channels
     frac: float
         fraction of the profile taken by fluorescence from channels
@@ -154,18 +153,18 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
 
     Returns
     -------
-    im: 2d array
+    image: 2d array
         The flattened image
 
     """
     # Detect Angle
-    angle = dp.image_angle(im - np.median(im))
-    im = ir.rotate_scale(im, -angle, 1, borderValue=np.nan)
+    angle = dp.image_angle(image - np.median(image))
+    image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
     # Get channels infos
-    w, a, origin = straight_image_infos(im, Nprofs=Nprofs)
+    w, a, origin = straight_image_infos(image, number_profiles=number_profiles)
     # get mask
-    mask = np.ones(np.shape(im)[1])
-    for i in range(Nprofs):
+    mask = np.ones(np.shape(image)[1])
+    for i in range(number_profiles):
         amin = origin + i * w - frac * w * chwidth / (chwidth + wallwidth)
         amax = origin + i * w + frac * w * chwidth / (chwidth + wallwidth)
 
@@ -181,37 +180,37 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
 
         mask[int(amin):int(amax)] = 0
     mask = mask > 0
-    mask = np.tile(mask[None, :], (np.shape(im)[0], 1))
+    mask = np.tile(mask[None, :], (np.shape(image)[0], 1))
     # Flatten
     if not subtract:
-        im = im / rmbg.polyfit2d(im, mask=mask) - 1
+        image = image / rmbg.polyfit2d(image, mask=mask) - 1
     else:
-        im = im - rmbg.polyfit2d(im, mask=mask)
+        image = image - rmbg.polyfit2d(image, mask=mask)
 
-    if plotim:
+    if plotimage:
         import matplotlib.pyplot as plt
         plt.figure()
-        plt.imshow(im)
+        plt.imshow(image)
         plt.imshow(mask, alpha=.5)
         plt.figure()
-        plt.plot(np.nanmean(im, 0))
-        plt.plot(np.zeros(np.shape(im)[1]))
+        plt.plot(np.nanmean(image, 0))
+        plt.plot(np.zeros(np.shape(image)[1]))
 
     if infosOut is not None:
         infosOut['infos'] = (w, a, origin)
-    return im
+    return image
 
 
-def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False,
-                     plotim=False, ignore=0, imslice=None, data_dict=None):
+def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
+                     plotimage=False, ignore=0, imslice=None, data_dict=None):
     '''
     Extract profiles from image
 
     Parameters
     ----------
-    im: 2d array
+    image: 2d array
         The flat image
-    Nprofs: integer
+    number_profiles: integer
         the numbers of channels
     chwidth: float
         The channel width in [m]
@@ -219,8 +218,12 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False,
         The wall width in [m]
     flatten: Bool, Defaults False
         Should the image be flatten
-    plotim: Bool, default False
+    plotimage: Bool, default False
         Plot how the image is flattened
+    ignore: float, defaults 5e-6
+        Distance to sides to ignore [m]
+    imslice: 2 floats, default None
+        [Y distance from center, Y width] [m]
     data_dict: dict, defaults None
         Output to get the profiles and fits
 
@@ -229,23 +232,23 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False,
     profiles: 2d array
         The four profiles
     '''
-    im = np.asarray(im)
+    image = np.asarray(image)
     infos = {}
     if flatten:
-        im = flat_image(im, chwidth, wallwidth, Nprofs, infosOut=infos,
-                        plotim=plotim)
-    angle = dp.image_angle(im)
-    im = ir.rotate_scale(im, -angle, 1, borderValue=np.nan)
+        image = flat_image(image, chwidth, wallwidth, number_profiles,
+                           infosOut=infos, plotimage=plotimage)
+    angle = dp.image_angle(image)
+    image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
     if not flatten:
-        infos['infos'] = straight_image_infos(im, Nprofs)
+        infos['infos'] = straight_image_infos(image, number_profiles)
 
     w, a, origin = infos['infos']
-    centers = origin + np.arange(Nprofs) * w
+    centers = origin + np.arange(number_profiles) * w
     pixsize = (chwidth + wallwidth) / w
-    profiles = commun.extract_profiles(im, centers, chwidth, ignore, pixsize,
-                                       imslice=imslice)
+    profiles = commun.extract_profiles(image, centers, chwidth, ignore,
+                                       pixsize, imslice=imslice)
 
     if data_dict is not None:
-        data_dict["image"] = im
+        data_dict["image"] = image
 
     return profiles

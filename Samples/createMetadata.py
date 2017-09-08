@@ -7,24 +7,50 @@ Created on Wed Jul 19 11:57:15 2017
 from diffusion_device.json import createMetadata, metadata_fn
 import os
 
-imfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device.tif'
-bgfn = None  # relative to the image file
-Wz = 5.3e-05  # m
-Wy = 100e-6  # m
-Q = 327.68  # ulph
-readingpos = [
-    0.0,
-    0.003956,
-    0.021953,
-    0.0465
-]  # m
-pixelsize = 1e-6  # m
-wallwidth = 100e-6
+# Image file
+imfn = ('Data/20170906_Lyz_monomer_10mgmL_100mMphosphate_pH8/'
+        '10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif')
+
+# Background file, relative to the image file. None means no background
+bgfn = 'bg_1500ms_m2d1t.tif'
+
+# Height of the channel [m]
+Wz = 50e-06  # m
+
+# Width of the channel [m]
+Wy = 300e-6  # m
+
+# Width of the walls [m] (Only for multiple channel in an image)
+wallwidth = 100e-6 # m
+
+# Flow [ulph]
+Q = 200
+
+# Number of channels in the image
 nchannels = 4
+
+# Reading position at the middle of the image [m]
+readingpos = [
+        0.0015692,
+        0.0110692,
+        0.0205692,
+        0.04106919999999999
+    ]  # m
+
+# Pixe size
+pixelsize = 1e-6  # m
+
+# Border of the region of interest [px]
+border = [
+    230, # Top
+    None, # Bottom
+    180, # Left
+    870 # Right
+]
 
 ########################
 
 filename = os.path.basename(imfn)
 metafn = metadata_fn(imfn)
 createMetadata(metafn, filename, Wz, Wy, Q, readingpos, pixelsize,
-               bgfn, wallwidth, nchannels)
+               bgfn, wallwidth, nchannels, border)

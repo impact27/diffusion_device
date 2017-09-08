@@ -11,9 +11,9 @@ import background_rm as rmbg
 from .. import profile as dp
 import scipy
 from . import bright, commun
-gfilter = scipy.ndimage.filters.gaussian_filter1d
 from scipy.ndimage.morphology import binary_erosion
 import warnings
+gfilter = scipy.ndimage.filters.gaussian_filter1d
 warnings.filterwarnings('ignore', 'invalid value encountered in greater',
                         RuntimeWarning)
 
@@ -233,6 +233,10 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
         The channel width in [m]
     wallwidth: float
         The wall width in [m]
+    ignore: float
+        Distance to sides to ignore [m]
+    imslice: 2 floats, default None
+        [Y distance from center, Y width] [m]
     data_dict: dict, defaults None
         Output to get the profiles and fits
 
@@ -248,7 +252,7 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
     # Get channel width
     widthpx = int(np.mean(np.diff(edges)[::2]))
 
-    if (edges[1] + edges[0]) / 2 < widthpx:
+    if (edges[1] + edges[0]) < widthpx: # channel outside
         raise RuntimeError("Edges incorrectly detected.")
 
     centers = (edges[1::2] + edges[::2]) / 2

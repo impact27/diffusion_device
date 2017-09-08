@@ -22,6 +22,7 @@ KEY_MD_NCHANNELS = 'Number of channels'
 KEY_MD_Q = 'Q[ulph]'
 KEY_MD_RPOS = 'Read Positions [m]'
 KEY_MD_PIXSIZE = 'Pixel Size [m]'
+KEY_MD_BORDER = 'Image border[px] (t, d, l, r)'
 
 KEY_STG_R = 'Radii[m] (min, max, step)'
 KEY_STG_NSPECIES = 'Number of species to fit'
@@ -29,7 +30,6 @@ KEY_STG_IGNORE = 'Ignore Edge[m]'
 KEY_STG_POS0FILTER = 'First Position Filter'
 KEY_STG_FITPOS = 'Pos to fit'
 KEY_STG_BFFLAT = 'Flatten bright field'
-KEY_STG_BORDER = 'Image border[px] (t, d, l, r)'
 KEY_STG_FRAMESSLICES = 'Frames slice'
 KEY_STG_ZGRID = "Number of z slices"
 KEY_STG_NORMALISE = "Normalise the profiles?"
@@ -60,7 +60,7 @@ def optional(dic, key, val):
 
 
 def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
-                   bgfn=None, wallwidth=None, nchannels=None):
+                   bgfn=None, wallwidth=None, nchannels=None, border = None):
     """Creates the metadata for a file name
 
     Parameters
@@ -84,7 +84,9 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
     wallwidth: float, default None
         If this is a multichannel image, the width of the wall in [m]
     nchannels: int, default None
-         If this is a multichannel image, The number of channels
+        If this is a multichannel image, The number of channels
+    border: 4 ints, default None
+        The borber to apply on the image (t, d, l, r)
     """
     Metadata = {}
     Metadata[KEY_MD_FN] = fn
@@ -96,6 +98,9 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
     Metadata[KEY_MD_Q] = Q
     Metadata[KEY_MD_RPOS] = readingpos
     Metadata[KEY_MD_PIXSIZE] = pixelsize
+    if border == [None, None, None, None]:
+        border = None
+    optional(Metadata, KEY_MD_BORDER, border)
     # Optional
 
     with open(metafn, 'w') as f:
@@ -104,7 +109,7 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
 
 def createFitSettings(settingsfn, rmin, rmax, rstep,
                       ignore=None, firstmethod=None,
-                      fitpos=None, flatten=None, border=None,
+                      fitpos=None, flatten=None,
                       framesSlices=None, nspecies=1, Zgrid=None,
                       normalise=None, imslices=None):
     """Creates the fit settings for the fitting
@@ -126,12 +131,17 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     flatten: Bool, default None
         If there is no background, should the image be flattened
         Use if there is no background at all.
-    border: 4 ints, default None
-        The borber to apply on the image
     framesSlices: 2 ints, default None
         If this is a movie, the slice to apply
     nspecies: int
         The number of species to fit. 0=all.
+    Zgrid: int, default None
+        The number of Z slices in the simulation
+    normalise: bool, default None
+        Should the profiles be normalized?
+    imslice: 2 floats, default None
+        [Y center, Y width] [m]
+        
 
     """
     Settings = {}
@@ -141,11 +151,14 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     optional(Settings, KEY_STG_POS0FILTER, firstmethod)
     optional(Settings, KEY_STG_FITPOS, fitpos)
     optional(Settings, KEY_STG_BFFLAT, flatten)
-    optional(Settings, KEY_STG_BORDER, border)
     # For multi frames
+    if framesSlices == [None, None]:
+        framesSlices = None
     optional(Settings, KEY_STG_FRAMESSLICES, framesSlices)
     optional(Settings, KEY_STG_ZGRID, Zgrid)
     optional(Settings, KEY_STG_NORMALISE, normalise)
+    if imslices == [None, None]:
+        imslices = None
     optional(Settings, KEY_STG_SLICE, imslices)
     Settings[KEY_STG_NSPECIES] = nspecies
 
@@ -250,7 +263,6 @@ def loadSettings(settingsfn):
     default(Settings, KEY_STG_POS0FILTER, 'none')
     default(Settings, KEY_STG_FITPOS, None)
     default(Settings, KEY_STG_BFFLAT, False)
-    default(Settings, KEY_STG_BORDER, [None, None, None, None])
     default(Settings, KEY_STG_FRAMESSLICES, [None, None])
     default(Settings, KEY_STG_NSPECIES, 1)
     default(Settings, KEY_STG_ZGRID, 11)
@@ -279,6 +291,7 @@ def loadMetadata(metadatafn):
     default(Metadata, KEY_MD_BGFN, None)
     default(Metadata, KEY_MD_WALLWIDTH, None)
     default(Metadata, KEY_MD_NCHANNELS, 1)
+    default(Metadata, KEY_MD_BORDER, [None, None, None, None])
 
     if Metadata[KEY_MD_BGFN] is not None:
         Metadata[KEY_MD_BGFN] = listmakeabs(os.path.dirname(metadatafn),
@@ -361,13 +374,13 @@ def full_fit(settingsfn, metadatafn, plotim=False):
     pixsize = Metadata[KEY_MD_PIXSIZE]
     nchannels = Metadata[KEY_MD_NCHANNELS]
     wall_width = Metadata[KEY_MD_WALLWIDTH]
+    imborder = Metadata[KEY_MD_BORDER]
 
     rmin, rmax, rstep = Settings[KEY_STG_R]
     ignore = Settings[KEY_STG_IGNORE]
     initmode = Settings[KEY_STG_POS0FILTER]
     fit_position_number = Settings[KEY_STG_FITPOS]
     flatten = Settings[KEY_STG_BFFLAT]
-    imborder = Settings[KEY_STG_BORDER]
     framesSlice = Settings[KEY_STG_FRAMESSLICES]
     nspecies = Settings[KEY_STG_NSPECIES]
     test_radii = np.arange(rmin, rmax, rstep)

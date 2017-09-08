@@ -27,18 +27,17 @@ for fn in glob(metadatafn):
     Qs.append(Q)
 #%%
 Rs = np.asarray(Rs)
-if len(np.shape(Rs))==1:
+if len(np.shape(Rs)) == 1:
     plt.figure()
     plt.plot(Qs, Rs * 1e9, 'x')
     plt.xlabel('Flow Rate [ul-h]')
     plt.ylabel('Radius [nm]')
     plt.savefig(os.path.join(outpath, 'RvsQ.pdf'))
 else:
-    arg = np.argwhere(Rs[:,1]>0)
+    arg = np.argwhere(Rs[:, 1] > 0)
     plt.figure()
     for idx in arg:
-        plt.plot(Qs[idx[0]], Rs[0,0,idx[1]], 'bx')
+        plt.plot(Qs[idx[0]], Rs[0, 0, idx[1]], 'bx')
     plt.xlabel('Flow Rate [ul-h]')
     plt.ylabel('Radius [nm]')
     plt.savefig(os.path.join(outpath, 'RvsQ.pdf'))
-    

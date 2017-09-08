@@ -95,15 +95,16 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
             [flat_image(im, pixsize, Wy)
              for im in images])
     else:
-        #images and background
+        # images and background
         flatimages = np.asarray(
             [remove_bg(im, bg, pixsize, Wy)
              for im, bg in zip(images, bgs)])
 
     if rebin > 1:
         size = tuple(np.array(np.shape(flatimages)[1:][::-1]) // rebin)
-        flatimages = np.array([cv2.resize(im, size, interpolation=cv2.INTER_AREA)
-                               for im in flatimages])
+        flatimages = np.array(
+            [cv2.resize(im, size, interpolation=cv2.INTER_AREA)
+             for im in flatimages])
         pixsize *= rebin
 
     # get profiles
@@ -115,7 +116,8 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
         data_dict['profiles'] = profiles
 
     return dp.size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs,
-                            initmode=initmode, normalise_profiles=normalise_profiles,
+                            initmode=initmode,
+                            normalise_profiles=normalise_profiles,
                             Zgrid=Zgrid, ignore=ignore, data_dict=data_dict,
                             nspecies=nspecies)
 
@@ -450,7 +452,7 @@ def outGaussianBeamMask(data, chAngle=0):
     else:
         mask[llim:rlim, :] = 0
 
-    #mask=np.logical_and(mask>.5, np.isfinite(data))
+    # mask=np.logical_and(mask>.5, np.isfinite(data))
     mask = mask > .5
     return mask
 
