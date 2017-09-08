@@ -128,13 +128,15 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
             profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
                                                flatten=flatten, plotim=plotim,
                                                ignore=ignore, 
-                                               imslice=imslice)
+                                               imslice=imslice,
+                                               data_dict=data_dict)
 
         else:
             #images and background
             profiles = background.extract_profiles(im, bg, Nprofs, Wy,
                                                    wall_width, ignore=ignore, 
-                                                   imslice=imslice)
+                                                   imslice=imslice,
+                                                   data_dict=data_dict)
     except RuntimeError as error:
         print(error.args[0])
         if ignore_error:

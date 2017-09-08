@@ -387,7 +387,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
 
     # Remove Border
     ims = ims[..., imborder[0]:imborder[1],
-              imborder[2]:imborder[3]]
+                   imborder[2]:imborder[3]]
 
     # load background
     bg = None
@@ -396,6 +396,9 @@ def full_fit(settingsfn, metadatafn, plotim=False):
             bg = np.asarray([myimread(fn) for fn in bgfn])
         else:
             bg = myimread(bgfn)
+        
+        bg = bg[..., imborder[0]:imborder[1],
+                     imborder[2]:imborder[3]]
 
     if nchannels == 1:
         if len(ims.shape) == 2:
@@ -442,7 +445,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
             lse_list = []
             pixel_size_list = []
             for im in ims:
-                radius, profiles, fits, lse, pixel_size = \
+                radius, profiles, fits, lse, pixel_size, __ = \
                     process_im(im, ignore_error=True)
                 radius_list.append(radius)
                 profiles_list.append(profiles)
@@ -475,7 +478,7 @@ def read_data_dict(data_dict):
     pixel_size: float
         The detected pixel size
     """
-    profiles, fits, lse, pixel_size = np.nan, np.nan, np.nan, np.nan
+    profiles, fits, lse, pixel_size, im = np.nan * np.ones(5)
 
     if 'profiles' in data_dict and 'fits'in data_dict:
         profiles = data_dict['profiles']
@@ -486,5 +489,8 @@ def read_data_dict(data_dict):
             
         lse = np.sqrt(np.mean(np.square(profiles - fits)))
         pixel_size = data_dict['pixsize']
+        
+    if 'image' in data_dict:
+        im = data_dict['image'] 
 
-    return profiles, fits, lse, pixel_size
+    return profiles, fits, lse, pixel_size, im

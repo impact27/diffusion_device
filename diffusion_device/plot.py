@@ -19,6 +19,7 @@ from matplotlib.pyplot import plot, figure
 import os
 from matplotlib.image import NonUniformImage
 import shutil
+import tifffile
 
 
 def plotpos(settingsfn, metadatafn, outpath=None, plotpos=None):
@@ -63,7 +64,8 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
     # Fit
     #==========================================================================
 
-    radius, profiles, fits, lse, pixel_size = full_fit(settingsfn, metadatafn)
+    radius, profiles, fits, lse, pixel_size, im = \
+        full_fit(settingsfn, metadatafn)
 
     base_name = prepare_output(outpath, settingsfn, metadatafn)
 
@@ -99,7 +101,7 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
     #==========================================================================
 
     if outpath is not None:
-
+        tifffile.imsave(base_name + '_im.tif', im)
         plt.savefig(base_name + '_fig.pdf')
         with open(base_name + '_result.txt', 'wb') as f:
             f.write("LSE: {:e}\n".format(lse).encode())
@@ -139,11 +141,11 @@ def prepare_output(outpath, settingsfn, metadatafn):
     base_name = None
     if outpath is not None:
         newoutpath = os.path.join(outpath,
-                                  os.path.splitext(os.path.basename(metadatafn))[0])
+            os.path.splitext(os.path.basename(metadatafn))[0])
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
         base_name = os.path.join(newoutpath,
-                                 os.path.splitext(os.path.basename(settingsfn))[0])
+            os.path.splitext(os.path.basename(settingsfn))[0])
         shutil.copy(settingsfn, base_name + '.json')
     return base_name
 
@@ -309,8 +311,8 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
             np.savetxt(f, pixs)
             if len(np.shape(radii)) == 3:
                 for r, spectrum in zip(Rs, radii[:, 1]):
-                    f.write('Spectrums for radius {:.4e}nm:\n'.format(r
-                                                                      ).encode())
+                    f.write('Spectrums for radius {:.4e}nm:\n'
+                            .format(r).encode())
                     np.savetxt(f, spectrum)
 
             else:
