@@ -252,7 +252,7 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
     # Get channel width
     widthpx = int(np.mean(np.diff(edges)[::2]))
 
-    if (edges[1] + edges[0]) < widthpx: # channel outside
+    if (edges[1] + edges[0]) < widthpx:  # channel outside
         raise RuntimeError("Edges incorrectly detected.")
 
     centers = (edges[1::2] + edges[::2]) / 2

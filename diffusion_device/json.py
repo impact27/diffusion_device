@@ -23,6 +23,10 @@ KEY_MD_Q = 'Q[ulph]'
 KEY_MD_RPOS = 'Read Positions [m]'
 KEY_MD_PIXSIZE = 'Pixel Size [m]'
 KEY_MD_BORDER = 'Image border[px] (t, d, l, r)'
+KEY_MD_EXPOSURE = "Exposition time [s]"
+KEY_MD_DATE = "Date [YYYYMMDD]"
+KEY_MD_ANALYTE = "Analyte informations"
+KEY_MD_BUFFER = "Buffer informations"
 
 KEY_STG_R = 'Radii[m] (min, max, step)'
 KEY_STG_NSPECIES = 'Number of species to fit'
@@ -60,7 +64,8 @@ def optional(dic, key, val):
 
 
 def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
-                   bgfn=None, wallwidth=None, nchannels=None, border = None):
+                   exposure, date, analyte, buffer,
+                   bgfn=None, wallwidth=None, nchannels=None, border=None):
     """Creates the metadata for a file name
 
     Parameters
@@ -101,6 +106,10 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
     if border == [None, None, None, None]:
         border = None
     optional(Metadata, KEY_MD_BORDER, border)
+    Metadata[KEY_MD_EXPOSURE] = exposure
+    Metadata[KEY_MD_DATE] = date
+    Metadata[KEY_MD_ANALYTE] = analyte
+    Metadata[KEY_MD_BUFFER] = buffer
     # Optional
 
     with open(metafn, 'w') as f:
@@ -141,7 +150,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
         Should the profiles be normalized?
     imslice: 2 floats, default None
         [Y center, Y width] [m]
-        
+
 
     """
     Settings = {}
