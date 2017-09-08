@@ -141,11 +141,11 @@ def prepare_output(outpath, settingsfn, metadatafn):
     base_name = None
     if outpath is not None:
         newoutpath = os.path.join(outpath,
-            os.path.splitext(os.path.basename(metadatafn))[0])
+                                  os.path.splitext(os.path.basename(metadatafn))[0])
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
         base_name = os.path.join(newoutpath,
-            os.path.splitext(os.path.basename(settingsfn))[0])
+                                 os.path.splitext(os.path.basename(settingsfn))[0])
         shutil.copy(settingsfn, base_name + '.json')
     return base_name
 

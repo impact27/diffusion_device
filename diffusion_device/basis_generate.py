@@ -7,7 +7,7 @@ Created on Mon Jan  9 09:32:10 2017
 import numpy as np
 
 
-def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
+def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
                 muEoD=0, *, fullGrid=False, central_profile=False,
                 eta=1e-3, kT=1.38e-23 * 295, Zmirror=True,
                 stepMuE=False, dxfactor=1, yboundary='Neumann'):
@@ -169,7 +169,7 @@ def getprofiles(Cinit, Q, Radii, readingpos,  Wy, Wz, Zgrid=1,
     return profilespos
 
 
-def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
+def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                        Wz, Zgrid=1, *, fullGrid=False, central_profile=False,
                        eta=1e-3, kT=1.38e-23 * 295, Zmirror=True, dxfactor=1,
                        yboundary='Neumann'):
@@ -178,7 +178,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
     Parameters
     ----------
     Cinit:  1d array or 2d array
-            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is 
+            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is
             used to pad the array
     Q:  float
         The flux in the channel in [ul/h]
@@ -188,10 +188,10 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
         values od muE to test
     readingpos: 1d array float
         Position to read at
-    Wy: float 
+    Wy: float
         Channel width [m]
     Wz: float
-        Channel height [m]  
+        Channel height [m]
     Zgrid:  integer, defaults 1
         Number of Z pixel if Cinit is unidimentional
     fullGrid: bool , false
@@ -235,7 +235,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos,  Wy,
             rets = np.zeros((NqE, NuEs, Nrp, Ygrid))
 
         for muEoD, ret in zip(muEoDs, rets):
-            ret[:] = getprofiles(Cinit, Q, muEs, readingpos,  Wy, Wz, Zgrid,
+            ret[:] = getprofiles(Cinit, Q, muEs, readingpos, Wy, Wz, Zgrid,
                                  muEoD, fullGrid=fullGrid, eta=eta, kT=kT,
                                  Zmirror=Zmirror,
                                  central_profile=central_profile,
@@ -272,7 +272,7 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
         Number of Y pixel
     Wz: float
         Channel height [m]
-    Wy: float 
+    Wy: float
         Channel width [m]
     Q:  float
         The flux in the channel in [ul/h]
@@ -343,7 +343,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         Number of Y pixel
     Wz: float
         Channel height [m]
-    Wy: float 
+    Wy: float
         Channel width [m]
     Q:  float
         The flux in the channel in [ul/h]
@@ -354,7 +354,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     method: string, default 'Trapezoid'
         Method for integration
         'Trapezoid': Mixed integration
-         'Explicit': explicit integration 
+         'Explicit': explicit integration
          'Implicit': implicit integration
     dxfactor: float, default 1
         Factor to change the value of dx
@@ -367,7 +367,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     -------
     F:  2d array
         The step matrix (independent on Q)
-    dxtD: float 
+    dxtD: float
         The position step multiplied by the diffusion coefficient
     """
 
@@ -546,7 +546,7 @@ def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary='Neumann'):
     muEoD: float
         q*E/k/T = muE/D[m^-1]
     dxtD: float
-        Time step multiplied by the diffusion coefficient    
+        Time step multiplied by the diffusion coefficient
     V: 1d array
         Poiseulle flow. Size should be Zgrid*Ygrid
     Zgrid:  integer
@@ -581,7 +581,7 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
     muEoD: float
         q*E/k/T = muE/D[m^-1]
     dxtD: float
-        Time step multiplied by the diffusion coefficient    
+        Time step multiplied by the diffusion coefficient
     Viy: 1d array
         Poiseulle flow at the middle y points. Size should be Zgrid*(Ygrid-1)
     Zgrid:  integer
@@ -618,14 +618,14 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
     nu = muEoD * dxtD
 
     # We want to represent the following equation as a matrix
-    """\frac{1}{\Delta y}\left[ 
-        \left( \frac{q_{i-1}}{V_{i-1/2}} - \frac{q_{i}}{V_{i+1/2}} \right) 
-        + \frac{1}{2}\left( 
-            \left( \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}} 
-                - \frac{\Delta y \sigma_{i}}{V_{i+1/2}} \right) 
-            - \frac{u\Delta x}{\Delta y} \left( 
-                \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}^2} 
-                - \frac{\Delta y \sigma_{i}}{V_{i+1/2}^2} 
+    """\frac{1}{\Delta y}\left[
+        \left( \frac{q_{i-1}}{V_{i-1/2}} - \frac{q_{i}}{V_{i+1/2}} \right)
+        + \frac{1}{2}\left(
+            \left( \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}}
+                - \frac{\Delta y \sigma_{i}}{V_{i+1/2}} \right)
+            - \frac{u\Delta x}{\Delta y} \left(
+                \frac{\Delta y \sigma_{i-1}}{V_{i-1/2}^2}
+                - \frac{\Delta y \sigma_{i}}{V_{i+1/2}^2}
     \right)\right) \right]
     """
 

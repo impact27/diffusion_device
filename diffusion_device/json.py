@@ -78,7 +78,7 @@ def createMetadata(metafn, fn, Wz, Wy, Q, readingpos, pixelsize,
     readingpos; list float
         The reading positions in [m]
     pixelsize: float
-        The pixel size in [m] 
+        The pixel size in [m]
     bgfn: path, default None
         If there is a background, the path relative to the metadata file
     wallwidth: float, default None
@@ -113,7 +113,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     ----------
     settingsfn: path
         The name of the settings file
-    metafn: path 
+    metafn: path
         path to the metadata file relative to the settings
     rmin, rmax, rstep: 3 floats
         min, max, and step for the radius[m]
@@ -336,7 +336,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
         If 1 species:
             The fitted radius
         If several species:
-            radii, spectrum: The radii and corresponding coefficients 
+            radii, spectrum: The radii and corresponding coefficients
         If movie:
             A list of the above
     profiles: 1d or 2d list of floats
@@ -387,7 +387,7 @@ def full_fit(settingsfn, metadatafn, plotim=False):
 
     # Remove Border
     ims = ims[..., imborder[0]:imborder[1],
-                   imborder[2]:imborder[3]]
+              imborder[2]:imborder[3]]
 
     # load background
     bg = None
@@ -396,9 +396,9 @@ def full_fit(settingsfn, metadatafn, plotim=False):
             bg = np.asarray([myimread(fn) for fn in bgfn])
         else:
             bg = myimread(bgfn)
-        
+
         bg = bg[..., imborder[0]:imborder[1],
-                     imborder[2]:imborder[3]]
+                imborder[2]:imborder[3]]
 
     if nchannels == 1:
         if len(ims.shape) == 2:
@@ -472,9 +472,9 @@ def read_data_dict(data_dict):
     profiles: 1d list of floats
         The extracted profiles.
     fits: 1d list of floats
-        The Fits. 
-    lse: float 
-        The least square error. 
+        The Fits.
+    lse: float
+        The least square error.
     pixel_size: float
         The detected pixel size
     """
@@ -483,14 +483,14 @@ def read_data_dict(data_dict):
     if 'profiles' in data_dict and 'fits'in data_dict:
         profiles = data_dict['profiles']
         fits = data_dict['fits']
-        
-        if len(profiles)-1 == len(fits):
+
+        if len(profiles) - 1 == len(fits):
             fits = [data_dict['initprof'], *data_dict['fits']]
-            
+
         lse = np.sqrt(np.mean(np.square(profiles - fits)))
         pixel_size = data_dict['pixsize']
-        
+
     if 'image' in data_dict:
-        im = data_dict['image'] 
+        im = data_dict['image']
 
     return profiles, fits, lse, pixel_size, im

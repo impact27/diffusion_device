@@ -202,7 +202,7 @@ def flat_image(im, chwidth, wallwidth, Nprofs, *,
     return im
 
 
-def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False, 
+def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False,
                      plotim=False, ignore=0, imslice=None, data_dict=None):
     '''
     Extract profiles from image
@@ -244,7 +244,7 @@ def extract_profiles(im, Nprofs, chwidth, wallwidth, flatten=False,
     pixsize = (chwidth + wallwidth) / w
     profiles = commun.extract_profiles(im, centers, chwidth, ignore, pixsize,
                                        imslice=imslice)
-    
+
     if data_dict is not None:
         data_dict["image"] = im
 

@@ -25,7 +25,7 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
 
     Parameters
     ----------
-    images: 1d list of images or file name 
+    images: 1d list of images or file name
         If this is a string, it will be treated like a path
         If one list, treated like images
     Q: float
@@ -127,7 +127,7 @@ def remove_bg(im, bg, pixsize, chanWidth):
     Parameters
     ----------
     im: 2d array
-        image 
+        image
     bg: 2d array
         background
     pixsize: float
@@ -147,7 +147,8 @@ def remove_bg(im, bg, pixsize, chanWidth):
     bg[rmbg.getPeaks(bg, maxsize=50 * 50)] = np.nan
     im[rmbg.getPeaks(im, maxsize=50 * 50)] = np.nan
 
-    # Get the X positions (perpendicular to alignent axis) and check wide enough
+    # Get the X positions (perpendicular to alignent axis) and check wide
+    # enough
     X = np.arange(im.shape[1]) * pixsize
     if not (1.2 * chanWidth < X[-1]):
         raise RuntimeError("image too small to get entire channel.")
@@ -170,7 +171,7 @@ def flat_image(im, pixsize, chanWidth):
     Parameters
     ----------
     im: 2d array
-        image 
+        image
     pixsize: float
         pixel size in [m]
     chanWidth: float, defaults 300e-6
@@ -225,7 +226,7 @@ def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
     Parameters
     ----------
     flatim: 2d array
-        flat image 
+        flat image
     pixsize: float
         pixel size in [m]
     chanWidth: float, defaults 300e-6
@@ -335,7 +336,7 @@ def outChannelMask(im, chAngle=0):
 
     Notes
     -----
-    The channel should be clear(ish) on the image. 
+    The channel should be clear(ish) on the image.
     The angle should be aligned with the channel
 
 

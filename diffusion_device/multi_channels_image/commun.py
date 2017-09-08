@@ -17,7 +17,7 @@ def defaultReadingPos(startpos=400e-6, isFolded=True):
 
     Parameters
     ----------
-    startpos: float, default 400e-6 
+    startpos: float, default 400e-6
         The center of the image, relative to the first turn [m]
     isFolded: Bool, default True
         If this is the folded or the straight device
@@ -127,14 +127,14 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
             # Single image
             profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
                                                flatten=flatten, plotim=plotim,
-                                               ignore=ignore, 
+                                               ignore=ignore,
                                                imslice=imslice,
                                                data_dict=data_dict)
 
         else:
             #images and background
             profiles = background.extract_profiles(im, bg, Nprofs, Wy,
-                                                   wall_width, ignore=ignore, 
+                                                   wall_width, ignore=ignore,
                                                    imslice=imslice,
                                                    data_dict=data_dict)
     except RuntimeError as error:
@@ -188,8 +188,8 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize,
 
     Nprofs = len(centers)
     Npix = int(np.round(chwidth / pixsize))
-    
-    if imslice == None:
+
+    if imslice is None:
         image_profile = np.nanmean(im, 0)
     else:
         image_profile = imageProfileSlice(im, imslice[0], imslice[1], pixsize)
@@ -253,15 +253,15 @@ def imageProfileSlice(im, center, width, pixsize):
     center:
     width:
     pixsize:
-        
+
     Returns
     -------
-    
+
     '''
-    center = len(im)//2 + int(np.round(center/pixsize))
-    width = int(np.round(width/pixsize))
-    amin = (2*center - width)//2
-    amax = (2*center + width)//2
+    center = len(im) // 2 + int(np.round(center / pixsize))
+    width = int(np.round(width / pixsize))
+    amin = (2 * center - width) // 2
+    amax = (2 * center + width) // 2
     if amin < 0 or amax > len(im):
         raise RuntimeError("Poorly defined slice")
     return np.nanmean(im[amin:amax], 0)

@@ -26,7 +26,7 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
     Parameters
     ----------
     bg:  2d array
-        image containning the 4 channels 
+        image containning the 4 channels
     chwidth: int
         The channel width in pixels
     wallwidth: int
@@ -34,7 +34,7 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
     Nprofs: integer
         the numbers of channels
     angle: float, default None
-        if given, angle at which the edges are 
+        if given, angle at which the edges are
     std: integer, default 10
         Tolerence on wall position in pixels
 
@@ -64,8 +64,14 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
     for center in centers:
         gwalls += edges.max() * np.exp(-(x - center)**2 / (2 * std**2))
     # Get best fit for approximate walls
-    c = int(np.correlate(edges, gwalls, mode='same').argmax() - len(gwalls) / 2)
-    
+    c = int(
+        np.correlate(
+            edges,
+            gwalls,
+            mode='same').argmax() -
+        len(gwalls) /
+        2)
+
     return centers + c
 #    '''
 #    from matplotlib.pyplot import plot, figure, imshow
@@ -100,7 +106,7 @@ def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
     Parameters
     ----------
     bg:  2d array
-        image containning the 4 channels 
+        image containning the 4 channels
     chwidth: int
         The channel width in pixels
     wallwidth: int
@@ -108,14 +114,14 @@ def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
     Nprofs: integer
         the numbers of channels
     angle: float
-        if given, angle at which the edges are 
+        if given, angle at which the edges are
     edgesOut: 1d array
         output for the edges
 
     Returns
     -------
     mask: 2d array
-        mask marking the channels 
+        mask marking the channels
 
     """
     # Find edges position
@@ -138,7 +144,7 @@ def bg_angle(im, bg, Nprofs, infoDict=None):
     im:  2d array
         image containning the 4 channels
     bg:  2d array
-        background 
+        background
     Nprofs: integer
         the numbers of channels
     infoDict: dict
@@ -163,7 +169,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
     Parameters
     ----------
     im:  2d array
-        list of images containning the 4 channels 
+        list of images containning the 4 channels
     bg: 2d array
         Background corresponding to the list
     chwidth: float
@@ -218,7 +224,7 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
     Parameters
     ----------
     im:  2d array
-        image containning the 4 channels 
+        image containning the 4 channels
     bg: 2d array
         Background image
     Nprofs: integer
@@ -249,7 +255,7 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
 
     profiles = commun.extract_profiles(flat_im, centers, chwidth, ignore,
                                        chwidth / widthpx, imslice=imslice)
-    
+
     if data_dict is not None:
         data_dict["image"] = flat_im
 

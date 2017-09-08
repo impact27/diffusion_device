@@ -32,9 +32,9 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     readingpos: 1d float array
         The reading position of the profiles
     Rs: 1d float
-        The test radii [m] 
+        The test radii [m]
     initmode: string, default 'none'
-        How should the initial profile be processed 
+        How should the initial profile be processed
         See init_process
     normalise_profiles: Bool, default True
         Should normalise profiles?
@@ -85,13 +85,12 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         readingposfit = readingpos
         profilesfit = profiles
     else:
-        
+
         # treat init profile
         init = init_process(profiles[0], initmode, ignore)
         # First reading pos is initial profile
         readingposfit = readingpos[1:] - readingpos[0]
         profilesfit = profiles[1:]
-        
 
     # Get basis function
     Wy = pixsize * len(init)
@@ -132,16 +131,16 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
         return Rs, spectrum
 
+
 def synthetic_init(prof0, pslice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
     init = np.zeros_like(prof0)
     x = np.arange(N) - center(prof0)
-    init[np.abs(x) < 1/22*N] = 1
-    init *= np.sum(prof0[pslice], -1)/np.sum(init[pslice], -1)
+    init[np.abs(x) < 1 / 22 * N] = 1
+    init *= np.sum(prof0[pslice], -1) / np.sum(init[pslice], -1)
     return init
-    
-    
+
 
 def get_matrices(profiles, Basis, ignore=0):
     """Return matrix representation of sums
@@ -196,7 +195,7 @@ def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
     Basis: 3d array
         List of basis to fit. The first dimention must correspond to Rs
     Rs: 1d float
-        The test radii [m] 
+        The test radii [m]
     ignore: int, default 0
         Ignore on the sides [px]
     nspecies: int
@@ -205,7 +204,7 @@ def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
 
     Returns
     -------
-    spectrum: 
+    spectrum:
         The factors of Rs to get the best fit
     IF nspecies == 1:
         Radii: [m]
@@ -239,7 +238,7 @@ def fit_monodisperse_radius(M, b, psquare, Rs=None):
     psquare: float
         psquare = sum(profiles*profile)
     Rs: 1d float
-        The test radii [m] 
+        The test radii [m]
 
     Returns
     -------
@@ -353,7 +352,7 @@ def get_constraints(Nb):
     Returns
     -------
     constr_dict: dict
-        dictionnary containing constraints    
+        dictionnary containing constraints
     """
     constr = []
 
@@ -464,7 +463,7 @@ def center(prof):
     Parameters
     ----------
     prof:  1d array
-        Profile 
+        Profile
 
     Returns
     -------
@@ -496,7 +495,7 @@ def baseline(prof, frac=.05):
     Parameters
     ----------
     prof:  1d array
-        Profile 
+        Profile
     frac: float, defaults .05
         Fraction of the profile to use
 
@@ -527,7 +526,7 @@ def flat_baseline(prof, frac=.05):
     Parameters
     ----------
     prof:  1d array
-        Profile 
+        Profile
     frac: float, defaults .05
         Fraction of the profile to use
 
@@ -554,9 +553,9 @@ def image_angle(image, maxAngle=np.pi / 7):
     Parameters
     ----------
     image:  2d array
-        image with y invariance 
+        image with y invariance
     maxAngle: float, defaults np.pi/7
-        Maximal rotation angle 
+        Maximal rotation angle
 
     Returns
     -------
@@ -621,7 +620,7 @@ def init_process(profile, mode, ignore):
     Parameters
     ----------
     profile:  1d array
-        Profile to analyse 
+        Profile to analyse
     mode: string
         'none':
             Nothing

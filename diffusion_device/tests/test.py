@@ -79,7 +79,7 @@ class TestImage(TestCase):
             settingsfn, metadatafn)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 4e-9)
-        
+
     def test_Slice(self):
         settingsfn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Settings_Slice.json')
