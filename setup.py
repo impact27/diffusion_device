@@ -23,7 +23,7 @@ def readme():
 
 
 setup(name='diffusion_device',
-      version='0.1.0',
+      version='0.1.1',
       description='Image processing on diffusion device images',
       long_description=readme(),
       classifiers=[
