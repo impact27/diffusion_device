@@ -65,30 +65,32 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
         gwalls += edges.max() * np.exp(-(x - center)**2 / (2 * std**2))
     # Get best fit for approximate walls
     c = int(np.correlate(edges, gwalls, mode='same').argmax() - len(gwalls) / 2)
-    '''
-    from matplotlib.pyplot import plot, figure, imshow
-    figure()
-    imshow(bg)
-    figure()
-    plot(edges)
-    plot(gwalls)
-    figure()
-    plot(np.correlate(edges, gwalls, mode='same'))
-    #'''
-    # Roll
-    gwalls = np.roll(gwalls, c)
-    if c < 0:
-        gwalls[c:] = 0
-    else:
-        gwalls[:c] = 0
-    # label wall position
-    label, n = msr.label(gwalls > .1 * gwalls.max())
-
-    # Get the positions
-    edges = np.squeeze(msr.maximum_position(edges, label, range(1, n + 1)))
-    if not len(edges) == 2 * Nprofs:
-        raise RuntimeError('Did not detect edges')
-    return edges
+    
+    return centers + c
+#    '''
+#    from matplotlib.pyplot import plot, figure, imshow
+#    figure()
+#    imshow(bg)
+#    figure()
+#    plot(edges)
+#    plot(gwalls)
+#    figure()
+#    plot(np.correlate(edges, gwalls, mode='same'))
+#    #'''
+#    # Roll
+#    gwalls = np.roll(gwalls, c)
+#    if c < 0:
+#        gwalls[c:] = 0
+#    else:
+#        gwalls[:c] = 0
+#    # label wall position
+#    label, n = msr.label(gwalls > .1 * gwalls.max())
+#
+#    # Get the positions
+#    edges = np.squeeze(msr.maximum_position(edges, label, range(1, n + 1)))
+#    if not len(edges) == 2 * Nprofs:
+#        raise RuntimeError('Did not detect edges')
+#    return edges
 
 
 def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
@@ -208,7 +210,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
 
 
 def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
-                     imslice=None):
+                     imslice=None, data_dict=None):
     """
     Extract diffusion profiles
 
@@ -225,6 +227,8 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
         The channel width in [m]
     wallwidth: float
         The wall width in [m]
+    data_dict: dict, defaults None
+        Output to get the profiles and fits
 
     Returns
     -------
@@ -245,6 +249,9 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
 
     profiles = commun.extract_profiles(flat_im, centers, chwidth, ignore,
                                        chwidth / widthpx, imslice=imslice)
+    
+    if data_dict is not None:
+        data_dict["image"] = flat_im
 
     return profiles
 
