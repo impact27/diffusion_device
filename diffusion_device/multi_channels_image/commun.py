@@ -8,7 +8,7 @@ import numpy as np
 from tifffile import imread
 from scipy import interpolate
 
-from . import bright, background
+from . import bright, uv
 from .. import profile as dp
 from .. import keys
 
@@ -109,7 +109,7 @@ def size_image(image, bg, metadata, settings,
                 data_dict=data_dict, plotimage=plotimage)
         else:
             # images and background
-            image, centers, pixsize = background.extract_profiles(
+            image, centers, pixsize = uv.extract_profiles(
                 image, bg, nchannels, channel_width, wall_width,
                 data_dict=data_dict)
 
