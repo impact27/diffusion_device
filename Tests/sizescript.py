@@ -23,7 +23,7 @@ metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
 
 
 # Settings file name
-# settingsfn='../diffusion_device/tests/test_data/350ulh_12pos/fitsettings_poly.json'
+#settingsfn = '../diffusion_device/tests/test_data/350ulh_12pos/fitsettings_poly.json'
 #metadatafn = '../diffusion_device/tests/test_data/350ulh_12pos/metadata.json'
 
 # Settings file path

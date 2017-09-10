@@ -10,7 +10,6 @@ from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import background_rm as rmbg
 import registrator.image as ir
 from .. import profile as dp
-from . import commun
 
 
 def image_infos(image, number_profiles):
@@ -202,7 +201,7 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
 
 
 def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
-                     plotimage=False, ignore=0, imslice=None, data_dict=None):
+                     plotimage=False, data_dict=None):
     '''
     Extract profiles from image
 
@@ -220,10 +219,6 @@ def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
         Should the image be flatten
     plotimage: Bool, default False
         Plot how the image is flattened
-    ignore: float, defaults 5e-6
-        Distance to sides to ignore [m]
-    imslice: 2 floats, default None
-        [Y distance from center, Y width] [m]
     data_dict: dict, defaults None
         Output to get the profiles and fits
 
@@ -245,10 +240,4 @@ def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
     w, a, origin = infos['infos']
     centers = origin + np.arange(number_profiles) * w
     pixsize = (chwidth + wallwidth) / w
-    profiles = commun.extract_profiles(image, centers, chwidth, ignore,
-                                       pixsize, imslice=imslice)
-
-    if data_dict is not None:
-        data_dict["image"] = image
-
-    return profiles
+    return image, centers, pixsize

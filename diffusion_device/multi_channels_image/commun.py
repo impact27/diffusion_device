@@ -6,50 +6,20 @@ Created on Tue Apr  4 11:21:01 2017
 """
 import numpy as np
 from tifffile import imread
-from . import bright, background
-from .. import profile as dp
 from scipy import interpolate
 
+from . import bright, background
+from .. import profile as dp
+from .. import keys
 
-def defaultReadingPos(startpos=400e-6, isFolded=True):
-    '''
-    Get the default reading positions for the 4 points diffusion device
-
-    Parameters
-    ----------
-    startpos: float, default 400e-6
-        The center of the image, relative to the first turn [m]
-    isFolded: Bool, default True
-        If this is the folded or the straight device
-
-    Returns
-    -------
-    readingPos: 1d array
-        The reading positions
-    '''
-#    return np.array([  4183, 21446, 55879])*1e-6 #Kadi
-#    return np.array([  3738, 21096, 55374])*1e-6 #Electrophoresis
-    if isFolded:
-        return np.array([0, 4556e-6 - 2 * startpos,
-                         21953e-6,
-                         47100e-6 - 2 * startpos])  # folded device
-    else:
-        return np.array([0, 4532e-6 - 2 * startpos,
-                         21128e-6,
-                         56214e-6 - 2 * startpos])  # folded device
-
-
-def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
-               Zgrid=11, ignore=5e-6, normalise_profiles=True,
-               initmode='none', data_dict=None, fit_position_number=None,
-               flatten=False, nspecies=1, ignore_error=False, plotim=False,
-               imslice=None):
+def size_image(image, bg, metadata, settings,
+               data_dict=None, plotimage=False, ignore_error=False):
     """
     Get the hydrodynamic radius from the images
 
     Parameters
     ----------
-    im: 2d image or file name OR 2x 2d images
+    image: 2d image or file name OR 2x 2d images
         If this is a string, it will be treated like a path
         If one image, treated like regular fluorescence image
         If two images, treated like image and background
@@ -57,7 +27,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         Flow rate in [ul/h]
     Wz: float
         Height of the channel in [m]
-    Wy: float
+    channel_width: float
         Width of the channel in [m]
     readingpos: 1d float array, defaults None
         Position at which the images are taken. If None, take the defaults
@@ -88,7 +58,7 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         Number of species to fit. 0=all.
     ignore_error: Bool, default False
         Should the errors be ignored?
-    plotim: Bool, default False
+    plotimage: Bool, default False
         Plot how the image is flattened
     imslice: 2 floats, default None
         [Y distance from center, Y width] [m]
@@ -101,16 +71,22 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
     """
 
     # Check images is numpy array
-    im = np.asarray(im)
-    readingpos = np.asarray(readingpos)
+    image = np.asarray(image)
+
+    # Read relevant values
+    channel_width = metadata[keys.KEY_MD_WY]
+    nchannels = metadata[keys.KEY_MD_NCHANNELS]
+    wall_width = metadata[keys.KEY_MD_WALLWIDTH]
+    ignore = settings[keys.KEY_STG_IGNORE]
+    imslice = settings[keys.KEY_STG_SLICE]
 
     # load images if string
-    if im.dtype.type == np.str_:
-        im = imread(str(im))
+    if image.dtype.type == np.str_:
+        image = imread(str(image))
 
     # Check shape
-    if not len(np.shape(im)) == 2:
-        raise RuntimeError("Incorrect image shape: " + str(np.shape(im)))
+    if not len(np.shape(image)) == 2:
+        raise RuntimeError("Incorrect image shape: " + str(np.shape(image)))
 
     if bg is not None:
         bg = np.asarray(bg)
@@ -126,20 +102,17 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
     try:
         # get profiles
         if bg is None:
+            flatten = settings[keys.KEY_STG_BFFLAT]
             # Single image
-            profiles = bright.extract_profiles(im, Nprofs, Wy, wall_width,
-                                               flatten=flatten,
-                                               plotimage=plotim,
-                                               ignore=ignore,
-                                               imslice=imslice,
-                                               data_dict=data_dict)
-
+            image, centers, pixsize = bright.extract_profiles(
+                image, nchannels, channel_width, wall_width, flatten,
+                data_dict=data_dict, plotimage=plotimage)
         else:
             # images and background
-            profiles = background.extract_profiles(im, bg, Nprofs, Wy,
-                                                   wall_width, ignore=ignore,
-                                                   imslice=imslice,
-                                                   data_dict=data_dict)
+            image, centers, pixsize = background.extract_profiles(
+                image, bg, nchannels, channel_width, wall_width,
+                data_dict=data_dict)
+
     except RuntimeError as error:
         print(error.args[0])
         if ignore_error:
@@ -147,28 +120,25 @@ def size_image(im, Q, Wz, Wy, readingpos, Rs, Nprofs, wall_width, *, bg=None,
         else:
             raise error
 
-    if fit_position_number is not None:
-        profiles = profiles[np.sort(fit_position_number)]
-        readingpos = readingpos[np.sort(fit_position_number)]
+    profiles = extract_profiles(image, centers, channel_width, ignore,
+                                pixsize, imslice=imslice)
 
-    pixsize = Wy / np.shape(profiles)[1]
     if data_dict is not None:
+        data_dict["image"] = image
         data_dict['pixsize'] = pixsize
         data_dict['profiles'] = profiles
-    return dp.size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs,
-                            initmode=initmode,
-                            normalise_profiles=normalise_profiles,
-                            Zgrid=Zgrid, ignore=ignore, data_dict=data_dict,
-                            nspecies=nspecies)
+
+    return dp.size_profiles(profiles, pixsize, metadata, settings,
+                            data_dict=data_dict)
 
 
-def extract_profiles(im, centers, chwidth, ignore, pixsize,
+def extract_profiles(image, centers, chwidth, ignore, pixsize,
                      imslice=None):
     '''cut the image profile into profiles
 
     Parameters
     ----------
-    im: 2d array
+    image: 2d array
         The flat image
     centers: 1d array
         The position of the centers [px]
@@ -199,9 +169,9 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize,
     Npix = int(np.round(chwidth / pixsize))
 
     if imslice is None:
-        image_profile = np.nanmean(im, 0)
+        image_profile = np.nanmean(image, 0)
     else:
-        image_profile = imageProfileSlice(im, imslice[0], imslice[1], pixsize)
+        image_profile = imageProfileSlice(image, imslice[0], imslice[1], pixsize)
 
     profiles = np.empty((Nprofs, Npix), dtype=float)
 
@@ -242,22 +212,22 @@ def extract_profiles(im, centers, chwidth, ignore, pixsize,
     if profiles[-1].max() > profiles[0].max():
         profiles = profiles[::-1]
 
-    """
-    from matplotlib.pyplot import plot, figure, imshow
-    figure()
-    imshow(im)
-    figure()
-    plot(image_profile)
-    #"""
+
+#    from matplotlib.pyplot import plot, figure, imshow
+#    figure()
+#    imshow(image)
+#    figure()
+#    plot(image_profile)
+
     return profiles
 
 
-def imageProfileSlice(im, center, width, pixsize):
+def imageProfileSlice(image, center, width, pixsize):
     '''Get the image profile corresponding to a center and width
 
     Parameters
     ----------
-    im: 2d array
+    image: 2d array
         The flat image
     center: float
         Y center of the slice [m]
@@ -271,10 +241,10 @@ def imageProfileSlice(im, center, width, pixsize):
         The profile corresponding to the slice
 
     '''
-    center = len(im) // 2 + int(np.round(center / pixsize))
+    center = len(image) // 2 + int(np.round(center / pixsize))
     width = int(np.round(width / pixsize))
     amin = (2 * center - width) // 2
     amax = (2 * center + width) // 2
-    if amin < 0 or amax > len(im):
+    if amin < 0 or amax > len(image):
         raise RuntimeError("Poorly defined slice")
-    return np.nanmean(im[amin:amax], 0)
+    return np.nanmean(image[amin:amax], 0)

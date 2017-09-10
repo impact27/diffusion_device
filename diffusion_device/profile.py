@@ -5,18 +5,22 @@ Created on Fri Mar 17 10:25:47 2017
 @author: quentinpeter
 """
 import numpy as np
-from .basis_generate import getprofiles
-import scipy
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import warnings
 from scipy.optimize import basinhopping, minimize
 from itertools import combinations
 
+from .basis_generate import getprofiles
+from . import keys
 
-def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
-                  initmode='none', normalise_profiles=True, Zgrid=11,
-                  ignore=10e-6, data_dict=None,
-                  central_profile=False, nspecies=1):
+
+def size_profiles(profiles, pixsize, metadata, settings,
+                  data_dict=None, central_profile=False):
+
+    #                            profiles, Q, Wz, pixsize, readingpos, Rs, *,
+    #                  initmode='none', normalise_profiles=True, Zgrid=11,
+    #                  ignore=10e-6, data_dict=None,
+    #                  central_profile=False, nspecies=1):
     """Size the profiles
 
      Parameters
@@ -57,6 +61,26 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
     else:
         Rs, spectrum, the radii and corresponding spectrum
     """
+
+    # load variables
+    readingpos = metadata[keys.KEY_MD_RPOS]
+    flow_rate = metadata[keys.KEY_MD_Q]
+    channel_height = metadata[keys.KEY_MD_WZ]
+    channel_width = metadata[keys.KEY_MD_WY]
+
+    fit_position_number = settings[keys.KEY_STG_FITPOS]
+    ignore = settings[keys.KEY_STG_IGNORE]
+    normalise_profiles = settings[keys.KEY_STG_NORMALISE]
+    initmode = settings[keys.KEY_STG_POS0FILTER]
+    test_radii = np.arange(*settings[keys.KEY_STG_R])
+    Zgrid = settings[keys.KEY_STG_ZGRID]
+    nspecies = settings[keys.KEY_STG_NSPECIES]
+    imslice = settings[keys.KEY_STG_SLICE]
+
+    if fit_position_number is not None:
+        profiles = profiles[np.sort(fit_position_number)]
+        readingpos = readingpos[np.sort(fit_position_number)]
+
     if len(readingpos) != len(profiles):
         raise RuntimeError(
             "Number of profiles and reading positions mismatching.")
@@ -70,6 +94,9 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
     # Check input are arrays
     readingpos = np.asarray(readingpos)
+    if imslice is not None:
+        shift = np.resize([1, -1], len(readingpos)) * imslice[0]
+        readingpos = readingpos + shift
     profiles = np.asarray(profiles)
 
     # normalise if needed
@@ -93,8 +120,8 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
         profilesfit = profiles[1:]
 
     # Get basis function
-    Wy = pixsize * len(init)
-    Basis = getprofiles(init, Q, Rs, Wy=Wy, Wz=Wz,
+    Basis = getprofiles(init, flow_rate, test_radii,
+                        Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
                         central_profile=central_profile)
 
@@ -104,13 +131,14 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
     if nspecies == 1:
         # Get best fit
-        r = fit_radius(profilesfit, Basis, Rs, ignore, nspecies=1)
+        r = fit_radius(profilesfit, Basis, test_radii, ignore, nspecies=1)
 
         # fill data if needed
         if data_dict is not None and not np.isnan(r):
             data_dict['initprof'] = init
-            fits = getprofiles(init, Q=Q, Radii=[r],
-                               Wy=Wy, Wz=Wz, Zgrid=Zgrid,
+            fits = getprofiles(init, Q=flow_rate, Radii=[r],
+                               Wy=channel_width, Wz=channel_height,
+                               Zgrid=Zgrid,
                                readingpos=readingposfit,
                                central_profile=central_profile)[0]
             if normalise_profiles:
@@ -120,7 +148,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
 
         return r
     else:
-        spectrum = fit_radius(profilesfit, Basis, Rs, ignore,
+        spectrum = fit_radius(profilesfit, Basis, test_radii, ignore,
                               nspecies=nspecies)
 
         # fill data if needed
@@ -129,7 +157,7 @@ def size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs, *,
             data_dict['fits'] = np.sum(spectrum[:, np.newaxis, np.newaxis]
                                        * Basis, axis=0)
 
-        return Rs, spectrum
+        return test_radii, spectrum
 
 
 def synthetic_init(prof0, pslice):

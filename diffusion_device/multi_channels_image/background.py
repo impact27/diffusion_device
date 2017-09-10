@@ -6,13 +6,14 @@ Created on Fri Mar 17 10:26:48 2017
 """
 import registrator.image as ir
 import numpy as np
-import scipy.ndimage.measurements as msr
 import background_rm as rmbg
-from .. import profile as dp
 import scipy
-from . import bright, commun
 from scipy.ndimage.morphology import binary_erosion
 import warnings
+
+from .. import profile as dp
+from . import bright
+
 gfilter = scipy.ndimage.filters.gaussian_filter1d
 warnings.filterwarnings('ignore', 'invalid value encountered in greater',
                         RuntimeWarning)
@@ -215,8 +216,8 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
     return ret
 
 
-def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
-                     imslice=None, data_dict=None):
+def extract_profiles(im, bg, Nprofs, chwidth, wallwidth,
+                     data_dict=None):
     """
     Extract diffusion profiles
 
@@ -233,10 +234,6 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
         The channel width in [m]
     wallwidth: float
         The wall width in [m]
-    ignore: float
-        Distance to sides to ignore [m]
-    imslice: 2 floats, default None
-        [Y distance from center, Y width] [m]
     data_dict: dict, defaults None
         Output to get the profiles and fits
 
@@ -257,13 +254,9 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth, ignore=0,
 
     centers = (edges[1::2] + edges[::2]) / 2
 
-    profiles = commun.extract_profiles(flat_im, centers, chwidth, ignore,
-                                       chwidth / widthpx, imslice=imslice)
+    pixsize = chwidth / widthpx
 
-    if data_dict is not None:
-        data_dict["image"] = flat_im
-
-    return profiles
+    return flat_im, centers, pixsize
 
 
 #    # Profile

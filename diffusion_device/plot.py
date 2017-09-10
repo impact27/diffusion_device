@@ -159,7 +159,8 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
         Folder where to save the figures and data
 
     """
-    radius, profiles, fits, lse, pixel_size = full_fit(settingsfn, metadatafn)
+    radius, profiles, fits, lse, pixel_size, ims = full_fit(
+        settingsfn, metadatafn)
 
     # =========================================================================
     # Plot
@@ -195,6 +196,8 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
     #==========================================================================
 
     if outpath is not None:
+        for i, im in enumerate(ims):
+            tifffile.imsave(base_name + '_im{}.tif'.format(i), ims)
         plt.savefig(base_name + '_fig.pdf')
 
         with open(base_name + '_result.txt', 'wb') as f:

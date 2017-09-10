@@ -1,1 +1,1 @@
-from .commun import defaultReadingPos, size_image
+from .commun import size_image

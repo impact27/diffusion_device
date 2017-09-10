@@ -10,16 +10,15 @@ import registrator.image as ir
 import registrator.channel as cr
 from . import profile as dp
 import scipy
-import matplotlib.image as mpimg
 import warnings
 import cv2
 from scipy import interpolate
+from . import keys
 warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
 
 
-def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
-                Zgrid=11, ignore=0e-6, normalise_profiles=True,
-                initmode='none', data_dict=None, rebin=2, nspecies=1):
+def size_images(images, backgrounds, metadata, settings,
+                rebin=2, data_dict=None):
     """
     Get the hydrodynamic radius from the images
 
@@ -69,27 +68,15 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
 
     # Check images is numpy array
     images = np.asarray(images)
+    pixsize = metadata[keys.KEY_MD_PIXSIZE]
+    Wy = metadata[keys.KEY_MD_WY]
 
-    # load images if string
-    if images.dtype.type == np.str_:
-        if len(np.shape(images)) == 1:
-            images = np.asarray([mpimg.imread(im) for im in images])
-        else:
-            images = mpimg.imread(images)
-
-    if bgs is not None:
+    if backgrounds is not None:
         # Check bgs is numpy array
-        bgs = np.asarray(bgs)
-
-        # load bgs if string
-        if bgs.dtype.type == np.str_:
-            if len(np.shape(bgs)) == 1:
-                bgs = np.asarray([mpimg.imread(bg) for bg in bgs])
-            else:
-                bgs = mpimg.imread(bgs)
+        backgrounds = np.asarray(backgrounds)
 
     # Get flat images
-    if bgs is None:
+    if backgrounds is None:
         # Single images
         flatimages = np.asarray(
             [flat_image(im, pixsize, Wy)
@@ -98,7 +85,7 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
         # images and background
         flatimages = np.asarray(
             [remove_bg(im, bg, pixsize, Wy)
-             for im, bg in zip(images, bgs)])
+             for im, bg in zip(images, backgrounds)])
 
     if rebin > 1:
         size = tuple(np.array(np.shape(flatimages)[1:][::-1]) // rebin)
@@ -107,6 +94,10 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
              for im in flatimages])
         pixsize *= rebin
 
+    # Orientate
+    for flatim in flatimages:
+        flatim[:] = ir.rotate_scale(flatim, -dp.image_angle(flatim),
+                                    1, borderValue=np.nan)
     # get profiles
     profiles = np.asarray(
         [extract_profile(fim, pixsize, Wy) for fim in flatimages])
@@ -114,12 +105,10 @@ def size_images(images, Q, Wz, Wy, pixsize, readingpos, Rs, *, bgs=None,
     if data_dict is not None:
         data_dict['pixsize'] = pixsize
         data_dict['profiles'] = profiles
+        data_dict['image'] = flatimages
 
-    return dp.size_profiles(profiles, Q, Wz, pixsize, readingpos, Rs,
-                            initmode=initmode,
-                            normalise_profiles=normalise_profiles,
-                            Zgrid=Zgrid, ignore=ignore, data_dict=data_dict,
-                            nspecies=nspecies)
+    return dp.size_profiles(profiles, pixsize, metadata, settings,
+                            data_dict=data_dict)
 
 
 def remove_bg(im, bg, pixsize, chanWidth):
@@ -244,9 +233,6 @@ def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
         The flattened image
     """
 
-    # Orientate
-    flatim = ir.rotate_scale(flatim, -dp.image_angle(flatim),
-                             1, borderValue=np.nan)
     # get profile
     prof = np.nanmean(flatim, 0)
 

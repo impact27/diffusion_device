@@ -8,40 +8,11 @@ import json
 import numpy as np
 import os
 from tifffile import imread
-from . import multi_channels_image as dd4
-from . import channel_image as ddx
 from registrator.image import is_overexposed
 
-
-KEY_MD_FN = 'Image file name'
-KEY_MD_BGFN = 'Background file name'
-KEY_MD_OPBGFN = 'Optics background file name'
-KEY_MD_EXP = "Image exposition time [s]"
-KEY_MD_BGEXP = "Background image exposition time [s]"
-KEY_MD_OPBGEXP = "Optics background image exposition time [s]"
-KEY_MD_WZ = 'Wz[m]'
-KEY_MD_WY = 'Wy[m]'
-KEY_MD_WALLWIDTH = 'Wall Width [m]'
-KEY_MD_NCHANNELS = 'Number of channels'
-KEY_MD_Q = 'Q[ulph]'
-KEY_MD_RPOS = 'Read Positions [m]'
-KEY_MD_PIXSIZE = 'Pixel Size [m]'
-KEY_MD_BORDER = 'Image border[px] (t, d, l, r)'
-KEY_MD_DATE = "Date [YYYYMMDD]"
-KEY_MD_ANALYTE = "Analyte informations"
-KEY_MD_BUFFER = "Buffer informations"
-KEY_MD_DEVICE = "Device informations"
-
-KEY_STG_R = 'Radii[m] (min, max, step)'
-KEY_STG_NSPECIES = 'Number of species to fit'
-KEY_STG_IGNORE = 'Ignore Edge[m]'
-KEY_STG_POS0FILTER = 'First Position Filter'
-KEY_STG_FITPOS = 'Pos to fit'
-KEY_STG_BFFLAT = 'Flatten bright field'
-KEY_STG_FRAMESSLICES = 'Frames slice'
-KEY_STG_ZGRID = "Number of z slices"
-KEY_STG_NORMALISE = "Normalise the profiles?"
-KEY_STG_SLICE = "Slice [m] (center(±), width(+))"
+from . import multi_channels_image as dd4
+from . import channel_image as ddx
+from . import keys
 
 
 def myimread(fn):
@@ -117,40 +88,40 @@ def createMetadata(metadata_filename,
     border: 4 ints, default None
         The borber to apply on the image (t, d, l, r)
     """
-    Metadata = {}
+    metadata = {}
 
-    Metadata[KEY_MD_FN] = filename
-    Metadata[KEY_MD_EXP] = exposure
+    metadata[keys.KEY_MD_FN] = filename
+    metadata[keys.KEY_MD_EXP] = exposure
 
-    optional(Metadata, KEY_MD_BGFN, background_filename)
-    optional(Metadata, KEY_MD_BGEXP, background_exposure)
+    optional(metadata, keys.KEY_MD_BGFN, background_filename)
+    optional(metadata, keys.KEY_MD_BGEXP, background_exposure)
 
-    optional(Metadata, KEY_MD_OPBGFN, optics_background_filename)
-    optional(Metadata, KEY_MD_OPBGEXP, optics_background_exposure)
+    optional(metadata, keys.KEY_MD_OPBGFN, optics_background_filename)
+    optional(metadata, keys.KEY_MD_OPBGEXP, optics_background_exposure)
 
-    Metadata[KEY_MD_WZ] = Wz
-    Metadata[KEY_MD_WY] = Wy
+    metadata[keys.KEY_MD_WZ] = Wz
+    metadata[keys.KEY_MD_WY] = Wy
 
-    optional(Metadata, KEY_MD_WALLWIDTH, wallwidth)
-    optional(Metadata, KEY_MD_NCHANNELS, nchannels)
+    optional(metadata, keys.KEY_MD_WALLWIDTH, wallwidth)
+    optional(metadata, keys.KEY_MD_NCHANNELS, nchannels)
 
-    Metadata[KEY_MD_Q] = Q
-    Metadata[KEY_MD_PIXSIZE] = pixelsize
+    metadata[keys.KEY_MD_Q] = Q
+    metadata[keys.KEY_MD_PIXSIZE] = pixelsize
 
-    Metadata[KEY_MD_RPOS] = readingpos
+    metadata[keys.KEY_MD_RPOS] = readingpos
 
     if border == [None, None, None, None]:
         border = None
-    optional(Metadata, KEY_MD_BORDER, border)
+    optional(metadata, keys.KEY_MD_BORDER, border)
 
-    Metadata[KEY_MD_DATE] = date
-    Metadata[KEY_MD_ANALYTE] = analyte
-    Metadata[KEY_MD_BUFFER] = buffer
-    Metadata[KEY_MD_DEVICE] = device
+    metadata[keys.KEY_MD_DATE] = date
+    metadata[keys.KEY_MD_ANALYTE] = analyte
+    metadata[keys.KEY_MD_BUFFER] = buffer
+    metadata[keys.KEY_MD_DEVICE] = device
     # Optional
 
     with open(metadata_filename, 'w') as f:
-        json.dump(Metadata, f, indent=4)
+        json.dump(metadata, f, indent=4)
 
 
 def createFitSettings(settingsfn, rmin, rmax, rstep,
@@ -190,26 +161,26 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
 
 
     """
-    Settings = {}
-    Settings[KEY_STG_R] = (rmin, rmax, rstep)
+    settings = {}
+    settings[keys.KEY_STG_R] = (rmin, rmax, rstep)
     # Optional
-    optional(Settings, KEY_STG_IGNORE, ignore)
-    optional(Settings, KEY_STG_POS0FILTER, firstmethod)
-    optional(Settings, KEY_STG_FITPOS, fitpos)
-    optional(Settings, KEY_STG_BFFLAT, flatten)
+    optional(settings, keys.KEY_STG_IGNORE, ignore)
+    optional(settings, keys.KEY_STG_POS0FILTER, firstmethod)
+    optional(settings, keys.KEY_STG_FITPOS, fitpos)
+    optional(settings, keys.KEY_STG_BFFLAT, flatten)
     # For multi frames
     if framesSlices == [None, None]:
         framesSlices = None
-    optional(Settings, KEY_STG_FRAMESSLICES, framesSlices)
-    optional(Settings, KEY_STG_ZGRID, Zgrid)
-    optional(Settings, KEY_STG_NORMALISE, normalise)
+    optional(settings, keys.KEY_STG_FRAMESSLICES, framesSlices)
+    optional(settings, keys.KEY_STG_ZGRID, Zgrid)
+    optional(settings, keys.KEY_STG_NORMALISE, normalise)
     if imslices == [None, None]:
         imslices = None
-    optional(Settings, KEY_STG_SLICE, imslices)
-    Settings[KEY_STG_NSPECIES] = nspecies
+    optional(settings, keys.KEY_STG_SLICE, imslices)
+    settings[keys.KEY_STG_NSPECIES] = nspecies
 
     with open(settingsfn, 'w') as f:
-        json.dump(Settings, f, indent=4)
+        json.dump(settings, f, indent=4)
 
 
 def default(dic, key, value):
@@ -241,7 +212,7 @@ def metadata_fn(filename):
     metadatafn: path
         path to the metadata file
     """
-    return os.path.splitext(filename)[0] + '_Metadata.json'
+    return os.path.splitext(filename)[0] + '_metadata.json'
 
 
 def makeabs(prefix, filename):
@@ -297,24 +268,24 @@ def loadSettings(settingsfn):
 
     Returns
     -------
-    Settings: dict
+    settings: dict
         Dictionnary containing fit settings
 
     """
     with open(settingsfn, 'r') as f:
         print()
-        Settings = json.load(f)
+        settings = json.load(f)
 
-    default(Settings, KEY_STG_IGNORE, 0)
-    default(Settings, KEY_STG_POS0FILTER, 'none')
-    default(Settings, KEY_STG_FITPOS, None)
-    default(Settings, KEY_STG_BFFLAT, False)
-    default(Settings, KEY_STG_FRAMESSLICES, [None, None])
-    default(Settings, KEY_STG_NSPECIES, 1)
-    default(Settings, KEY_STG_ZGRID, 11)
-    default(Settings, KEY_STG_NORMALISE, True)
-    default(Settings, KEY_STG_SLICE, None)
-    return Settings
+    default(settings, keys.KEY_STG_IGNORE, 0)
+    default(settings, keys.KEY_STG_POS0FILTER, 'none')
+    default(settings, keys.KEY_STG_FITPOS, None)
+    default(settings, keys.KEY_STG_BFFLAT, False)
+    default(settings, keys.KEY_STG_FRAMESSLICES, [None, None])
+    default(settings, keys.KEY_STG_NSPECIES, 1)
+    default(settings, keys.KEY_STG_ZGRID, 11)
+    default(settings, keys.KEY_STG_NORMALISE, True)
+    default(settings, keys.KEY_STG_SLICE, None)
+    return settings
 
 
 def loadMetadata(metadatafn):
@@ -327,26 +298,27 @@ def loadMetadata(metadatafn):
 
     Returns
     -------
-    Metadata: dict
+    metadata: dict
         Dictionnary containing metadata
 
     """
     with open(metadatafn, 'r') as f:
-        Metadata = json.load(f)
+        metadata = json.load(f)
 
-    default(Metadata, KEY_MD_NCHANNELS, 1)
-    default(Metadata, KEY_MD_BORDER, [None, None, None, None])
+    default(metadata, keys.KEY_MD_NCHANNELS, 1)
+    default(metadata, keys.KEY_MD_BORDER, [None, None, None, None])
 
-    for key in [KEY_MD_FN, KEY_MD_BGFN, KEY_MD_OPBGFN]:
-        default(Metadata, key, None)
-        if Metadata[key] is not None:
-            Metadata[key] = listmakeabs(os.path.dirname(metadatafn),
-                                        Metadata[key])
+    for key in [keys.KEY_MD_FN, keys.KEY_MD_BGFN, keys.KEY_MD_OPBGFN]:
+        default(metadata, key, None)
+        if metadata[key] is not None:
+            metadata[key] = listmakeabs(os.path.dirname(metadatafn),
+                                        metadata[key])
 
-    for key in [KEY_MD_WALLWIDTH, KEY_MD_EXP, KEY_MD_BGEXP, KEY_MD_OPBGEXP]:
-        default(Metadata, key, None)
+    for key in [keys.KEY_MD_WALLWIDTH, keys.KEY_MD_EXP,
+                keys.KEY_MD_BGEXP, keys.KEY_MD_OPBGEXP]:
+        default(metadata, key, None)
 
-    return Metadata
+    return metadata
 
 
 def getType(metadatafn):
@@ -362,13 +334,13 @@ def getType(metadatafn):
     dtype: str
         a string describing the type of data
     """
-    Metadata = loadMetadata(metadatafn)
-    nchannels = Metadata[KEY_MD_NCHANNELS]
+    metadata = loadMetadata(metadatafn)
+    nchannels = metadata[keys.KEY_MD_NCHANNELS]
     if nchannels == 1:
         return '12pos'
     elif nchannels != 4:
         return 'unknown'
-    filename = Metadata[KEY_MD_FN]
+    filename = metadata[keys.KEY_MD_FN]
     if isinstance(filename, (list, tuple)):
         ims = np.asarray([myimread(fn) for fn in filename])
     else:
@@ -380,12 +352,12 @@ def getType(metadatafn):
     return 'unknown'
 
 
-def loadfiles(Metadata):
+def loadfiles(metadata):
     """ Load the images files and do some preprocessing
 
     Parameters
     ----------
-    Metadata: dict
+    metadata: dict
         The metadata informations
 
     Returns
@@ -396,13 +368,13 @@ def loadfiles(Metadata):
         background or array of backgrounds
     """
 
-    filename = Metadata[KEY_MD_FN]
-    bgfn = Metadata[KEY_MD_BGFN]
-    optics_bgfn = Metadata[KEY_MD_OPBGFN]
-    exposure = Metadata[KEY_MD_EXP]
-    background_exposure = Metadata[KEY_MD_BGEXP]
-    optics_background_exposure = Metadata[KEY_MD_OPBGEXP]
-    imborder = Metadata[KEY_MD_BORDER]
+    filename = metadata[keys.KEY_MD_FN]
+    bgfn = metadata[keys.KEY_MD_BGFN]
+    optics_bgfn = metadata[keys.KEY_MD_OPBGFN]
+    exposure = metadata[keys.KEY_MD_EXP]
+    background_exposure = metadata[keys.KEY_MD_BGEXP]
+    optics_background_exposure = metadata[keys.KEY_MD_OPBGEXP]
+    imborder = metadata[keys.KEY_MD_BORDER]
 
     # load images
     if isinstance(filename, (list, tuple)):
@@ -464,62 +436,31 @@ def full_fit(settingsfn, metadatafn, plotim=False):
         The detected pixel size. List for movie.
     """
 
-    Metadata = loadMetadata(metadatafn)
-    Settings = loadSettings(settingsfn)
-    readingpos = Metadata[KEY_MD_RPOS]
-    Wz = Metadata[KEY_MD_WZ]
-    Wy = Metadata[KEY_MD_WY]
-    ActualFlowRate = Metadata[KEY_MD_Q]
-    pixsize = Metadata[KEY_MD_PIXSIZE]
-    nchannels = Metadata[KEY_MD_NCHANNELS]
-    wall_width = Metadata[KEY_MD_WALLWIDTH]
+    metadata = loadMetadata(metadatafn)
+    settings = loadSettings(settingsfn)
 
-    rmin, rmax, rstep = Settings[KEY_STG_R]
-    ignore = Settings[KEY_STG_IGNORE]
-    initmode = Settings[KEY_STG_POS0FILTER]
-    fit_position_number = Settings[KEY_STG_FITPOS]
-    flatten = Settings[KEY_STG_BFFLAT]
-    framesSlice = Settings[KEY_STG_FRAMESSLICES]
-    nspecies = Settings[KEY_STG_NSPECIES]
-    test_radii = np.arange(rmin, rmax, rstep)
-    Zgrid = Settings[KEY_STG_ZGRID]
-    normalise_profiles = Settings[KEY_STG_NORMALISE]
-    imslice = Settings[KEY_STG_SLICE]
+    nchannels = metadata[keys.KEY_MD_NCHANNELS]
 
-    ims, bg = loadfiles(Metadata)
+    framesSlice = settings[keys.KEY_STG_FRAMESSLICES]
+
+    ims, bg = loadfiles(metadata)
 
     if nchannels == 1:
         if len(ims.shape) == 2:
             raise RuntimeError('Only 1 channel in 1 image. Please set "'
-                               + KEY_MD_NCHANNELS + '".')
+                               + keys.KEY_MD_NCHANNELS + '".')
         data_dict = {}
-        radius = ddx.size_images(ims, ActualFlowRate, Wz, Wy, pixsize,
-                                 readingpos, Rs=test_radii, bgs=bg,
-                                 data_dict=data_dict, ignore=ignore,
-                                 initmode=initmode,
-                                 nspecies=nspecies,
-                                 Zgrid=Zgrid,
-                                 normalise_profiles=normalise_profiles)
+        radius = ddx.size_images(
+            ims, bg, metadata, settings,
+            rebin=2, data_dict=data_dict)
         return (radius, *read_data_dict(data_dict))
 
     else:
-        if imslice is not None:
-            shift = np.resize([1, -1], nchannels) * imslice[0]
-            readingpos = readingpos + shift
-
         def process_im(im, ignore_error=False, plotim=False):
             data_dict = {}
             radius = dd4.size_image(
-                im, ActualFlowRate, Wz, Wy, readingpos,
-                test_radii, bg=bg, data_dict=data_dict,
-                ignore=ignore, initmode=initmode,
-                fit_position_number=fit_position_number,
-                flatten=flatten, nspecies=nspecies,
-                Nprofs=nchannels, wall_width=wall_width,
-                ignore_error=ignore_error, plotim=plotim,
-                Zgrid=Zgrid,
-                normalise_profiles=normalise_profiles,
-                imslice=imslice)
+                im, bg, metadata, settings,
+                data_dict=data_dict, plotimage=plotim, ignore_error=ignore_error)
 
             return (radius, *read_data_dict(data_dict))
 
