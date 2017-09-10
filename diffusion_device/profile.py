@@ -16,42 +16,22 @@ from . import keys
 
 def size_profiles(profiles, pixsize, metadata, settings,
                   data_dict=None, central_profile=False):
-
-    #                            profiles, Q, Wz, pixsize, readingpos, Rs, *,
-    #                  initmode='none', normalise_profiles=True, Zgrid=11,
-    #                  ignore=10e-6, data_dict=None,
-    #                  central_profile=False, nspecies=1):
     """Size the profiles
 
      Parameters
     ----------
     profiles: 2d array
         List of profiles to fit
-    Q: float
-        Speed of the flow in [ul/h]
-    Wz: float
-        The channel height in [m]
     pixsize:float
-        The pixel size in [m]
-    readingpos: 1d float array
-        The reading position of the profiles
-    Rs: 1d float
-        The test radii [m]
-    initmode: string, default 'none'
-        How should the initial profile be processed
-        See init_process
-    normalise_profiles: Bool, default True
-        Should normalise profiles?
-    Zgrid: integer, default 11
-        Number of Z slices
-    ignore: float, default 10e-6
-        Ignore on the sides [m]
+        The pixel size in [m]    
+    metadata: dict
+        The metadata
+    settings: dict
+        The settings
     data_dict: dictionnary
-        If not None, returns infos
+        If not None, returns infos  
     central_profile: Bool, default False
         Should use central profile?
-    nspecies: int, default 1
-        number of species to fit
 
     Returns
     -------

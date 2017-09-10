@@ -12,56 +12,27 @@ from . import bright, uv
 from .. import profile as dp
 from .. import keys
 
-def size_image(image, bg, metadata, settings,
+def size_image(image, background, metadata, settings,
                data_dict=None, plotimage=False, ignore_error=False):
     """
     Get the hydrodynamic radius from the images
 
     Parameters
     ----------
-    image: 2d image or file name OR 2x 2d images
-        If this is a string, it will be treated like a path
-        If one image, treated like regular fluorescence image
-        If two images, treated like image and background
-    Q: float
-        Flow rate in [ul/h]
-    Wz: float
-        Height of the channel in [m]
-    channel_width: float
-        Width of the channel in [m]
-    readingpos: 1d float array, defaults None
-        Position at which the images are taken. If None, take the defaults
-    Rs: 1d array, defaults None
-        Hydrodimamic radii to simulate in [m].
-        If None: between .5 and 10 nm
-    Nprofs: integer
-        the numbers of channels
-    wall_width: float
-        The wall width in [m]
-    bg: path or image
+    image: 2d image 
+        image to analyse
+    background: path or image
         The background to remove
-    Zgrid: int, defaults 11
-        Number of Z slices
-    ignore: float, defaults 5e-6
-        Distance to sides to ignore [m]
-    normalise_profiles: Bool, defaults True
-        Should the profiles be normalised?
-    initmode: str, defaults 'none'
-        The processing mode for the initial profile (See profiles.py)
+    metadata: dict
+        The metadata
+    settings: dict
+        The settings
     data_dict: dict, defaults None
         Output to get the profiles and fits
-    fit_position_number: 1d list
-        Positions to use in the fit
-    flatten: Bool, defaut False
-        (Bright field only) Should the image be flattened?
-    nspecies: int, default 1
-        Number of species to fit. 0=all.
     ignore_error: Bool, default False
         Should the errors be ignored?
     plotimage: Bool, default False
         Plot how the image is flattened
-    imslice: 2 floats, default None
-        [Y distance from center, Y width] [m]
 
     Returns
     -------
@@ -88,20 +59,20 @@ def size_image(image, bg, metadata, settings,
     if not len(np.shape(image)) == 2:
         raise RuntimeError("Incorrect image shape: " + str(np.shape(image)))
 
-    if bg is not None:
-        bg = np.asarray(bg)
-        # load bg if string
-        if bg.dtype.type == np.str_:
-            bg = imread(str(bg))
+    if background is not None:
+        background = np.asarray(background)
+        # load background if string
+        if background.dtype.type == np.str_:
+            background = imread(str(background))
 
         # Check shape
-        if not len(np.shape(bg)) == 2:
+        if not len(np.shape(background)) == 2:
             raise RuntimeError("Incorrect background shape: "
-                               + str(np.shape(bg)))
+                               + str(np.shape(background)))
 
     try:
         # get profiles
-        if bg is None:
+        if background is None:
             flatten = settings[keys.KEY_STG_BFFLAT]
             # Single image
             image, centers, pixsize = bright.extract_profiles(
@@ -110,7 +81,7 @@ def size_image(image, bg, metadata, settings,
         else:
             # images and background
             image, centers, pixsize = uv.extract_profiles(
-                image, bg, nchannels, channel_width, wall_width,
+                image, background, nchannels, channel_width, wall_width,
                 data_dict=data_dict)
 
     except RuntimeError as error:
@@ -165,22 +136,23 @@ def extract_profiles(image, centers, chwidth, ignore, pixsize,
     else:
         pslice = slice(ignore, -ignore)
 
-    Nprofs = len(centers)
-    Npix = int(np.round(chwidth / pixsize))
+    nchannels = len(centers)
+    prof_npix = int(np.round(chwidth / pixsize))
 
     if imslice is None:
         image_profile = np.nanmean(image, 0)
     else:
-        image_profile = imageProfileSlice(image, imslice[0], imslice[1], pixsize)
+        image_profile = imageProfileSlice(
+            image, imslice[0], imslice[1], pixsize)
 
-    profiles = np.empty((Nprofs, Npix), dtype=float)
+    profiles = np.empty((nchannels, prof_npix), dtype=float)
 
     # Extract profiles
     firstcenter = None
     for i, cent in enumerate(centers):
 
         X = np.arange(len(image_profile)) - cent
-        Xc = np.arange(Npix) - (Npix - 1) / 2
+        Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
         finterp = interpolate.interp1d(X, image_profile)
         p = finterp(Xc)
 

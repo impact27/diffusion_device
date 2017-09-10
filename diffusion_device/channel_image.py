@@ -24,40 +24,19 @@ def size_images(images, backgrounds, metadata, settings,
 
     Parameters
     ----------
-    images: 1d list of images or file name
-        If this is a string, it will be treated like a path
-        If one list, treated like images
-    Q: float
-        Flow rate in [ul/h]
-    Wz: float
-        Height of the channel in [m]
-    Wy: float
-        The channel width in [m]
-    pixsize: float
-        Pixel size in [m]
-    readingpos: 1d float array, defaults None
-        Position at which the images are taken. If None, take the defaults
-    Rs: 1d array, defaults None
-        Hydrodimamic radii to simulate in [m].
-        If None: between .5 and 10 nm
-    bgs: 1d list of images or file name, default None
-        If this is a string, it will be treated like a path
-        If one list, treated like background images
+    images: 1d list of images
+        images to treat
+    bgs: 1d list of image, default None
+        background images
         if None, no background image
-    Zgrid: int, defaults 11
-        Number of Z slices
-    ignore: float, defaults 10e-6
-        Distance to sides to ignore
-    normalise_profiles: Bool, defaults True
-        Should the profiles be normalised?
-    initmode: str, defaults 'none'
-        The processing mode for the initial profile (See profiles.py)
+    metadata: dict
+        The metadata
+    settings: dict
+        The settings
     data_dict: dict, defaults None
         Output to get the profiles and fits
     rebin: int, defaults 2
         Rebin factor to speed up code
-    nspecies: int, default 1
-        number of species to fit
 
     Returns
     -------
