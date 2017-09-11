@@ -121,6 +121,19 @@ def process_images(images, image_type, metadata, settings):
     if background_fn is not None:
         imborder = metadata[keys.KEY_MD_BORDER]
         backgrounds = load_images(background_fn, imborder)
+    
+    # Remove background from optics    
+    optics_bgfn = metadata[keys.KEY_MD_OPBGFN]
+    if optics_bgfn is not None:
+        exposure = metadata[keys.KEY_MD_EXP]
+        background_exposure = metadata[keys.KEY_MD_BGEXP]
+        optics_background_exposure = metadata[keys.KEY_MD_OPBGEXP]
+
+        optics = myimread(optics_bgfn) / optics_background_exposure
+        images = images / exposure - optics
+        if backgrounds is not None:
+            backgrounds = backgrounds / background_exposure - optics
+
 
     if image_type == '12pos':
         images, pixel_size, centers = ddx.process_images(
@@ -182,69 +195,3 @@ def load_images(filename, imborder=None):
                         imborder[2]:imborder[3]]
 
     return images
-
-
-#    bgfn = metadata[keys.KEY_MD_BGFN]
-#    optics_bgfn = metadata[keys.KEY_MD_OPBGFN]
-#
-#    # load background
-#    bg = None
-#    if bgfn is not None:
-#        if isinstance(bgfn, (list, tuple)):
-#            bg = np.asarray([myimread(fn) for fn in bgfn])
-#        else:
-#            bg = myimread(bgfn)
-#
-#    # Remove background from optics
-#    if optics_bgfn is not None:
-#        exposure = metadata[keys.KEY_MD_EXP]
-#        background_exposure = metadata[keys.KEY_MD_BGEXP]
-#        optics_background_exposure = metadata[keys.KEY_MD_OPBGEXP]
-#
-#        optics = myimread(optics_bgfn) / optics_background_exposure
-#        ims = ims / exposure - optics
-#        if bg is not None:
-#            bg = bg / background_exposure - optics
-#
-#
-#    if bg is not None:
-#        bg = bg[..., imborder[0]:imborder[1],
-#                imborder[2]:imborder[3]]
-#
-#    return ims, bg
-
-# def read_data_dict(data_dict):
-#    """Extract interesting data from a data dict
-#
-#    Parameters
-#    ----------
-#    data_dict: dict
-#        The data dictionnary
-#
-#    Returns
-#    -------
-#    profiles: 1d list of floats
-#        The extracted profiles.
-#    fits: 1d list of floats
-#        The Fits.
-#    lse: float
-#        The least square error.
-#    pixel_size: float
-#        The detected pixel size
-#    """
-#    profiles, fits, lse, pixel_size, im = np.nan * np.ones(5)
-#
-#    if 'profiles' in data_dict and 'fits'in data_dict:
-#        profiles = data_dict['profiles']
-#        fits = data_dict['fits']
-#
-#        if len(profiles) - 1 == len(fits):
-#            fits = [data_dict['initprof'], *data_dict['fits']]
-#
-#        lse = np.sqrt(np.mean(np.square(profiles - fits)))
-#        pixel_size = data_dict['pixel_size']
-#
-#    if 'image' in data_dict:
-#        im = data_dict['image']
-#
-#    return profiles, fits, lse, pixel_size, im
