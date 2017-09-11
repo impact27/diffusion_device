@@ -29,15 +29,15 @@ from .basis_generate import getprofiles
 from . import keys
 
 
-def size_profiles(profiles, pixsize, metadata, settings,
-                  data_dict=None, central_profile=False):
+def size_profiles(profiles, pixel_size, metadata, settings,
+                  fits=None, central_profile=False):
     """Size the profiles
 
      Parameters
     ----------
     profiles: 2d array
         List of profiles to fit
-    pixsize:float
+    pixel_size:float
         The pixel size in [m]    
     metadata: dict
         The metadata
@@ -80,7 +80,7 @@ def size_profiles(profiles, pixsize, metadata, settings,
         raise RuntimeError(
             "Number of profiles and reading positions mismatching.")
     # convert ignore to px
-    ignore = int(ignore / pixsize)
+    ignore = int(ignore / pixel_size)
 
     if ignore == 0:
         pslice = slice(None)
@@ -129,17 +129,16 @@ def size_profiles(profiles, pixsize, metadata, settings,
         r = fit_radius(profilesfit, Basis, test_radii, ignore, nspecies=1)
 
         # fill data if needed
-        if data_dict is not None and not np.isnan(r):
-            data_dict['initprof'] = init
-            fits = getprofiles(init, Q=flow_rate, Radii=[r],
-                               Wy=channel_width, Wz=channel_height,
-                               Zgrid=Zgrid,
-                               readingpos=readingposfit,
-                               central_profile=central_profile)[0]
+        if fits is not None and not np.isnan(r):
+            
+            fits[:] = getprofiles(init, Q=flow_rate, Radii=[r],
+                                   Wy=channel_width, Wz=channel_height,
+                                   Zgrid=Zgrid,
+                                   readingpos=readingpos,
+                                   central_profile=central_profile)[0]
             if normalise_profiles:
                 # Normalize basis in the same way as profiles
                 fits /= np.sum(fits[..., pslice], -1)[..., np.newaxis]
-            data_dict['fits'] = fits
 
         return r
     else:
@@ -147,11 +146,12 @@ def size_profiles(profiles, pixsize, metadata, settings,
                               nspecies=nspecies)
 
         # fill data if needed
-        if data_dict is not None:
-            data_dict['initprof'] = init
-            data_dict['fits'] = np.sum(spectrum[:, np.newaxis, np.newaxis]
-                                       * Basis, axis=0)
-
+        if fits is not None:
+            fits[-len(readingposfit):] = np.sum(
+                    spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
+            if initmode != 'synthetic':
+                fits[0] = init
+            
         return test_radii, spectrum
 
 

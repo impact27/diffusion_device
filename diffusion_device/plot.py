@@ -19,19 +19,22 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from . import profile as dp
+
 import matplotlib.pyplot as plt
 import numpy as np
-from .json import full_fit
-from . import json
+from registrator.image import is_overexposed
 from matplotlib.pyplot import plot, figure
 import os
 from matplotlib.image import NonUniformImage
 import shutil
 import tifffile
 
+from .images import full_fit
+from . import input_files
+from . import profile as dp
 
-def plotpos(settingsfn, metadatafn, outpath=None, plotpos=None):
+
+def plotpos(settingsfn, metadatafn, outpath, plotpos=None):
     """Plot the sizing data
 
     Parameters
@@ -46,16 +49,21 @@ def plotpos(settingsfn, metadatafn, outpath=None, plotpos=None):
         Positions to plot if this is a stack
 
     """
-    dtype = json.getType(metadatafn)
-    if dtype == '4pos':
-        return plot4pos(settingsfn, metadatafn, outpath)
-    elif dtype == '4pos_stack':
-        return plot4posstack(settingsfn, metadatafn, outpath, plotpos)
-    elif dtype == '12pos':
-        return plot12pos(settingsfn, metadatafn, outpath)
+    radius, profiles, fits, pixel_size, im, image_type = \
+        full_fit(settingsfn, metadatafn)
+        
+    outpath = prepare_output(outpath, settingsfn, metadatafn)
+   
+    if image_type == '4pos':
+        return plot4pos(radius, profiles, fits, pixel_size, im, outpath)
+    elif image_type == '4pos_stack':
+        return plot4posstack(radius, profiles, fits, pixel_size, im, outpath,
+                             plotpos)
+    elif image_type == '12pos':
+        return plot12pos(radius, profiles, fits, pixel_size, im, outpath)
 
 
-def plot4pos(settingsfn, metadatafn, outpath=None):
+def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -72,11 +80,9 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
     # =========================================================================
     # Fit
     # =========================================================================
+    
 
-    radius, profiles, fits, lse, pixel_size, im = \
-        full_fit(settingsfn, metadatafn)
-
-    base_name = prepare_output(outpath, settingsfn, metadatafn)
+    lse = np.sqrt(np.mean(np.square(profiles - fits)))
 
     if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
@@ -85,7 +91,7 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
         plt.xlabel("Radius [nm]")
         plt.ylabel("Coefficient")
         if outpath is not None:
-            plt.savefig(base_name + '_rSpectrum_fig.pdf')
+            plt.savefig(outpath + '_rSpectrum_fig.pdf')
         figure()
         plt.title('LSE = {:.4e}, pixel = {:.3f} um'.format(
             lse, pixel_size * 1e6))
@@ -110,14 +116,14 @@ def plot4pos(settingsfn, metadatafn, outpath=None):
     #==========================================================================
 
     if outpath is not None:
-        tifffile.imsave(base_name + '_im.tif', im)
-        plt.savefig(base_name + '_fig.pdf')
-        with open(base_name + '_result.txt', 'wb') as f:
+        tifffile.imsave(outpath + '_im.tif', im)
+        plt.savefig(outpath + '_fig.pdf')
+        with open(outpath + '_result.txt', 'wb') as f:
             f.write("LSE: {:e}\n".format(lse).encode())
             f.write("Apparent pixel size: {:f} um\n".format(pixel_size *
                                                             1e6).encode())
             if len(np.shape(radius)) > 0:
-                f.write("Radii:\n".encode())
+                f.write("radius:\n".encode())
                 np.savetxt(f, radius[0])
                 f.write("Spectrum:\n".encode())
                 np.savetxt(f, radius[1])
@@ -161,7 +167,7 @@ def prepare_output(outpath, settingsfn, metadatafn):
     return base_name
 
 
-def plot12pos(settingsfn, metadatafn, outpath=None):
+def plot12pos(radius, profiles, fits, pixel_size, ims, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -174,15 +180,11 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
         Folder where to save the figures and data
 
     """
-    radius, profiles, fits, lse, pixel_size, ims = full_fit(
-        settingsfn, metadatafn)
 
     # =========================================================================
     # Plot
     # =========================================================================
-
-    base_name = prepare_output(outpath, settingsfn, metadatafn)
-
+    lse = np.sqrt(np.mean(np.square(profiles - fits)))
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
     if len(np.shape(radius)) > 0:
@@ -192,7 +194,7 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
         plt.xlabel("Radius [nm]")
         plt.ylabel("Coefficient")
         if outpath is not None:
-            plt.savefig(base_name + '_rSpectrum_fig.pdf')
+            plt.savefig(outpath + '_rSpectrum_fig.pdf')
         figure()
         plt.title('LSE = {:.4e}, pixel = {:.3f} um'.format(
             lse, pixel_size * 1e6))
@@ -211,13 +213,12 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
     #==========================================================================
 
     if outpath is not None:
-        for i, im in enumerate(ims):
-            tifffile.imsave(base_name + '_im{}.tif'.format(i), ims)
-        plt.savefig(base_name + '_fig.pdf')
+        tifffile.imsave(outpath + '_ims.tif', ims)
+        plt.savefig(outpath + '_fig.pdf')
 
-        with open(base_name + '_result.txt', 'wb') as f:
+        with open(outpath + '_result.txt', 'wb') as f:
             if len(np.shape(radius)) > 0:
-                f.write("Radii:\n".encode())
+                f.write("radius:\n".encode())
                 np.savetxt(f, radius[0])
                 f.write("Spectrum:\n".encode())
                 np.savetxt(f, radius[1])
@@ -232,7 +233,7 @@ def plot12pos(settingsfn, metadatafn, outpath=None):
     return radius
 
 
-def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
+def plot4posstack(radius, profiles, fits, pixel_size, images, outpath=None, plotpos=None):
     """Plot the sizing data
 
     Parameters
@@ -248,25 +249,20 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
 
     """
     # Infer variables
-    (radii, profiles_list,
-     fits_list, LSE, pixs, overexposed) = full_fit(settingsfn, metadatafn)
 
-    intensity = np.asarray([np.nanmax(p) for p in profiles_list])
-    LSE = np.asarray(LSE)
-    pixs = np.asarray(pixs)
-
-    base_name = prepare_output(outpath, settingsfn, metadatafn)
-
-    x = np.arange(len(radii))
+    intensity = np.asarray([np.nanmax(p) for p in profiles])
+    LSE = np.sqrt(np.mean(np.square(profiles - fits), [1, 2]))
+    overexposed = 0
+    x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
 
-    if len(np.shape(radii)) == 3:
-        Rs = radii[0, 0] * 1e9
-        ylim = (0, len(radii))
+    if len(np.shape(radius)) == 3:
+        Rs = radius[0, 0] * 1e9
+        ylim = (0, len(radius))
         xlim = (np.min(Rs), np.max(Rs))
         figure()
         im = NonUniformImage(plt.gca(), extent=(*xlim, *ylim))
-        im.set_data(Rs, np.arange(len(radii)), radii[:, 1])
+        im.set_data(Rs, np.arange(len(radius)), radius[:, 1])
         plt.gca().images.append(im)
         plt.xlim(*xlim)
         plt.ylim(*ylim)
@@ -276,16 +272,16 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
     else:
 
         figure()
-        plot(x[valid], radii[valid] * 1e9, 'x', label='data')
+        plot(x[valid], radius[valid] * 1e9, 'x', label='data')
         plt.xlabel('Frame number')
         plt.ylabel('Radius [nm]')
         if np.any(overexposed):
-            plot(x[overexposed], radii[overexposed] * 1e9, 'x',
+            plot(x[overexposed], radius[overexposed] * 1e9, 'x',
                  label='overexposed data')
             plt.legend()
 
     if outpath is not None:
-        plt.savefig(base_name + '_R_fig.pdf')
+        plt.savefig(outpath + '_R_fig.pdf')
 
     figure()
     plot(x[valid], LSE[valid], 'x', label='regular')
@@ -295,7 +291,7 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
         plot(x[overexposed], LSE[overexposed], 'x', label='overexposed')
         plt.legend()
     if outpath is not None:
-        plt.savefig(base_name + '_LSE_fig.pdf')
+        plt.savefig(outpath + '_LSE_fig.pdf')
 
     figure()
     plot(x[valid], intensity[valid], 'x', label='regular')
@@ -305,55 +301,56 @@ def plot4posstack(settingsfn, metadatafn, outpath=None, plotpos=None):
         plot(x[overexposed], intensity[overexposed], 'x', label='overexposed')
         plt.legend()
     if outpath is not None:
-        plt.savefig(base_name + '_max_intensity_fig.pdf')
+        plt.savefig(outpath + '_max_intensity_fig.pdf')
 
     figure()
-    plot(x, pixs * 1e6, 'x')
+    plot(x, pixel_size * 1e6, 'x')
     plt.xlabel('Frame number')
     plt.ylabel('Pixel size')
     if outpath is not None:
-        plt.savefig(base_name + '_pixel_size_fig.pdf')
+        plt.savefig(outpath + '_pixel_size_fig.pdf')
 
     if outpath is not None:
-        with open(base_name + '_result.txt', 'wb') as f:
+        tifffile.imsave(outpath + '_ims.tif', images)
+        with open(outpath + '_result.txt', 'wb') as f:
             f.write('Least square error:\n'.encode())
             np.savetxt(f, LSE)
             if np.any(overexposed):
                 f.write('Overexposed Frames:\n'.encode())
                 np.savetxt(f, overexposed)
             f.write('Pixel size:\n'.encode())
-            np.savetxt(f, pixs)
-            if len(np.shape(radii)) == 3:
-                for r, spectrum in zip(Rs, radii[:, 1]):
+            np.savetxt(f, pixel_size)
+            if len(np.shape(radius)) == 3:
+                for r, spectrum in zip(Rs, radius[:, 1]):
                     f.write('Spectrums for radius {:.4e}nm:\n'
                             .format(r).encode())
                     np.savetxt(f, spectrum)
 
             else:
-                f.write('Radii:\n'.encode())
-                np.savetxt(f, radii)
+                f.write('radius:\n'.encode())
+                np.savetxt(f, radius)
 
     if plotpos is not None:
         plotpos = np.asarray(plotpos)
 
-        for pos in plotpos[plotpos < len(profiles_list)]:
+        for pos in plotpos[plotpos < len(profiles)]:
 
-            profs = dp.get_fax(profiles_list[pos])
-            X = np.arange(len(profs)) * pixs[pos] * 1e6
+            profs = dp.get_fax(profiles[pos])
+            X = np.arange(len(profs)) * pixel_size[pos] * 1e6
             figure()
             plot(X, profs)
 
-            fits = dp.get_fax(fits_list[pos])
+            fits = dp.get_fax(fits[pos])
 
             plot(X, fits)
-            if len(np.shape(radii)) == 3:
+            if len(np.shape(radius)) == 3:
                 plt.title('LSE = {:.2e}, pixel = {:.3f} um'.format(
-                    LSE[pos], pixs[pos] * 1e6))
+                    LSE[pos], pixel_size[pos] * 1e6))
             else:
                 plt.title(
                     'r= {:.2f} nm, LSE = {:.2e}, pixel = {:.3f} um'.format(
-                        radii[pos] * 1e9, LSE[pos], pixs[pos] * 1e6))
+                        radius[pos] * 1e9, LSE[pos], pixel_size[pos] * 1e6))
             plt.xlabel('Position [$\mu$m]')
             plt.ylabel('Normalised amplitude')
 
-    return radii
+    return radius

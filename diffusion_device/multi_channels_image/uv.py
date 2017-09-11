@@ -231,8 +231,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
     return ret
 
 
-def extract_profiles(im, bg, Nprofs, chwidth, wallwidth,
-                     data_dict=None):
+def extract_profiles(im, bg, Nprofs, chwidth, wallwidth):
     """
     Extract diffusion profiles
 
@@ -249,8 +248,6 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth,
         The channel width in [m]
     wallwidth: float
         The wall width in [m]
-    data_dict: dict, defaults None
-        Output to get the profiles and fits
 
     Returns
     -------
@@ -269,9 +266,9 @@ def extract_profiles(im, bg, Nprofs, chwidth, wallwidth,
 
     centers = (edges[1::2] + edges[::2]) / 2
 
-    pixsize = chwidth / widthpx
+    pixel_size = chwidth / widthpx
 
-    return flat_im, centers, pixsize
+    return flat_im, centers, pixel_size
 
 
 #    # Profile

@@ -32,8 +32,7 @@ from . import keys
 warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
 
 
-def size_images(images, backgrounds, metadata, settings,
-                rebin=2, data_dict=None):
+def process_images(images, backgrounds, metadata, settings, rebin=2):
     """
     Get the hydrodynamic radius from the images
 
@@ -48,8 +47,6 @@ def size_images(images, backgrounds, metadata, settings,
         The metadata
     settings: dict
         The settings
-    data_dict: dict, defaults None
-        Output to get the profiles and fits
     rebin: int, defaults 2
         Rebin factor to speed up code
 
@@ -62,7 +59,7 @@ def size_images(images, backgrounds, metadata, settings,
 
     # Check images is numpy array
     images = np.asarray(images)
-    pixsize = metadata[keys.KEY_MD_PIXSIZE]
+    pixel_size = metadata[keys.KEY_MD_pixel_size]
     Wy = metadata[keys.KEY_MD_WY]
 
     if backgrounds is not None:
@@ -73,12 +70,12 @@ def size_images(images, backgrounds, metadata, settings,
     if backgrounds is None:
         # Single images
         flatimages = np.asarray(
-            [flat_image(im, pixsize, Wy)
+            [flat_image(im, pixel_size, Wy)
              for im in images])
     else:
         # images and background
         flatimages = np.asarray(
-            [remove_bg(im, bg, pixsize, Wy)
+            [remove_bg(im, bg, pixel_size, Wy)
              for im, bg in zip(images, backgrounds)])
 
     if rebin > 1:
@@ -86,26 +83,20 @@ def size_images(images, backgrounds, metadata, settings,
         flatimages = np.array(
             [cv2.resize(im, size, interpolation=cv2.INTER_AREA)
              for im in flatimages])
-        pixsize *= rebin
+        pixel_size *= rebin
 
     # Orientate
     for flatim in flatimages:
         flatim[:] = ir.rotate_scale(flatim, -dp.image_angle(flatim),
                                     1, borderValue=np.nan)
-    # get profiles
-    profiles = np.asarray(
-        [extract_profile(fim, pixsize, Wy) for fim in flatimages])
 
-    if data_dict is not None:
-        data_dict['pixsize'] = pixsize
-        data_dict['profiles'] = profiles
-        data_dict['image'] = flatimages
-
-    return dp.size_profiles(profiles, pixsize, metadata, settings,
-                            data_dict=data_dict)
+    centers = [None] * len(flatimages)
+        
+    return flatimages, pixel_size, centers
 
 
-def remove_bg(im, bg, pixsize, chanWidth):
+
+def remove_bg(im, bg, pixel_size, chanWidth):
     """
     Remove background from image
 
@@ -115,7 +106,7 @@ def remove_bg(im, bg, pixsize, chanWidth):
         image
     bg: 2d array
         background
-    pixsize: float
+    pixel_size: float
         pixel size in [m]
     chanWidth: float
         channel width  in [m]
@@ -134,7 +125,7 @@ def remove_bg(im, bg, pixsize, chanWidth):
 
     # Get the X positions (perpendicular to alignent axis) and check wide
     # enough
-    X = np.arange(im.shape[1]) * pixsize
+    X = np.arange(im.shape[1]) * pixel_size
     if not (1.2 * chanWidth < X[-1]):
         raise RuntimeError("image too small to get entire channel.")
 
@@ -149,7 +140,7 @@ def remove_bg(im, bg, pixsize, chanWidth):
     return rmbg.remove_curve_background(im, bg, maskim=mask)
 
 
-def flat_image(im, pixsize, chanWidth):
+def flat_image(im, pixel_size, chanWidth):
     """
     Flatten the image
 
@@ -157,7 +148,7 @@ def flat_image(im, pixsize, chanWidth):
     ----------
     im: 2d array
         image
-    pixsize: float
+    pixel_size: float
         pixel size in [m]
     chanWidth: float, defaults 300e-6
         channel width  in [m]
@@ -182,7 +173,7 @@ def flat_image(im, pixsize, chanWidth):
                                   len(prof))
     flatprof[np.isnan(flatprof)] = 0
     x = np.arange(len(prof)) - dp.center(flatprof)  # TODO: Fail ->np.argmax?
-    x = x * pixsize
+    x = x * pixel_size
 
     # Create mask
     channel = np.abs(x) < chanWidth / 2
@@ -204,7 +195,8 @@ def flat_image(im, pixsize, chanWidth):
     return im
 
 
-def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
+def extract_profile(flatim, pixel_size, chanWidth, center = None,
+                    *, reflatten=True, ignore=10):
     """
     Get profile from a flat image
 
@@ -212,7 +204,7 @@ def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
     ----------
     flatim: 2d array
         flat image
-    pixsize: float
+    pixel_size: float
         pixel size in [m]
     chanWidth: float, defaults 300e-6
         channel width  in [m]
@@ -231,10 +223,15 @@ def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
     prof = np.nanmean(flatim, 0)
 
     # Center X
-    X = np.arange(len(prof)) * pixsize
-    center = dp.center(prof) * pixsize
-    inchannel = np.abs(X - center) < .45 * chanWidth
-    X = X - (dp.center(prof[inchannel]) + np.argmax(inchannel)) * pixsize
+    X = np.arange(len(prof)) * pixel_size
+    
+    if center is None:
+        center = dp.center(prof) * pixel_size
+        inchannel = np.abs(X - center) < .45 * chanWidth
+        center = dp.center(prof[inchannel]) + np.argmax(inchannel)
+    
+    
+    X = X - center * pixel_size
 
     # get what is out
     out = np.logical_and(np.abs(X) > .55 * chanWidth, np.isfinite(prof))
@@ -248,10 +245,10 @@ def extract_profile(flatim, pixsize, chanWidth, *, reflatten=True, ignore=10):
         prof = (prof + 1) / (bgfit + 1) - 1
 
     # We restrict the profile to channel width - widthcut
-    Npix = int(chanWidth // pixsize) + 1
+    Npix = int(chanWidth // pixel_size) + 1
 
     Xc = np.arange(Npix) - (Npix - 1) / 2
-    Xc *= pixsize
+    Xc *= pixel_size
 
     finterp = interpolate.interp1d(X, prof, bounds_error=False, fill_value=0)
     """

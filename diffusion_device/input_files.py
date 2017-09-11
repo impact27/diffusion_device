@@ -22,11 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 import numpy as np
 import os
-from tifffile import imread
-from registrator.image import is_overexposed
 
-from . import multi_channels_image as dd4
-from . import channel_image as ddx
 from . import keys
 
 
@@ -332,7 +328,7 @@ def loadMetadata(metadatafn):
     return metadata
 
 
-def getType(metadatafn):
+def getType(metadata, images_shape):
     """Get the type of data this is
 
     Parameters
@@ -345,198 +341,22 @@ def getType(metadatafn):
     dtype: str
         a string describing the type of data
     """
-    metadata = loadMetadata(metadatafn)
     nchannels = metadata[keys.KEY_MD_NCHANNELS]
     if nchannels == 1:
+        if len(images_shape) == 2:
+            raise RuntimeError('Only 1 channel in 1 image. Please set "'
+                               + keys.KEY_MD_NCHANNELS + '".')
         return '12pos'
     elif nchannels != 4:
         return 'unknown'
-    filename = metadata[keys.KEY_MD_FN]
-    if isinstance(filename, (list, tuple)):
-        ims = np.asarray([myimread(fn) for fn in filename])
-    else:
-        ims = myimread(filename)
-    if len(ims.shape) == 2:
+    if len(images_shape) == 2:
         return '4pos'
-    elif len(ims.shape) == 3:
+    elif len(images_shape) == 3:
         return '4pos_stack'
     return 'unknown'
 
-def myimread(fn):
-    ims = imread(fn)
-    if len(ims.shape) == 3:
-        ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
-    return ims
-
-def load_images(metadata):
-    """ Load the images files and do some preprocessing
-
-    Parameters
-    ----------
-    metadata: dict
-        The metadata informations
-
-    Returns
-    -------
-    ims: array
-        image or array of images
-    bg: array
-        background or array of backgrounds
-    """
-
-    filename = metadata[keys.KEY_MD_FN]
-    bgfn = metadata[keys.KEY_MD_BGFN]
-    optics_bgfn = metadata[keys.KEY_MD_OPBGFN]
-    exposure = metadata[keys.KEY_MD_EXP]
-    background_exposure = metadata[keys.KEY_MD_BGEXP]
-    optics_background_exposure = metadata[keys.KEY_MD_OPBGEXP]
-    imborder = metadata[keys.KEY_MD_BORDER]
-
-    # load images
-    if isinstance(filename, (list, tuple)):
-        ims = np.asarray([myimread(fn) for fn in filename])
-    else:
-        ims = myimread(filename)
-
-    # load background
-    bg = None
-    if bgfn is not None:
-        if isinstance(bgfn, (list, tuple)):
-            bg = np.asarray([myimread(fn) for fn in bgfn])
-        else:
-            bg = myimread(bgfn)
-
-    # Remove background from optics
-    if optics_bgfn is not None:
-        optics = myimread(optics_bgfn) / optics_background_exposure
-        ims = ims / exposure - optics
-        if bg is not None:
-            bg = bg / background_exposure - optics
-
-    # Remove Border
-    ims = ims[..., imborder[0]:imborder[1],
-              imborder[2]:imborder[3]]
-    if bg is not None:
-        bg = bg[..., imborder[0]:imborder[1],
-                imborder[2]:imborder[3]]
-
-    return ims, bg
 
 
-def full_fit(settingsfn, metadatafn, plotim=False):
-    """Perform a fit with the imformations found in the settings file
-
-    Parameters
-    ----------
-    settingsfn: path
-        path to the fit settings file
-    metadatafn: path
-        path to the metadata file
-
-    Returns
-    -------
-    radius: float or list of floats or 2x list of floats
-        If 1 species:
-            The fitted radius
-        If several species:
-            radii, spectrum: The radii and corresponding coefficients
-        If movie:
-            A list of the above
-    profiles: 1d or 2d list of floats
-        The extracted profiles. 2d for movie.
-    fits: 1d or 2d list of floats
-        The Fits. 2d for movie.
-    lse: float or list of floats
-        The least square error. List for movie.
-    pixel_size: float or list of floats
-        The detected pixel size. List for movie.
-    """
-
-    metadata = loadMetadata(metadatafn)
-    settings = loadSettings(settingsfn)
-
-    nchannels = metadata[keys.KEY_MD_NCHANNELS]
-
-    framesSlice = settings[keys.KEY_STG_FRAMESSLICES]
-
-    ims, bg = load_images(metadata)
-
-    if nchannels == 1:
-        if len(ims.shape) == 2:
-            raise RuntimeError('Only 1 channel in 1 image. Please set "'
-                               + keys.KEY_MD_NCHANNELS + '".')
-        data_dict = {}
-        radius = ddx.size_images(
-            ims, bg, metadata, settings,
-            rebin=2, data_dict=data_dict)
-        return (radius, *read_data_dict(data_dict))
-
-    else:
-        def process_im(im, ignore_error=False, plotim=False):
-            data_dict = {}
-            radius = dd4.size_image(
-                im, bg, metadata, settings,
-                data_dict=data_dict, plotimage=plotim, ignore_error=ignore_error)
-
-            return (radius, *read_data_dict(data_dict))
-
-        if len(ims.shape) == 2:
-            return process_im(ims, plotim=plotim)
-        else:
-            # movie
-            ims = ims[framesSlice[0]:framesSlice[1]]
-            radius_list = []
-            profiles_list = []
-            fits_list = []
-            lse_list = []
-            pixel_size_list = []
-            for im in ims:
-                radius, profiles, fits, lse, pixel_size, __ = \
-                    process_im(im, ignore_error=True)
-                radius_list.append(radius)
-                profiles_list.append(profiles)
-                fits_list.append(fits)
-                lse_list.append(lse)
-                pixel_size_list.append(pixel_size)
-
-            overexposed = [is_overexposed(im) for im in ims]
-            return (np.asarray(radius_list), profiles_list, fits_list,
-                    np.asarray(lse_list), np.asarray(pixel_size_list),
-                    overexposed)
 
 
-def read_data_dict(data_dict):
-    """Extract interesting data from a data dict
 
-    Parameters
-    ----------
-    data_dict: dict
-        The data dictionnary
-
-    Returns
-    -------
-    profiles: 1d list of floats
-        The extracted profiles.
-    fits: 1d list of floats
-        The Fits.
-    lse: float
-        The least square error.
-    pixel_size: float
-        The detected pixel size
-    """
-    profiles, fits, lse, pixel_size, im = np.nan * np.ones(5)
-
-    if 'profiles' in data_dict and 'fits'in data_dict:
-        profiles = data_dict['profiles']
-        fits = data_dict['fits']
-
-        if len(profiles) - 1 == len(fits):
-            fits = [data_dict['initprof'], *data_dict['fits']]
-
-        lse = np.sqrt(np.mean(np.square(profiles - fits)))
-        pixel_size = data_dict['pixsize']
-
-    if 'image' in data_dict:
-        im = data_dict['image']
-
-    return profiles, fits, lse, pixel_size, im

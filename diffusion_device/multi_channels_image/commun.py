@@ -27,8 +27,8 @@ from . import bright, uv
 from .. import profile as dp
 from .. import keys
 
-def size_image(image, background, metadata, settings,
-               data_dict=None, plotimage=False, ignore_error=False):
+def process_images(image, background, metadata, settings,
+                   ignore_error=False):
     """
     Get the hydrodynamic radius from the images
 
@@ -42,8 +42,6 @@ def size_image(image, background, metadata, settings,
         The metadata
     settings: dict
         The settings
-    data_dict: dict, defaults None
-        Output to get the profiles and fits
     ignore_error: Bool, default False
         Should the errors be ignored?
     plotimage: Bool, default False
@@ -63,8 +61,6 @@ def size_image(image, background, metadata, settings,
     channel_width = metadata[keys.KEY_MD_WY]
     nchannels = metadata[keys.KEY_MD_NCHANNELS]
     wall_width = metadata[keys.KEY_MD_WALLWIDTH]
-    ignore = settings[keys.KEY_STG_IGNORE]
-    imslice = settings[keys.KEY_STG_SLICE]
 
     # load images if string
     if image.dtype.type == np.str_:
@@ -90,14 +86,12 @@ def size_image(image, background, metadata, settings,
         if background is None:
             flatten = settings[keys.KEY_STG_BFFLAT]
             # Single image
-            image, centers, pixsize = bright.extract_profiles(
-                image, nchannels, channel_width, wall_width, flatten,
-                data_dict=data_dict, plotimage=plotimage)
+            image, centers, pixel_size = bright.extract_profiles(
+                image, nchannels, channel_width, wall_width, flatten)
         else:
             # images and background
-            image, centers, pixsize = uv.extract_profiles(
-                image, background, nchannels, channel_width, wall_width,
-                data_dict=data_dict)
+            image, centers, pixel_size = uv.extract_profiles(
+                image, background, nchannels, channel_width, wall_width)
 
     except RuntimeError as error:
         print(error.args[0])
@@ -105,20 +99,11 @@ def size_image(image, background, metadata, settings,
             return np.nan
         else:
             raise error
-
-    profiles = extract_profiles(image, centers, channel_width, ignore,
-                                pixsize, imslice=imslice)
-
-    if data_dict is not None:
-        data_dict["image"] = image
-        data_dict['pixsize'] = pixsize
-        data_dict['profiles'] = profiles
-
-    return dp.size_profiles(profiles, pixsize, metadata, settings,
-                            data_dict=data_dict)
+            
+    return image, centers, pixel_size
 
 
-def extract_profiles(image, centers, chwidth, ignore, pixsize,
+def extract_profiles(image, centers, chwidth, ignore, pixel_size,
                      imslice=None):
     '''cut the image profile into profiles
 
@@ -132,7 +117,7 @@ def extract_profiles(image, centers, chwidth, ignore, pixsize,
         Width of the channel [m]
     ignore: float
         Distance to sides to ignore [m]
-    pixsize: float
+    pixel_size: float
         Size of the pixel [m]
     imslice: 2 floats, default None
         [Y distance from center, Y width] [m]
@@ -143,7 +128,7 @@ def extract_profiles(image, centers, chwidth, ignore, pixsize,
         The profiles
     '''
     # convert ignore to px
-    ignore = int(ignore / pixsize)
+    ignore = int(ignore / pixel_size)
 
     if ignore == 0:
         pslice = slice(None)
@@ -151,13 +136,13 @@ def extract_profiles(image, centers, chwidth, ignore, pixsize,
         pslice = slice(ignore, -ignore)
 
     nchannels = len(centers)
-    prof_npix = int(np.round(chwidth / pixsize))
+    prof_npix = int(np.round(chwidth / pixel_size))
 
     if imslice is None:
         image_profile = np.nanmean(image, 0)
     else:
         image_profile = imageProfileSlice(
-            image, imslice[0], imslice[1], pixsize)
+            image, imslice[0], imslice[1], pixel_size)
 
     profiles = np.empty((nchannels, prof_npix), dtype=float)
 
@@ -208,7 +193,7 @@ def extract_profiles(image, centers, chwidth, ignore, pixsize,
     return profiles
 
 
-def imageProfileSlice(image, center, width, pixsize):
+def imageProfileSlice(image, center, width, pixel_size):
     '''Get the image profile corresponding to a center and width
 
     Parameters
@@ -219,7 +204,7 @@ def imageProfileSlice(image, center, width, pixsize):
         Y center of the slice [m]
     width: float
         Y width of the slice [m]
-    pixsize: float
+    pixel_size: float
         Size of the pixel [m]
     Returns
     -------
@@ -227,8 +212,8 @@ def imageProfileSlice(image, center, width, pixsize):
         The profile corresponding to the slice
 
     '''
-    center = len(image) // 2 + int(np.round(center / pixsize))
-    width = int(np.round(width / pixsize))
+    center = len(image) // 2 + int(np.round(center / pixel_size))
+    width = int(np.round(width / pixel_size))
     amin = (2 * center - width) // 2
     amax = (2 * center + width) // 2
     if amin < 0 or amax > len(image):

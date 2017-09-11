@@ -215,8 +215,7 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
     return image
 
 
-def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
-                     plotimage=False, data_dict=None):
+def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False):
     '''
     Extract profiles from image
 
@@ -234,8 +233,6 @@ def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
         Should the image be flatten
     plotimage: Bool, default False
         Plot how the image is flattened
-    data_dict: dict, defaults None
-        Output to get the profiles and fits
 
     Returns
     -------
@@ -246,7 +243,7 @@ def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
     infos = {}
     if flatten:
         image = flat_image(image, chwidth, wallwidth, number_profiles,
-                           infosOut=infos, plotimage=plotimage)
+                           infosOut=infos)
     angle = dp.image_angle(image)
     image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
     if not flatten:
@@ -254,5 +251,5 @@ def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False,
 
     w, a, origin = infos['infos']
     centers = origin + np.arange(number_profiles) * w
-    pixsize = (chwidth + wallwidth) / w
-    return image, centers, pixsize
+    pixel_size = (chwidth + wallwidth) / w
+    return image, centers, pixel_size
