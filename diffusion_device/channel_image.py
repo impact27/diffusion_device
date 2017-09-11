@@ -59,7 +59,7 @@ def process_images(images, backgrounds, metadata, settings, rebin=2):
 
     # Check images is numpy array
     images = np.asarray(images)
-    pixel_size = metadata[keys.KEY_MD_pixel_size]
+    pixel_size = metadata[keys.KEY_MD_PIXSIZE]
     Wy = metadata[keys.KEY_MD_WY]
 
     if backgrounds is not None:
@@ -91,9 +91,8 @@ def process_images(images, backgrounds, metadata, settings, rebin=2):
                                     1, borderValue=np.nan)
 
     centers = [None] * len(flatimages)
-        
-    return flatimages, pixel_size, centers
 
+    return flatimages, pixel_size, centers
 
 
 def remove_bg(im, bg, pixel_size, chanWidth):
@@ -195,7 +194,7 @@ def flat_image(im, pixel_size, chanWidth):
     return im
 
 
-def extract_profile(flatim, pixel_size, chanWidth, center = None,
+def extract_profile(flatim, pixel_size, chanWidth, center=None,
                     *, reflatten=True, ignore=10):
     """
     Get profile from a flat image
@@ -224,13 +223,12 @@ def extract_profile(flatim, pixel_size, chanWidth, center = None,
 
     # Center X
     X = np.arange(len(prof)) * pixel_size
-    
+
     if center is None:
         center = dp.center(prof) * pixel_size
         inchannel = np.abs(X - center) < .45 * chanWidth
         center = dp.center(prof[inchannel]) + np.argmax(inchannel)
-    
-    
+
     X = X - center * pixel_size
 
     # get what is out

@@ -38,13 +38,13 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     profiles: 2d array
         List of profiles to fit
     pixel_size:float
-        The pixel size in [m]    
+        The pixel size in [m]
     metadata: dict
         The metadata
     settings: dict
         The settings
     data_dict: dictionnary
-        If not None, returns infos  
+        If not None, returns infos
     central_profile: Bool, default False
         Should use central profile?
 
@@ -81,7 +81,6 @@ def size_profiles(profiles, pixel_size, metadata, settings,
             "Number of profiles and reading positions mismatching.")
     # convert ignore to px
     ignore = int(ignore / pixel_size)
-
     if ignore == 0:
         pslice = slice(None)
     else:
@@ -130,12 +129,15 @@ def size_profiles(profiles, pixel_size, metadata, settings,
 
         # fill data if needed
         if fits is not None and not np.isnan(r):
+
+            fits[-len(readingposfit):] = getprofiles(
+                    init, Q=flow_rate, Radii=[r], Wy=channel_width, 
+                    Wz=channel_height, Zgrid=Zgrid,
+                    readingpos=readingposfit,
+                    central_profile=central_profile)[0]
+            if initmode != 'synthetic':
+                fits[0] = init
             
-            fits[:] = getprofiles(init, Q=flow_rate, Radii=[r],
-                                   Wy=channel_width, Wz=channel_height,
-                                   Zgrid=Zgrid,
-                                   readingpos=readingpos,
-                                   central_profile=central_profile)[0]
             if normalise_profiles:
                 # Normalize basis in the same way as profiles
                 fits /= np.sum(fits[..., pslice], -1)[..., np.newaxis]
@@ -148,10 +150,10 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         # fill data if needed
         if fits is not None:
             fits[-len(readingposfit):] = np.sum(
-                    spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
+                spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
             if initmode != 'synthetic':
                 fits[0] = init
-            
+
         return test_radii, spectrum
 
 

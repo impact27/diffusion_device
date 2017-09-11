@@ -12,10 +12,10 @@ outpath = 'output'
 plotpos = None
 
 # Settings file location
-settingsfn = '../diffusion_device/tests/test_data/UVim300ulph_fitSettings.json'
-metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
-#settingsfn = '../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
-#metadatafn = '../diffusion_device/tests/test_data/Brightim900ulph_Metadata.json'
+#settingsfn = '../diffusion_device/tests/test_data/UVim300ulph_fitSettings.json'
+#metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
+settingsfn = '../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
+metadatafn = '../diffusion_device/tests/test_data/Brightim900ulph_Metadata.json'
 
 #settingsfn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Settings.json'
 #settingsfn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Settings_Slice.json'
@@ -27,7 +27,7 @@ metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
 #metadatafn = '../diffusion_device/tests/test_data/350ulh_12pos/metadata.json'
 
 # Settings file path
-#settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings_poly_2.json'
+#settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings.json'
 #metadatafn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_Metadata.json'
 #plotpos = [0, 10, 15]
 

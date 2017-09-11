@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from registrator.image import is_overexposed
 from matplotlib.pyplot import plot, figure
 import os
 from matplotlib.image import NonUniformImage
@@ -49,16 +48,16 @@ def plotpos(settingsfn, metadatafn, outpath, plotpos=None):
         Positions to plot if this is a stack
 
     """
-    radius, profiles, fits, pixel_size, im, image_type = \
+    radius, profiles, fits, pixel_size, im, image_type, overexposed = \
         full_fit(settingsfn, metadatafn)
-        
+
     outpath = prepare_output(outpath, settingsfn, metadatafn)
-   
+
     if image_type == '4pos':
         return plot4pos(radius, profiles, fits, pixel_size, im, outpath)
     elif image_type == '4pos_stack':
-        return plot4posstack(radius, profiles, fits, pixel_size, im, outpath,
-                             plotpos)
+        return plot4posstack(radius, profiles, fits, pixel_size, im,
+                             overexposed, outpath, plotpos)
     elif image_type == '12pos':
         return plot12pos(radius, profiles, fits, pixel_size, im, outpath)
 
@@ -80,7 +79,6 @@ def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
     # =========================================================================
     # Fit
     # =========================================================================
-    
 
     lse = np.sqrt(np.mean(np.square(profiles - fits)))
 
@@ -233,7 +231,8 @@ def plot12pos(radius, profiles, fits, pixel_size, ims, outpath=None):
     return radius
 
 
-def plot4posstack(radius, profiles, fits, pixel_size, images, outpath=None, plotpos=None):
+def plot4posstack(radius, profiles, fits, pixel_size, images, overexposed,
+                  outpath=None, plotpos=None):
     """Plot the sizing data
 
     Parameters
@@ -251,8 +250,10 @@ def plot4posstack(radius, profiles, fits, pixel_size, images, outpath=None, plot
     # Infer variables
 
     intensity = np.asarray([np.nanmax(p) for p in profiles])
-    LSE = np.sqrt(np.mean(np.square(profiles - fits), [1, 2]))
-    overexposed = 0
+    LSE = np.zeros(len(profiles))
+    for i, (p, f) in enumerate(zip(profiles, fits)):
+        LSE[i] = np.sqrt(np.mean(np.square(p - f)))
+
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
 

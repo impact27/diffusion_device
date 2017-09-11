@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ..json import full_fit
+from ..images import full_fit
 import numpy as np
 from . import __file__
 import os
@@ -13,8 +13,8 @@ class TestImage(TestCase):
                                   'test_data/UVim300ulph_fitSettings.json')
         metadatafn = os.path.join(folder,
                                   'test_data/UVim300ulph_Metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         self.assertGreater(radius, 2.5e-9)
         self.assertLess(radius, 5e-9)
 
@@ -23,8 +23,8 @@ class TestImage(TestCase):
             folder, 'test_data/UVim300ulph_fitSettings_poly_2.json')
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         Rs, spectrum = radius
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
         self.assertLess(Rs[np.argmax(spectrum)], 5e-9)
@@ -34,8 +34,8 @@ class TestImage(TestCase):
             folder, 'test_data/UVim300ulph_fitSettings_poly_all.json')
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         Rs, spectrum = radius
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
         self.assertLess(Rs[np.argmax(spectrum)], 5e-9)
@@ -45,8 +45,8 @@ class TestImage(TestCase):
             folder, 'test_data/Brightim900ulph_fitSettings.json')
         metadatafn = os.path.join(
             folder, 'test_data/Brightim900ulph_Metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         self.assertGreater(radius, .2e-9)
         self.assertLess(radius, 1e-9)
 
@@ -55,18 +55,19 @@ class TestImage(TestCase):
             folder, 'test_data/327.68ul-h-50um device_fitSettings.json')
         metadatafn = os.path.join(
             folder, 'test_data/327.68ul-h-50um device_Metadata.json')
-        (radii, profiles_list,
-         fits_list, LSE, pixs, oe) = full_fit(settingsfn, metadatafn)
-        self.assertGreater(np.sum(np.isfinite(radii)), np.sum(np.isnan(radii)))
-        self.assertFalse(np.any(radii > 4e-9))
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
+        self.assertGreater(np.sum(np.isfinite(radius)), 
+                           np.sum(np.isnan(radius)))
+        self.assertFalse(np.any(radius > 4e-9))
 
     def test_12pos(self):
         settingsfn = os.path.join(
             folder, 'test_data/350ulh_12pos/fitsettings.json')
         metadatafn = os.path.join(
             folder, 'test_data/350ulh_12pos/metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         self.assertGreater(radius, 2.5e-9)
         self.assertLess(radius, 4.5e-9)
 
@@ -75,8 +76,8 @@ class TestImage(TestCase):
             folder, 'test_data/1tf_001tweentico75_100ulhr_Settings.json')
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 4e-9)
 
@@ -85,7 +86,7 @@ class TestImage(TestCase):
             folder, 'test_data/1tf_001tweentico75_100ulhr_Settings_Slice.json')
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
-        radius, profiles, fits, lse, pixel_size, im = full_fit(
-            settingsfn, metadatafn)
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 4e-9)

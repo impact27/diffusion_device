@@ -27,6 +27,7 @@ from . import bright, uv
 from .. import profile as dp
 from .. import keys
 
+
 def process_images(image, background, metadata, settings,
                    ignore_error=False):
     """
@@ -34,7 +35,7 @@ def process_images(image, background, metadata, settings,
 
     Parameters
     ----------
-    image: 2d image 
+    image: 2d image
         image to analyse
     background: path or image
         The background to remove
@@ -99,7 +100,7 @@ def process_images(image, background, metadata, settings,
             return np.nan
         else:
             raise error
-            
+
     return image, centers, pixel_size
 
 

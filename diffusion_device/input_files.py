@@ -26,9 +26,6 @@ import os
 from . import keys
 
 
-
-
-
 def optional(dic, key, val):
     """Set valur in dictionnary if not None
 
@@ -354,9 +351,3 @@ def getType(metadata, images_shape):
     elif len(images_shape) == 3:
         return '4pos_stack'
     return 'unknown'
-
-
-
-
-
-

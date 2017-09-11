@@ -215,7 +215,8 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
     return image
 
 
-def extract_profiles(image, number_profiles, chwidth, wallwidth, flatten=False):
+def extract_profiles(image, number_profiles, chwidth,
+                     wallwidth, flatten=False):
     '''
     Extract profiles from image
 
