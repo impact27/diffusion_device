@@ -164,9 +164,9 @@ def extract_profiles(image, centers, chwidth, ignore, pixel_size,
         testflat = np.max(p[pslice]) > 1.2 * np.mean(p[pslice])
         if testflat:
             # Align by detecting center
-            c = dp.center(p[pslice]) + ignore
+            prof_center = dp.center(p[pslice]) + ignore
             if firstcenter is not None:
-                diff = c - firstcenter
+                diff = prof_center - firstcenter
                 if i % 2 == 1:
                     diff *= -1
                 X = np.arange(len(image_profile)) - cent - diff
@@ -176,7 +176,7 @@ def extract_profiles(image, centers, chwidth, ignore, pixel_size,
                     p = p[::-1]
 
             else:
-                firstcenter = c
+                firstcenter = prof_center
 
         profiles[i] = p
 

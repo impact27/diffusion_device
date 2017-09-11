@@ -499,7 +499,7 @@ def center(prof):
 
     # We must now detect the position of the center. We use correlation
     # Correlation is equivalent to least squares (A-B)^2=-2AB+ some constants
-    prof = np.array(prof)
+    prof = np.array(prof) - np.nanmean(prof)
     prof[np.isnan(prof)] = 0
     Yi = prof[::-1]
     corr = np.correlate(prof, Yi, mode='full')
