@@ -90,9 +90,7 @@ def process_images(images, backgrounds, metadata, settings, rebin=2):
         flatim[:] = ir.rotate_scale(flatim, -dp.image_angle(flatim),
                                     1, borderValue=np.nan)
 
-    centers = [None] * len(flatimages)
-
-    return flatimages, pixel_size, centers
+    return flatimages, pixel_size
 
 
 def remove_bg(im, bg, pixel_size, chanWidth):

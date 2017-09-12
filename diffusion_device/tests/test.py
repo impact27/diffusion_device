@@ -17,6 +17,15 @@ class TestImage(TestCase):
             full_fit(settingsfn, metadatafn)
         self.assertGreater(radius, 2.5e-9)
         self.assertLess(radius, 5e-9)
+    def test_scans(self):
+        settingsfn = os.path.join(folder,
+                                  'test_data/scans/fitSettings.json')
+        metadatafn = os.path.join(folder,
+                                  'test_data/scans/metadata.json')
+        radius, profiles, fits, pixel_size, images, image_type, overexposed = \
+            full_fit(settingsfn, metadatafn)
+        self.assertGreater(radius, 2e-9)
+        self.assertLess(radius, 3e-9)
 
     def test_UV_bg_poly_2(self):
         settingsfn = os.path.join(

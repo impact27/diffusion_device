@@ -10,6 +10,6 @@
         0.0465
     ],
     "Pixel Size [m]": 1e-06,
-    "Number of channels": 4,
+    "Number of channels in a file": 4,
     "Wall Width [m]": 100e-6
 }

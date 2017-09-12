@@ -5,10 +5,9 @@ Created on Wed Jul 19 11:57:15 2017
 @author: quentinpeter
 """
 
-from diffusion_device.json import createFitSettings
+from diffusion_device.input_files import createFitSettings
 
-settingsfn = ('Data/20170906_Lyz_monomer_10mgmL_100mMphosphate_pH8/'
-              'fitSettings.json')
+settingsfn = ('fitSettings.json')
 
 # Test radii
 radii = [

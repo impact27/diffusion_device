@@ -20,7 +20,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import json
-import numpy as np
 import os
 
 from . import keys
@@ -43,12 +42,14 @@ def optional(dic, key, val):
 
 
 def createMetadata(metadata_filename,
-                   filename, exposure,
-                   background_filename, background_exposure,
-                   optics_background_filename, optics_background_exposure,
-                   Wz, Wy, Q, readingpos, pixelsize,
-                   date, analyte, buffer, device,
-                   wallwidth, nchannels, border):
+                   filename, exposure = None,
+                   background_filename = None, background_exposure = None,
+                   optics_background_filename = None, 
+                   optics_background_exposure = None,
+                   Wz = None, Wy = None, Q = None, readingpos = None, 
+                   pixelsize = None, date = None, analyte = None, 
+                   buffer = None, device = None,
+                   wallwidth = None, nchannels = None, border = None):
     """Creates the metadata for a file name
 
     Parameters
@@ -338,6 +339,9 @@ def getType(metadata, images_shape):
     dtype: str
         a string describing the type of data
     """
+    if keys.KEY_MD_TYPE in metadata:
+        return metadata[keys.KEY_MD_TYPE]
+    
     nchannels = metadata[keys.KEY_MD_NCHANNELS]
     if nchannels == 1:
         if len(images_shape) == 2:

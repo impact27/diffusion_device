@@ -1,0 +1,44 @@
+{
+    "Image file name": [
+        "Repeat  0Point 0_0000.dat",
+        "Repeat  0Point 1_0000.dat",
+        "Repeat  0Point 2_0000.dat",
+        "Repeat  0Point 3_0000.dat",
+        "Repeat  0Point 4_0000.dat",
+        "Repeat  0Point 5_0000.dat",
+        "Repeat  0Point 6_0000.dat",
+        "Repeat  0Point 7_0000.dat",
+        "Repeat  0Point 8_0000.dat",
+        "Repeat  0Point 9_0000.dat",
+        "Repeat  0Point10_0000.dat",
+        "Repeat  0Point11_0000.dat",
+        "Repeat  0Point12_0000.dat"
+    ],
+    "Wz[m]": 2.5e-05,
+    "Wy[m]": 0.0003,
+    "Q[ulph]": 160,
+    "Pixel Size [m]": 2e-06,
+    "Read Positions [m]": [
+        0.0,
+        0.0035,
+        0.0053,
+        0.0086,
+        0.0103,
+        0.0186,
+        0.0204,
+        0.0286,
+        0.0304,
+        0.0587,
+        0.0605,
+        0.0887,
+        0.0905
+    ],
+    "Date [YYYYMMDD]": "20170330",
+    "Analyte informations": "?",
+    "Buffer informations": "?",
+    "Device informations": "12pos",
+    "Flow direction (u, d, l, r)": [
+        "d", "d",  "u",  "u", "d", "d",  "u",  "u", "d", "d",  "u",  "u", "d"
+    ],
+    "Type of data": "scans"
+}

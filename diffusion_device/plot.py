@@ -60,6 +60,9 @@ def plotpos(settingsfn, metadatafn, outpath, plotpos=None):
                              overexposed, outpath, plotpos)
     elif image_type == '12pos':
         return plot12pos(radius, profiles, fits, pixel_size, im, outpath)
+    
+    else:
+        return plot12pos(radius, profiles, fits, pixel_size, im, outpath)
 
 
 def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):

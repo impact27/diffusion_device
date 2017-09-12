@@ -295,7 +295,8 @@ def fit_monodisperse_radius(M, b, psquare, Rs=None):
     if r < np.min(Rs):
         raise RuntimeError('The test radius are too big!')
     if r > np.max(Rs):
-        raise RuntimeError('The test radius are too small!')
+        pass
+#        raise RuntimeError('The test radius are too small!')
 
     return r
 
@@ -702,98 +703,3 @@ def get_fax(profiles):
     """
     return np.ravel(np.concatenate(
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
-
-
-def get_edge(profile):
-    """Get the largest edge in the profile
-
-    Parameters
-    ----------
-    profile:  1d array
-        profile to analyse
-
-    Returns
-    -------
-    edgePos: float
-        The edge position
-    """
-    e = np.abs(np.diff(gfilter(profile, 2)))
-    valid = slice(np.argmax(e) - 3, np.argmax(e) + 4)
-    X = np.arange(len(e)) + .5
-    X = X[valid]
-    Y = np.log(e[valid])
-    coeff = np.polyfit(X, Y, 2)
-    edgePos = -coeff[1] / (2 * coeff[0])
-    return edgePos
-
-
-def get_profiles(scans, Npix, orientation=None, *,
-                 offset_edge_idx=None, offset=0):
-    """Extract profiles from scans
-
-    Parameters
-    ----------
-    scans:  2d array
-        sacns to analyse
-    Npix:   integer
-        number of pixels in a profile
-    orientation: 1d array
-        Orientation of each scan (Positive or negative)
-    offset_edge_idx: integer
-        Index of a profile containing an edge and a maximum to detect offset
-    offset: integer
-        Manual offset
-
-    Returns
-    -------
-    profiles: 1d array
-        The profiles
-    """
-
-    # Init return
-    profiles = np.empty((scans.shape[0], Npix))
-    scans = np.array(scans)
-    if offset_edge_idx is not None and offset_edge_idx < 0:
-        offset_edge_idx = len(scans) + offset_edge_idx
-
-    # Straighten scans
-    if orientation is not None:
-        for s, o in zip(scans, orientation):
-            if o < 0:
-                s[:] = s[::-1]
-
-    # get the offset if needed
-    if offset_edge_idx is not None:
-        offset_scan = scans[offset_edge_idx]
-        cent = center(offset_scan)
-        edge = get_edge(offset_scan)
-        offset = np.abs(cent - edge) - Npix / 2
-        edgeside = 1
-        if edge > cent:
-            edgeside = -1
-
-    # For each scan
-    for i, s in enumerate(scans):
-        # Get the mid point
-        if offset_edge_idx is None:
-            mid = center(s) - offset
-        else:
-            if i < offset_edge_idx:
-                mid = center(s) - edgeside * offset
-            else:
-                mid = get_edge(s) + edgeside * Npix / 2
-        # First position
-        amin = int(mid - Npix / 2)
-        # If pixels missings:
-        if amin < 0 or amin > len(s) - Npix:
-            warnings.warn("Missing pixels, scan not large enough",
-                          RuntimeWarning)
-            while amin > len(s) - Npix:
-                s = np.append(s, s[-1])
-            while amin < 0:
-                amin += 1
-                s = np.append(s[0], s)
-        # Get profile
-        profiles[i] = s[amin:amin + Npix]
-
-    return profiles
