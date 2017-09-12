@@ -53,16 +53,17 @@ def plotpos(settingsfn, metadatafn, outpath, plotpos=None):
     outpath = prepare_output(outpath, settingsfn, metadatafn)
 
     if image_type == '4pos':
-        return plot4pos(radius, profiles, fits, pixel_size, im, outpath)
+        plot4pos(radius, profiles, fits, pixel_size, im, outpath)
     elif image_type == '4pos_stack':
-        return plot4posstack(radius, profiles, fits, pixel_size, im,
+        plot4posstack(radius, profiles, fits, pixel_size, im,
                              overexposed, outpath, plotpos)
     elif image_type == '12pos':
-        return plot12pos(radius, profiles, fits, pixel_size, im, outpath)
+        plot12pos(radius, profiles, fits, pixel_size, im, outpath)
     
     else:
-        return plot12pos(radius, profiles, fits, pixel_size, im, outpath)
+        plot12pos(radius, profiles, fits, pixel_size, im, outpath)
 
+    return radius, profiles, fits, pixel_size, im, image_type, overexposed
 
 def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
     """Plot the sizing data

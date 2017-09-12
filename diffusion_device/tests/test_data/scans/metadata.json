@@ -40,5 +40,6 @@
     "Flow direction (u, d, l, r)": [
         "d", "d",  "u",  "u", "d", "d",  "u",  "u", "d", "d",  "u",  "u", "d"
     ],
-    "Type of data": "scans"
+    "Type of data": "scans",
+    "Z position of scans [m]": 12.5e-6
 }

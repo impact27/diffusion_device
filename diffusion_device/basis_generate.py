@@ -24,7 +24,7 @@ import numpy as np
 
 
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
-                muEoD=0, *, fullGrid=False, central_profile=False,
+                muEoD=0, *, fullGrid=False, zpos=None,
                 eta=1e-3, kT=1.38e-23 * 295, Zmirror=True,
                 stepMuE=False, dxfactor=1, yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
@@ -51,8 +51,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
         mobility times transverse electric field divided by diffusion constant
     fullGrid: bool , false
         Should return full grid?
-    central_profile: Bool, default False
-        If true, returns only the central profile
+    zpos: float, default None
+        Z position of the profile. None for mean
     eta: float
         eta
     kT: float
@@ -174,10 +174,14 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
     if fullGrid:
         return profilespos
 
-    if central_profile:
+    if zpos is not None:
+        idx = int(np.floor(Zgrid*zpos/Wz))
+        #Border position
+        if idx == Zgrid:
+            idx = Zgrid-1
         # Take central profile
-        central_idx = int((Zgrid - 1) / 2)
-        profilespos = profilespos[:, :, central_idx, :]
+        idx = int((Zgrid - 1) / 2)
+        profilespos = profilespos[:, :, idx, :]
     else:
         # Take sum
         profilespos = np.sum(profilespos, -2)
@@ -186,7 +190,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
 
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
-                       Wz, Zgrid=1, *, fullGrid=False, central_profile=False,
+                       Wz, Zgrid=1, *, fullGrid=False, zpos=None,
                        eta=1e-3, kT=1.38e-23 * 295, Zmirror=True, dxfactor=1,
                        yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
@@ -214,8 +218,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
         Should return full grid?
     outV: 2d float array
         array to use for the poiseuiile flow
-    central_profile: Bool, default False
-        If true, returns only the central profile
+    zpos: float, default None
+        Z position of the profile. None for mean
     eta: float
         eta
     kT: float
@@ -254,7 +258,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
             ret[:] = getprofiles(Cinit, Q, muEs, readingpos, Wy, Wz, Zgrid,
                                  muEoD, fullGrid=fullGrid, eta=eta, kT=kT,
                                  Zmirror=Zmirror,
-                                 central_profile=central_profile,
+                                 zpos=zpos,
                                  stepMuE=True,
                                  dxfactor=dxfactor,
                                  yboundary=yboundary)

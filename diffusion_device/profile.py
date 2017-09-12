@@ -30,7 +30,7 @@ from . import keys
 
 
 def size_profiles(profiles, pixel_size, metadata, settings,
-                  fits=None, central_profile=False):
+                  fits=None, zpos=None):
     """Size the profiles
 
      Parameters
@@ -45,8 +45,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         The settings
     data_dict: dictionnary
         If not None, returns infos
-    central_profile: Bool, default False
-        Should use central profile?
+    zpos: float, default None
+        Z position of the profile. None for mean
 
     Returns
     -------
@@ -117,7 +117,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Basis = getprofiles(init, flow_rate, test_radii,
                         Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
-                        central_profile=central_profile)
+                        zpos=zpos)
 
     if normalise_profiles:
         # Normalize basis in the same way as profiles
@@ -134,7 +134,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                     init, Q=flow_rate, Radii=[r], Wy=channel_width, 
                     Wz=channel_height, Zgrid=Zgrid,
                     readingpos=readingposfit,
-                    central_profile=central_profile)[0]
+                    zpos=zpos)[0]
             if initmode != 'synthetic':
                 fits[0] = init
             

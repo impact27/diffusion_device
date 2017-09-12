@@ -32,4 +32,5 @@ metadatafn = '../diffusion_device/tests/test_data/Brightim900ulph_Metadata.json'
 #plotpos = [0, 10, 15]
 
 
-plot.plotpos(settingsfn, metadatafn, outpath, plotpos)
+radius, profiles, fits, pixel_size, im, image_type, overexposed = \
+    plot.plotpos(settingsfn, metadatafn, outpath, plotpos)
