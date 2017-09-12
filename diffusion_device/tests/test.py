@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ..images import full_fit
+from ..main import full_fit
 import numpy as np
 from . import __file__
 import os

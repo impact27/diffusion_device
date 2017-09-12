@@ -28,8 +28,7 @@ from matplotlib.image import NonUniformImage
 import shutil
 import tifffile
 
-from .images import full_fit
-from . import input_files
+from .main import full_fit
 from . import profile as dp
 
 

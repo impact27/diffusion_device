@@ -4,7 +4,7 @@ Created on Wed Jul 19 11:57:15 2017
 
 @author: quentinpeter
 """
-from diffusion_device.json import createMetadata, metadata_fn
+from diffusion_device.input_files import createMetadata, metadata_fn
 import os
 
 # Image file

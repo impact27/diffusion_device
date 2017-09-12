@@ -147,7 +147,7 @@ def flat_image(im, pixel_size, chanWidth):
         image
     pixel_size: float
         pixel size in [m]
-    chanWidth: float, defaults 300e-6
+    chanWidth: float
         channel width  in [m]
 
     Returns
@@ -203,7 +203,7 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
         flat image
     pixel_size: float
         pixel size in [m]
-    chanWidth: float, defaults 300e-6
+    chanWidth: float
         channel width  in [m]
     reflatten: Bool, defaults True
         Should we reflatten the profile?
@@ -268,31 +268,6 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     #"""
 
 #    return prof[channel]
-
-
-def defaultReading12Pos():
-    '''
-    Get the default reading positions for the 12 points diffusion device
-
-    Returns
-    -------
-    readingPos: 1d array
-        The reading positions
-    '''
-    return np.array([0,
-                     3.5,
-                     5.3,
-                     8.6,
-                     10.3,
-                     18.6,
-                     20.4,
-                     28.6,
-                     30.4,
-                     58.7,
-                     60.5,
-                     88.7,
-                     90.5]) * 1e-3
-
 
 def outChannelMask(im, chAngle=0):
     """Creates a mask that excludes the channel
