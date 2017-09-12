@@ -117,7 +117,8 @@ def createMetadata(metadata_filename,
                    Wz = None, Wy = None, Q = None, readingpos = None, 
                    pixelsize = None, date = None, analyte = None, 
                    buffer = None, device = None,
-                   wallwidth = None, nchannels = None, border = None):
+                   wallwidth = None, nchannels = None, border = None, 
+                   datatype=None):
     """Creates the metadata for a file name
 
     Parameters
@@ -191,6 +192,8 @@ def createMetadata(metadata_filename,
     metadata[keys.KEY_MD_ANALYTE] = analyte
     metadata[keys.KEY_MD_BUFFER] = buffer
     metadata[keys.KEY_MD_DEVICE] = device
+    
+    optional(metadata, keys.KEY_MD_TYPE, datatype)
     # Optional
 
     with open(metadata_filename, 'w') as f:

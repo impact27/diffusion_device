@@ -58,7 +58,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     """
 
     # load variables
-    readingpos = metadata[keys.KEY_MD_RPOS]
+    readingpos = np.asarray(metadata[keys.KEY_MD_RPOS])
     flow_rate = metadata[keys.KEY_MD_Q]
     channel_height = metadata[keys.KEY_MD_WZ]
     channel_width = metadata[keys.KEY_MD_WY]
@@ -71,10 +71,6 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Zgrid = settings[keys.KEY_STG_ZGRID]
     nspecies = settings[keys.KEY_STG_NSPECIES]
     imslice = settings[keys.KEY_STG_SLICE]
-
-    if fit_position_number is not None:
-        profiles = profiles[np.sort(fit_position_number)]
-        readingpos = readingpos[np.sort(fit_position_number)]
 
     if len(readingpos) != len(profiles):
         raise RuntimeError(
@@ -101,17 +97,25 @@ def size_profiles(profiles, pixel_size, metadata, settings,
             warnings.warn("Negative profile", RuntimeWarning)
         profiles /= np.sum(profiles[:, pslice], -1)[:, np.newaxis]
 
+
+    if fit_position_number is not None:
+        fit_position_number = np.sort(fit_position_number)
+        profilesfit = profiles[fit_position_number]
+        readingposfit = readingpos[fit_position_number]
+    else:
+        fit_position_number = np.arange(len(profiles))
+        profilesfit = profiles
+        readingposfit = readingpos
+        
     if initmode == 'synthetic':
         init = synthetic_init(profiles[0], pslice)
-        readingposfit = readingpos
-        profilesfit = profiles
     else:
-
+        fit_position_number = fit_position_number[1:]
         # treat init profile
         init = init_process(profiles[0], initmode, ignore)
         # First reading pos is initial profile
-        readingposfit = readingpos[1:] - readingpos[0]
-        profilesfit = profiles[1:]
+        readingposfit = readingposfit[1:] - readingposfit[0]
+        profilesfit = profilesfit[1:]
 
     # Get basis function
     Basis = getprofiles(init, flow_rate, test_radii,
@@ -130,7 +134,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         # fill data if needed
         if fits is not None and not np.isnan(r):
 
-            fits[-len(readingposfit):] = getprofiles(
+            fits[fit_position_number] = getprofiles(
                     init, Q=flow_rate, Radii=[r], Wy=channel_width, 
                     Wz=channel_height, Zgrid=Zgrid,
                     readingpos=readingposfit,
@@ -149,7 +153,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
 
         # fill data if needed
         if fits is not None:
-            fits[-len(readingposfit):] = np.sum(
+            fits[fit_position_number] = np.sum(
                 spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
             if initmode != 'synthetic':
                 fits[0] = init
