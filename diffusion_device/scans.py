@@ -6,27 +6,56 @@ Created on Tue Sep 12 13:33:18 2017
 """
 import numpy as np
 import warnings
-from scipy.ndimage.filters import gaussian_filter1d as gfilter
 
 from . import profile as dp
-from . import keys
+from . import keys, display_data
 
-def process_scans(scans, metadata):
+
+def load_data(metadata):
+    filename = metadata[keys.KEY_MD_FN]
+    data = np.asarray([np.loadtxt(fn, skiprows=22) for fn in filename])
+    state = False
+    return data, state
+
+
+def process_data(data, metadata, settings):
+    pixel_size = metadata[keys.KEY_MD_PIXSIZE]
     flow_dir = metadata[keys.KEY_MD_FLOWDIR]
-    
+
     # put scans in the correct order
     if flow_dir is not None:
-        for s, o in zip(scans, flow_dir):
+        for s, o in zip(data, flow_dir):
             if o == 'u':
                 s[:] = s[::-1]
             elif o != 'd':
                 raise RuntimeError(
-                        'Flow direction must be up or down for scans.')
-                
-    return scans
-                
-def get_profiles(scans, Npix, *,
-                 offset_edge_idx=None):
+                    'Flow direction must be up or down for scans.')
+
+    return data, pixel_size
+
+
+def get_profiles(metadata, settings, data, pixel_size):
+    channel_width = metadata[keys.KEY_MD_WY]
+    profiles = scans_to_profiles(data, int(channel_width / pixel_size))
+    return profiles
+
+
+def size_profiles(profiles, pixel_size, metadata, settings):
+    zpos = metadata[keys.KEY_MD_SCANZ]
+    fits = np.zeros_like(profiles)
+    radius = dp.size_profiles(profiles, pixel_size, metadata, settings,
+                              fits=fits, zpos=zpos)
+    return radius, fits
+
+
+def plot_and_save(radius, profiles, fits, pixel_size, data, state,
+                  outpath, settings):
+    display_data.plot_and_save(
+        radius, profiles, fits, pixel_size, None, outpath)
+
+
+def scans_to_profiles(scans, Npix, *,
+                      offset_edge_idx=None):
     """Extract profiles from scans
 
     Parameters
@@ -88,6 +117,7 @@ def get_profiles(scans, Npix, *,
 
     return profiles
 
+
 def get_edge(profile):
     """Get the largest edge in the profile
 
@@ -102,25 +132,25 @@ def get_edge(profile):
         The edge position
     """
     diff = np.diff(profile)
-    
-    diffnorm = diff / (profile[:-1]+profile[1:])
-    
+
+    diffnorm = diff / (profile[:-1] + profile[1:])
+
     left_edge = getmaxaround(diff, np.argmax(diffnorm)) + .5
     right_edge = getmaxaround(diff, np.argmin(diffnorm)) + .5
-    
-    return left_edge#, right_edge
-    
 
-def getmaxaround(profile, approxmax, window_r = 3):
-    valid = slice(approxmax - window_r, approxmax + window_r +1)
-    X = np.arange(len(profile)) 
+    return left_edge  # , right_edge
+
+
+def getmaxaround(profile, approxmax, window_r=3):
+    valid = slice(approxmax - window_r, approxmax + window_r + 1)
+    X = np.arange(len(profile))
     X = X[valid]
     Y = np.log(profile[valid])
     coeff = np.polyfit(X, Y, 2)
     edgePos = -coeff[1] / (2 * coeff[0])
     return edgePos
-    
-#def get_profiles(scans, Npix, *,
+
+# def get_profiles(scans, Npix, *,
 #                 offset_edge_idx=None):
 #    """Extract profiles from scans
 #

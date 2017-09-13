@@ -97,7 +97,6 @@ def size_profiles(profiles, pixel_size, metadata, settings,
             warnings.warn("Negative profile", RuntimeWarning)
         profiles /= np.sum(profiles[:, pslice], -1)[:, np.newaxis]
 
-
     if fit_position_number is not None:
         fit_position_number = np.sort(fit_position_number)
         profilesfit = profiles[fit_position_number]
@@ -106,7 +105,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         fit_position_number = np.arange(len(profiles))
         profilesfit = profiles
         readingposfit = readingpos
-        
+
     if initmode == 'synthetic':
         init = synthetic_init(profiles[0], pslice)
     else:
@@ -135,13 +134,13 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         if fits is not None and not np.isnan(r):
 
             fits[fit_position_number] = getprofiles(
-                    init, Q=flow_rate, Radii=[r], Wy=channel_width, 
-                    Wz=channel_height, Zgrid=Zgrid,
-                    readingpos=readingposfit,
-                    zpos=zpos)[0]
+                init, Q=flow_rate, Radii=[r], Wy=channel_width,
+                Wz=channel_height, Zgrid=Zgrid,
+                readingpos=readingposfit,
+                zpos=zpos)[0]
             if initmode != 'synthetic':
                 fits[0] = init
-            
+
             if normalise_profiles:
                 # Normalize basis in the same way as profiles
                 fits /= np.sum(fits[..., pslice], -1)[..., np.newaxis]
@@ -255,7 +254,7 @@ def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
         raise RuntimeError('Number of species negative!')
 
 
-def fit_monodisperse_radius(M, b, psquare, Rs=None):
+def fit_monodisperse_radius(M, b, psquare, Rs):
     """Find the best monodisperse radius
 
     Parameters
@@ -277,11 +276,6 @@ def fit_monodisperse_radius(M, b, psquare, Rs=None):
     # get best residu
     res = psquare + np.diag(M) - 2 * b
 
-    if Rs is None:
-        ret = np.zeros_like(b)
-        ret[np.argmin(res)] = 1
-        return ret
-
     i, j = np.argsort(res)[:2]
     # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
     c = (b[i] - b[j] - M[i, j] + M[j, j]) / \
@@ -299,8 +293,7 @@ def fit_monodisperse_radius(M, b, psquare, Rs=None):
     if r < np.min(Rs):
         raise RuntimeError('The test radius are too big!')
     if r > np.max(Rs):
-        pass
-#        raise RuntimeError('The test radius are too small!')
+        raise RuntimeError('The test radius are too small!')
 
     return r
 

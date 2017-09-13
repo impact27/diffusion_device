@@ -49,3 +49,4 @@ KEY_STG_FRAMESSLICES = 'Frames slice'
 KEY_STG_ZGRID = "Number of z slices"
 KEY_STG_NORMALISE = "Normalise the profiles?"
 KEY_STG_SLICE = "Slice [m] (center(±), width(+))"
+KEY_STG_STACKPLOT = "Stack images to plot"

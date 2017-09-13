@@ -11,5 +11,6 @@
     ],
     "Pixel Size [m]": 1e-06,
     "Number of channels in a file": 4,
-    "Wall Width [m]": 100e-6
+    "Wall Width [m]": 100e-6,
+    "Type of data": "4pos_stack"
 }

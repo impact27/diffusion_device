@@ -175,10 +175,10 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
         return profilespos
 
     if zpos is not None:
-        idx = int(np.floor(Zgrid*zpos/Wz))
-        #Border position
+        idx = int(np.floor(Zgrid * zpos / Wz))
+        # Border position
         if idx == Zgrid:
-            idx = Zgrid-1
+            idx = Zgrid - 1
         # Take central profile
         idx = int((Zgrid - 1) / 2)
         profilespos = profilespos[:, :, idx, :]
@@ -215,9 +215,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
     Zgrid:  integer, defaults 1
         Number of Z pixel if Cinit is unidimentional
     fullGrid: bool , false
-        Should return full grid?
-    outV: 2d float array
-        array to use for the poiseuiile flow
+        Should return full grid?=
     zpos: float, default None
         Z position of the profile. None for mean
     eta: float

@@ -28,44 +28,10 @@ from matplotlib.image import NonUniformImage
 import shutil
 import tifffile
 
-from .main import full_fit
 from . import profile as dp
 
 
-def plotpos(settingsfn, metadatafn, outpath, plotpos=None):
-    """Plot the sizing data
-
-    Parameters
-    ----------
-    settingsfn: path
-        path to the fit settings file
-    metadatafn: path
-        path to the metadata file
-    outpath: path
-        Folder where to save the figures and data
-    plotpos: array of ints
-        Positions to plot if this is a stack
-
-    """
-    radius, profiles, fits, pixel_size, im, image_type, overexposed = \
-        full_fit(settingsfn, metadatafn)
-
-    outpath = prepare_output(outpath, settingsfn, metadatafn)
-
-    if image_type == '4pos':
-        plot4pos(radius, profiles, fits, pixel_size, im, outpath)
-    elif image_type == '4pos_stack':
-        plot4posstack(radius, profiles, fits, pixel_size, im,
-                             overexposed, outpath, plotpos)
-    elif image_type == '12pos':
-        plot12pos(radius, profiles, fits, pixel_size, im, outpath)
-    
-    else:
-        plot12pos(radius, profiles, fits, pixel_size, im, outpath)
-
-    return radius, profiles, fits, pixel_size, im, image_type, overexposed
-
-def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
+def plot_and_save(radius, profiles, fits, pixel_size, im, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -100,9 +66,9 @@ def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
         figure()
         plt.title('r= {:.2f} nm, LSE = {:.4e}, pixel = {:.3f} um'.format(
             radius * 1e9, lse, pixel_size * 1e6))
-    # ==========================================================================
+    # =========================================================================
     # Plot
-    # ==========================================================================
+    # =========================================================================
 
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
@@ -117,7 +83,8 @@ def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
     #==========================================================================
 
     if outpath is not None:
-        tifffile.imsave(outpath + '_im.tif', im)
+        if im is not None:
+            tifffile.imsave(outpath + '_im.tif', im)
         plt.savefig(outpath + '_fig.pdf')
         with open(outpath + '_result.txt', 'wb') as f:
             f.write("LSE: {:e}\n".format(lse).encode())
@@ -138,104 +105,8 @@ def plot4pos(radius, profiles, fits, pixel_size, im, outpath=None):
     return radius
 
 
-def prepare_output(outpath, settingsfn, metadatafn):
-    """Prepare output folder
-
-    Parameters
-    ----------
-    outpath: path
-        Folder where to save the figures and data
-    settingsfn: path
-        path to the fit settings file
-
-    Returns
-    -------
-    base_name: path
-        The prefix to use to save data
-
-    """
-    base_name = None
-    if outpath is not None:
-        newoutpath = os.path.join(
-            outpath,
-            os.path.splitext(os.path.basename(metadatafn))[0])
-        if not os.path.exists(newoutpath):
-            os.makedirs(newoutpath)
-        base_name = os.path.join(
-            newoutpath,
-            os.path.splitext(os.path.basename(settingsfn))[0])
-        shutil.copy(settingsfn, base_name + '.json')
-    return base_name
-
-
-def plot12pos(radius, profiles, fits, pixel_size, ims, outpath=None):
-    """Plot the sizing data
-
-    Parameters
-    ----------
-    settingsfn: path
-        path to the fit settings file
-    metadatafn: path
-        path to the metadata file
-    outpath: path
-        Folder where to save the figures and data
-
-    """
-
-    # =========================================================================
-    # Plot
-    # =========================================================================
-    lse = np.sqrt(np.mean(np.square(profiles - fits)))
-    X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
-
-    if len(np.shape(radius)) > 0:
-        Rs, spectrum = radius
-        figure()
-        plot(Rs * 1e9, spectrum, 'x-')
-        plt.xlabel("Radius [nm]")
-        plt.ylabel("Coefficient")
-        if outpath is not None:
-            plt.savefig(outpath + '_rSpectrum_fig.pdf')
-        figure()
-        plt.title('LSE = {:.4e}, pixel = {:.3f} um'.format(
-            lse, pixel_size * 1e6))
-    else:
-        figure()
-        plt.title('r= {:.2f} nm, LSE = {:.4e}, pixel = {:.3f} um'.format(
-            radius * 1e9, lse, pixel_size * 1e6))
-
-    plot(X, dp.get_fax(profiles))
-    plot(X, dp.get_fax(fits))
-    plt.xlabel('Position [$\mu$m]')
-    plt.ylabel('Normalised amplitude')
-
-    #==========================================================================
-    # Save
-    #==========================================================================
-
-    if outpath is not None:
-        tifffile.imsave(outpath + '_ims.tif', ims)
-        plt.savefig(outpath + '_fig.pdf')
-
-        with open(outpath + '_result.txt', 'wb') as f:
-            if len(np.shape(radius)) > 0:
-                f.write("radius:\n".encode())
-                np.savetxt(f, radius[0])
-                f.write("Spectrum:\n".encode())
-                np.savetxt(f, radius[1])
-            else:
-                f.write("Radius: {:f} nm\n".format(radius * 1e9).encode())
-
-            f.write("LSE: {:e}\n".format(lse).encode())
-            f.write("Profiles:\n".encode())
-            np.savetxt(f, profiles)
-            f.write('Fits:\n'.encode())
-            np.savetxt(f, fits)
-    return radius
-
-
-def plot4posstack(radius, profiles, fits, pixel_size, images, overexposed,
-                  outpath=None, plotpos=None):
+def plot_and_save_stack(radius, profiles, fits, pixel_size, images,
+                        overexposed, outpath=None, plotpos=None):
     """Plot the sizing data
 
     Parameters
@@ -358,3 +229,33 @@ def plot4posstack(radius, profiles, fits, pixel_size, images, overexposed,
             plt.ylabel('Normalised amplitude')
 
     return radius
+
+
+def prepare_output(outpath, settingsfn, metadatafn):
+    """Prepare output folder
+
+    Parameters
+    ----------
+    outpath: path
+        Folder where to save the figures and data
+    settingsfn: path
+        path to the fit settings file
+
+    Returns
+    -------
+    base_name: path
+        The prefix to use to save data
+
+    """
+    base_name = None
+    if outpath is not None:
+        newoutpath = os.path.join(
+            outpath,
+            os.path.splitext(os.path.basename(metadatafn))[0])
+        if not os.path.exists(newoutpath):
+            os.makedirs(newoutpath)
+        base_name = os.path.join(
+            newoutpath,
+            os.path.splitext(os.path.basename(settingsfn))[0])
+        shutil.copy(settingsfn, base_name + '.json')
+    return base_name

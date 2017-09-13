@@ -27,11 +27,13 @@ import numpy as np
 from . import keys
 
 # Ugly hack to het eng representation
+
+
 class myJSONEncoder(encoder.JSONEncoder):
-    
+
     def __init__(self, *arg, **kargs):
         super().__init__(*arg, **kargs)
-      
+
     def iterencode(self, o, _one_shot=False):
         """Encode the given object and yield each string
         representation as available.
@@ -52,8 +54,8 @@ class myJSONEncoder(encoder.JSONEncoder):
             _encoder = encoder.encode_basestring
 
         def floatstr(o, allow_nan=self.allow_nan,
-                _repr=float.__repr__, _inf=encoder.INFINITY, 
-                _neginf=-encoder.INFINITY):
+                     _repr=float.__repr__, _inf=encoder.INFINITY,
+                     _neginf=-encoder.INFINITY):
             # Check for specials.  Note that this type of test is processor
             # and/or platform-specific, so do tests which don't depend on the
             # internals.
@@ -67,8 +69,8 @@ class myJSONEncoder(encoder.JSONEncoder):
             elif o == 0:
                 text = '0.0'
             else:
-                exp = int(np.floor(np.log10(np.abs(o))/3)*3)
-                text = "{:g}e{:d}".format(o/(10**exp), exp)
+                exp = int(np.floor(np.log10(np.abs(o)) / 3) * 3)
+                text = "{:g}e{:d}".format(o / (10**exp), exp)
 
             if not allow_nan:
                 raise ValueError(
@@ -76,7 +78,6 @@ class myJSONEncoder(encoder.JSONEncoder):
                     repr(o))
 
             return text
-
 
         if (_one_shot and encoder.c_make_encoder is not None
                 and self.indent is None):
@@ -90,7 +91,6 @@ class myJSONEncoder(encoder.JSONEncoder):
                 self.key_separator, self.item_separator, self.sort_keys,
                 self.skipkeys, _one_shot)
         return _iterencode(o, 0)
-        
 
 
 def optional(dic, key, val):
@@ -110,14 +110,14 @@ def optional(dic, key, val):
 
 
 def createMetadata(metadata_filename,
-                   filename, exposure = None,
-                   background_filename = None, background_exposure = None,
-                   optics_background_filename = None, 
-                   optics_background_exposure = None,
-                   Wz = None, Wy = None, Q = None, readingpos = None, 
-                   pixelsize = None, date = None, analyte = None, 
-                   buffer = None, device = None,
-                   wallwidth = None, nchannels = None, border = None, 
+                   filename, exposure=None,
+                   background_filename=None, background_exposure=None,
+                   optics_background_filename=None,
+                   optics_background_exposure=None,
+                   Wz=None, Wy=None, Q=None, readingpos=None,
+                   pixelsize=None, date=None, analyte=None,
+                   buffer=None, device=None,
+                   wallwidth=None, nchannels=None, border=None,
                    datatype=None):
     """Creates the metadata for a file name
 
@@ -192,7 +192,7 @@ def createMetadata(metadata_filename,
     metadata[keys.KEY_MD_ANALYTE] = analyte
     metadata[keys.KEY_MD_BUFFER] = buffer
     metadata[keys.KEY_MD_DEVICE] = device
-    
+
     optional(metadata, keys.KEY_MD_TYPE, datatype)
     # Optional
 
@@ -361,6 +361,7 @@ def loadSettings(settingsfn):
     default(settings, keys.KEY_STG_ZGRID, 11)
     default(settings, keys.KEY_STG_NORMALISE, True)
     default(settings, keys.KEY_STG_SLICE, None)
+    default(settings, keys.KEY_STG_STACKPLOT, None)
     return settings
 
 
@@ -397,32 +398,32 @@ def loadMetadata(metadatafn):
     return metadata
 
 
-def getType(metadata, images_shape):
-    """Get the type of data this is
-
-    Parameters
-    ----------
-    metadatafn: path
-        path to the metadata file
-
-    Returns
-    -------
-    dtype: str
-        a string describing the type of data
-    """
-    if keys.KEY_MD_TYPE in metadata:
-        return metadata[keys.KEY_MD_TYPE]
-    
-    nchannels = metadata[keys.KEY_MD_NCHANNELS]
-    if nchannels == 1:
-        if len(images_shape) == 2:
-            raise RuntimeError('Only 1 channel in 1 image. Please set "'
-                               + keys.KEY_MD_NCHANNELS + '".')
-        return '12pos'
-    elif nchannels != 4:
-        return 'unknown'
-    if len(images_shape) == 2:
-        return '4pos'
-    elif len(images_shape) == 3:
-        return '4pos_stack'
-    return 'unknown'
+# def getType(metadata, images_shape):
+#    """Get the type of data this is
+#
+#    Parameters
+#    ----------
+#    metadatafn: path
+#        path to the metadata file
+#
+#    Returns
+#    -------
+#    dtype: str
+#        a string describing the type of data
+#    """
+#    if keys.KEY_MD_TYPE in metadata:
+#        return metadata[keys.KEY_MD_TYPE]
+#
+#    nchannels = metadata[keys.KEY_MD_NCHANNELS]
+#    if nchannels == 1:
+#        if len(images_shape) == 2:
+#            raise RuntimeError('Only 1 channel in 1 image. Please set "'
+#                               + keys.KEY_MD_NCHANNELS + '".')
+#        return '12pos'
+#    elif nchannels != 4:
+#        return 'unknown'
+#    if len(images_shape) == 2:
+#        return '4pos'
+#    elif len(images_shape) == 3:
+#        return '4pos_stack'
+#    return 'unknown'
