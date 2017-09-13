@@ -76,7 +76,7 @@ def get_module(data_type):
         return multi_channels_image
 
     elif data_type == '4pos_stack':
-        return multi_channels_image.stack()
+        return multi_channels_image.stack
 
 # The modules define the following functions:
 #data, state = load_data(metadata)

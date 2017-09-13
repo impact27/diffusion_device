@@ -24,10 +24,9 @@ from tifffile import imread
 from scipy import interpolate
 from registrator.image import is_overexposed
 
-from . import bright, uv
+from . import bright, uv, stack
 from .. import profile as dp
 from .. import keys, images_files, display_data
-
 
 def load_data(metadata):
     filename = metadata[keys.KEY_MD_FN]
@@ -64,47 +63,6 @@ def plot_and_save(radius, profiles, fits, pixel_size, data, state,
                   outpath, settings):
     display_data.plot_and_save(
         radius, profiles, fits, pixel_size, data, outpath)
-
-# If it quacks like a duck
-
-
-class stack():
-    def load_data(self, metadata):
-        filename = metadata[keys.KEY_MD_FN]
-        data = images_files.load_images(filename)
-        overexposed = is_overexposed(data)
-        return data, overexposed
-
-    def process_data(self, data, metadata, settings):
-        data = np.asarray(data, dtype=float)
-        centers = np.zeros((len(data), 4))
-        pixel_size = np.zeros((len(data)))
-        for i in range(len(data)):
-            data[i], pixel_size[i], centers[i] = process_data(
-                data[i], metadata, settings)
-
-        return data, pixel_size, centers
-
-    def get_profiles(self, metadata, settings, data, pixel_size, centers):
-        profiles = [get_profiles(metadata, settings, im, pxs, cnt, )
-                    for im, pxs, cnt in zip(data, pixel_size, centers)]
-        return profiles
-
-    def size_profiles(self, profiles, pixel_size, metadata, settings):
-        radius = []
-        fits = []
-        for i, (profs, pxs) in enumerate(zip(profiles, pixel_size)):
-            r, fit = size_profiles(profs, pxs, metadata, settings)
-            fits.append(fit)
-            radius.append(r)
-        radius = np.asarray(radius)
-        return radius, fits
-
-    def plot_and_save(self, radius, profiles, fits, pixel_size, data, state,
-                      outpath, settings):
-        plotpos = settings[keys.KEY_STG_STACKPLOT]
-        display_data.plot_and_save_stack(
-            radius, profiles, fits, pixel_size, data, state, outpath, plotpos)
 
 
 def process_image(image, background, metadata, settings,
