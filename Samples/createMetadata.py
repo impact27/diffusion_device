@@ -12,39 +12,39 @@ import os
 data_type = "4pos"
 
 # data file
-image_filename = 'Data/10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif'
+image_filename = 'SampleData/UVim300ulph.tif'
 
 # Height of the channel [m]
-Wz = 50e-06  # m
+Wz = 53e-06  # m
 
 # Width of the channel [m]
-Wy = 300e-6  # m
+Wy = 100e-6  # m
 
 # Flow [ulph]
-Q = 200
+Q = 300
 
 # Reading position at the middle of the image [m]
 readingpos = [
-    0.0015692,
-    0.0110692,
-    0.0205692,
-    0.04106919999999999
-]  # m
+    0.0,
+    0.002556,
+    0.021953,
+    0.0451
+] # m
 
 # Pixe size
-pixelsize = 1e-6  # m
+pixelsize = .833e-6  # m
 
 # Date YYYMMDD
 date = "20170906"
 
 # Informations about the analyte
-analyte = "Lysozyme 5mgmL sonicated diluted centrifuged"
+analyte = "15uM BSA"
 
 # Informations about the buffer
 buffer = "100mM phosphate pH8"
 
 # Informations about the device
-device = "m2d1t4"
+device = "Kadi100x50"
 
 # Where is the flow going for each reading position?
 # For scans, only use 'u' up or 'd' down
@@ -63,13 +63,13 @@ border = [
 ]
 
 # Exposure time of the image file
-exposure = 1.5  # s
+exposure = 1  # s
 
 # Background file, relative to the image file. None means no background
-background_filename = 'bg_1500ms_m2d1t.tif'
+background_filename = 'UVbg.tif'
 
 # Exposure time of the background file (None if no background)
-background_exposure = 1.5  # s
+background_exposure = 1  # s
 
 # image file to remove the background coming from the optics (Not chip related)
 optics_background_filename = None

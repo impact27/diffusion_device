@@ -7,7 +7,7 @@ Created on Wed Jul 19 11:57:15 2017
 
 from diffusion_device.input_files import createFitSettings
 
-settingsfn = ('fitSettings.json')
+settingsfn = ('SampleData/fitSettings.json')
 
 # Test radii
 radii = [
@@ -55,7 +55,7 @@ framesSlices = [
 ]
 
 # Frames to plot
-framesPlot = [2, 3]
+framesPlot = None
 
 ########################
 rmin, rmax, rstep = radii
