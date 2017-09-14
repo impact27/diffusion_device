@@ -118,7 +118,7 @@ def createMetadata(metadata_filename,
                    pixelsize=None, date=None, analyte=None,
                    buffer=None, device=None,
                    wallwidth=None, nchannels=None, border=None,
-                   datatype=None):
+                   datatype=None, flow_direction=None, prof_z=None):
     """Creates the metadata for a file name
 
     Parameters
@@ -194,6 +194,8 @@ def createMetadata(metadata_filename,
     metadata[keys.KEY_MD_DEVICE] = device
 
     optional(metadata, keys.KEY_MD_TYPE, datatype)
+    optional(metadata, keys.KEY_MD_SCANZ, flow_direction)
+    optional(metadata, keys.KEY_MD_FLOWDIR, prof_z)
     # Optional
 
     with open(metadata_filename, 'w') as f:
@@ -204,7 +206,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
                       ignore=None, firstmethod=None,
                       fitpos=None, flatten=None,
                       framesSlices=None, nspecies=1, Zgrid=None,
-                      normalise=None, imslices=None):
+                      normalise=None, imslices=None, framesPlot=None):
     """Creates the fit settings for the fitting
 
     Parameters
@@ -243,11 +245,12 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     optional(settings, keys.KEY_STG_IGNORE, ignore)
     optional(settings, keys.KEY_STG_POS0FILTER, firstmethod)
     optional(settings, keys.KEY_STG_FITPOS, fitpos)
-    optional(settings, keys.KEY_STG_BFFLAT, flatten)
+    optional(settings, keys.KEY_STG_BRIGHT_FLAT, flatten)
+    optional(settings, keys.KEY_STG_STACK_POSPLOT, framesPlot)
     # For multi frames
     if framesSlices == [None, None]:
         framesSlices = None
-    optional(settings, keys.KEY_STG_FRAMESSLICES, framesSlices)
+    optional(settings, keys.KEY_STG_STACK_FRAMESSLICES, framesSlices)
     optional(settings, keys.KEY_STG_ZGRID, Zgrid)
     optional(settings, keys.KEY_STG_NORMALISE, normalise)
     if imslices == [None, None]:
@@ -355,13 +358,13 @@ def loadSettings(settingsfn):
     default(settings, keys.KEY_STG_IGNORE, 0)
     default(settings, keys.KEY_STG_POS0FILTER, 'none')
     default(settings, keys.KEY_STG_FITPOS, None)
-    default(settings, keys.KEY_STG_BFFLAT, False)
-    default(settings, keys.KEY_STG_FRAMESSLICES, [None, None])
+    default(settings, keys.KEY_STG_BRIGHT_FLAT, False)
+    default(settings, keys.KEY_STG_STACK_FRAMESSLICES, [None, None])
     default(settings, keys.KEY_STG_NSPECIES, 1)
     default(settings, keys.KEY_STG_ZGRID, 11)
     default(settings, keys.KEY_STG_NORMALISE, True)
     default(settings, keys.KEY_STG_SLICE, None)
-    default(settings, keys.KEY_STG_STACKPLOT, None)
+    default(settings, keys.KEY_STG_STACK_POSPLOT, None)
     return settings
 
 

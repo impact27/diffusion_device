@@ -7,8 +7,60 @@ Created on Wed Jul 19 11:57:15 2017
 from diffusion_device.input_files import createMetadata, metadata_fn
 import os
 
-# Image file
+# Data Type
+# One of "4pos", "4pos_stack", "12pos", "scans"
+data_type = "4pos"
+
+# data file
 image_filename = 'Data/10mgmL_Lyz_100mMphosphate_pH8_200ulh.tif'
+
+# Height of the channel [m]
+Wz = 50e-06  # m
+
+# Width of the channel [m]
+Wy = 300e-6  # m
+
+# Flow [ulph]
+Q = 200
+
+# Reading position at the middle of the image [m]
+readingpos = [
+    0.0015692,
+    0.0110692,
+    0.0205692,
+    0.04106919999999999
+]  # m
+
+# Pixe size
+pixelsize = 1e-6  # m
+
+# Date YYYMMDD
+date = "20170906"
+
+# Informations about the analyte
+analyte = "Lysozyme 5mgmL sonicated diluted centrifuged"
+
+# Informations about the buffer
+buffer = "100mM phosphate pH8"
+
+# Informations about the device
+device = "m2d1t4"
+
+# Where is the flow going for each reading position?
+# For scans, only use 'u' up or 'd' down
+flow_direction = ['u', 'd', 'u', 'd'] # 'u', 'd', 't', 'l'
+
+# =============================================================================
+# Image infos
+# =============================================================================
+
+# Border of the region of interest [px]
+border = [
+    None,  # Top
+    None,  # Bottom
+    None,  # Left
+    None  # Right
+]
 
 # Exposure time of the image file
 exposure = 1.5  # s
@@ -25,11 +77,10 @@ optics_background_filename = None
 # Exposure  time of the optics background image. None if no file
 optics_background_exposure = None  # s
 
-# Height of the channel [m]
-Wz = 50e-06  # m
 
-# Width of the channel [m]
-Wy = 300e-6  # m
+# =============================================================================
+# Multiple channels in a file
+# =============================================================================
 
 # Width of the walls [m] (Only for multiple channel in an image)
 wallwidth = 100e-6  # m
@@ -37,39 +88,12 @@ wallwidth = 100e-6  # m
 # Number of channels in the image
 nchannels = 4
 
-# Flow [ulph]
-Q = 200
+# =============================================================================
+# Scans
+# =============================================================================
 
-# Reading position at the middle of the image [m]
-readingpos = [
-    0.0015692,
-    0.0110692,
-    0.0205692,
-    0.04106919999999999
-]  # m
-
-# Pixe size
-pixelsize = 1e-6  # m
-
-# Border of the region of interest [px]
-border = [
-    None,  # Top
-    None,  # Bottom
-    None,  # Left
-    None  # Right
-]
-
-# Date YYYMMDD
-date = "20170906"
-
-# Informations about the analyte
-analyte = "Lysozyme 5mgmL sonicated diluted centrifuged"
-
-# Informations about the buffer
-buffer = "100mM phosphate pH8"
-
-# Informations about the device
-device = "m2d1t4"
+# profile position. None means the mean over Z is used.
+prof_z = None # m
 
 ########################
 
@@ -81,4 +105,4 @@ createMetadata(metafn,
                optics_background_filename, optics_background_exposure,
                Wz, Wy, Q, readingpos, pixelsize,
                date, analyte, buffer, device,
-               background_filename, wallwidth, nchannels, border)
+               wallwidth, nchannels, border, data_type, flow_direction, prof_z)

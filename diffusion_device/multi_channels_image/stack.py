@@ -47,6 +47,6 @@ def size_profiles(profiles, pixel_size, metadata, settings):
 
 def plot_and_save(radius, profiles, fits, pixel_size, data, state,
                   outpath, settings):
-    plotpos = settings[keys.KEY_STG_STACKPLOT]
+    plotpos = settings[keys.KEY_STG_STACK_POSPLOT]
     display_data.plot_and_save_stack(
         radius, profiles, fits, pixel_size, data, state, outpath, plotpos)

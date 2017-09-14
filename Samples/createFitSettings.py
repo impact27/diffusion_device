@@ -16,12 +16,6 @@ radii = [
     1e-10  # Step [m]
 ]  # m
 
-# For movies, to analyse subset of frames
-framesSlices = [
-    None,  # First Frame
-    None  # Last Frame
-]
-
 # Distance from wall ignored [m]
 ignore = 0e-6
 
@@ -31,9 +25,6 @@ firstmethod = 'none'
 # Positions to fit. None means all. Useful to ignore one of the channels
 # In a multiple channel image
 fitpos = None
-
-# For bright Images, should the image be flattened?
-flatten = True
 
 # Number of spieces to fit
 nspecies = 1
@@ -50,10 +41,26 @@ imslice = [
     None  # Y Width [m]
 ]
 
+## Bright
+
+# For bright Images, should the image be flattened?
+flattenbright = True
+
+## Movie
+
+# For movies, to analyse subset of frames
+framesSlices = [
+    None,  # First Frame
+    None  # Last Frame
+]
+
+# Frames to plot
+framesPlot = [2, 3]
+
 ########################
 rmin, rmax, rstep = radii
 createFitSettings(settingsfn, rmin, rmax, rstep,
                   ignore, firstmethod,
-                  fitpos, flatten,
+                  fitpos, flattenbright,
                   framesSlices, nspecies,
-                  Zgrid, normalise, imslice)
+                  Zgrid, normalise, imslice, framesPlot)

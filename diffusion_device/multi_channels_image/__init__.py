@@ -118,7 +118,7 @@ def process_image(image, background, metadata, settings,
     try:
         # get profiles
         if background is None:
-            flatten = settings[keys.KEY_STG_BFFLAT]
+            flatten = settings[keys.KEY_STG_BRIGHT_FLAT]
             # Single image
             image, centers, pixel_size = bright.extract_profiles(
                 image, nchannels, channel_width, wall_width, flatten)
