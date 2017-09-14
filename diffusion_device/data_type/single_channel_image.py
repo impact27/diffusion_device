@@ -27,8 +27,9 @@ import cv2
 from scipy import interpolate
 from registrator.image import is_overexposed
 
-from . import keys, images_files, display_data
-from . import profile as dp
+from .. import keys, display_data
+from . import images_files
+from .. import profile as dp
 
 warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
 

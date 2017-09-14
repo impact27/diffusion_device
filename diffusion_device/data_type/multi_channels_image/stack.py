@@ -10,7 +10,8 @@ import numpy as np
 
 from .. import multi_channels_image as single
 
-from .. import keys, images_files, display_data
+from ... import keys, display_data
+from .. import images_files
 
 
 

@@ -7,7 +7,7 @@ Created on Wed Sep 13 07:30:56 2017
 import numpy as np
 from tifffile import imread
 
-from . import keys
+from .. import keys
 
 
 def process_background(data, metadata):

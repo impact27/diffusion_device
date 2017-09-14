@@ -7,8 +7,8 @@ Created on Tue Sep 12 13:33:18 2017
 import numpy as np
 import warnings
 
-from . import profile as dp
-from . import keys, display_data
+from .. import profile as dp
+from .. import keys, display_data
 
 
 def load_data(metadata):

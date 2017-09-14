@@ -4,8 +4,8 @@ Created on Mon Sep 11 14:32:20 2017
 
 @author: quentinpeter
 """
-from . import keys, input_files
-from . import scans, single_channel_image, multi_channels_image, display_data
+from . import keys, input_files, display_data
+from .data_type import scans, single_channel_image, multi_channels_image
 
 
 def full_fit(settingsfn, metadatafn, outpath=None):

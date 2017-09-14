@@ -25,8 +25,9 @@ from scipy import interpolate
 from registrator.image import is_overexposed
 
 from . import bright, uv, stack
-from .. import profile as dp
-from .. import keys, images_files, display_data
+from ... import profile as dp
+from ... import keys, display_data
+from .. import images_files
 
 def load_data(metadata):
     filename = metadata[keys.KEY_MD_FN]

@@ -26,7 +26,7 @@ import scipy
 from scipy.ndimage.morphology import binary_erosion
 import warnings
 
-from .. import profile as dp
+from ... import profile as dp
 from . import bright
 
 gfilter = scipy.ndimage.filters.gaussian_filter1d

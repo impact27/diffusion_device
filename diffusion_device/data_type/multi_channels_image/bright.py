@@ -24,7 +24,7 @@ from scipy.ndimage.filters import maximum_filter1d
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import background_rm as rmbg
 import registrator.image as ir
-from .. import profile as dp
+from ... import profile as dp
 
 
 def image_infos(image, number_profiles):
