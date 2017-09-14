@@ -1,1 +1,1 @@
-pip3 install .  --process-dependency-links
+pip3 install .

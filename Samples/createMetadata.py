@@ -6,22 +6,25 @@ Created on Wed Jul 19 11:57:15 2017
 """
 from diffusion_device.input_files import createMetadata, metadata_fn
 import os
+from glob import glob
+import re
 
 # Data Type
 # One of "4pos", "4pos_stack", "12pos", "scans"
 data_type = "4pos"
 
 # data file
-image_filename = 'SampleData/UVim300ulph.tif'
+# Will be searched with glob. So can match several files.
+image_filename = 'SampleData/UVim*ulph.tif'
+
+# Flow [ulph]. If None, is taken from the image_filename. !!!Check!!!
+Q = None
 
 # Height of the channel [m]
 Wz = 53e-06  # m
 
 # Width of the channel [m]
 Wy = 100e-6  # m
-
-# Flow [ulph]
-Q = 300
 
 # Reading position at the middle of the image [m]
 readingpos = [
@@ -97,12 +100,17 @@ prof_z = None # m
 
 ########################
 
-filename = os.path.basename(image_filename)
-metafn = metadata_fn(image_filename)
-createMetadata(metafn,
-               filename, exposure,
-               background_filename, background_exposure,
-               optics_background_filename, optics_background_exposure,
-               Wz, Wy, Q, readingpos, pixelsize,
-               date, analyte, buffer, device,
-               wallwidth, nchannels, border, data_type, flow_direction, prof_z)
+for fn in glob(image_filename):
+    if Q is None:
+        flowrate = float(re.findall('([\d\.]+)ul?L?O?p?_?-?h', fn)[0])
+    else:
+        flowrate = Q
+    filename = os.path.basename(fn)
+    metafn = metadata_fn(fn)
+    createMetadata(metafn,
+                   filename, exposure,
+                   background_filename, background_exposure,
+                   optics_background_filename, optics_background_exposure,
+                   Wz, Wy, flowrate, readingpos, pixelsize,
+                   date, analyte, buffer, device, wallwidth,
+                   nchannels, border, data_type, flow_direction, prof_z)
