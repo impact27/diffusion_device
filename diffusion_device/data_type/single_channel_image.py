@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Analyse 12 positions device
+
 Created on Fri Mar 17 10:26:20 2017
 
 @author: quentinpeter
@@ -309,7 +311,7 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
 #    return prof[channel]
 
 #
-#def outChannelMask(im, chAngle=0):
+# def outChannelMask(im, chAngle=0):
 #    """Creates a mask that excludes the channel
 #
 #    Parameters
@@ -360,7 +362,7 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
 #    return mask
 #
 #
-#def outGaussianBeamMask(data, chAngle=0):
+# def outGaussianBeamMask(data, chAngle=0):
 #    """
 #    get the outside of the channel from a gaussian fit
 #

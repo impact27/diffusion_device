@@ -1,8 +1,25 @@
 # -*- coding: utf-8 -*-
 """
+Useful functions to work on images
+
 Created on Wed Sep 13 07:30:56 2017
 
 @author: quentinpeter
+
+Copyright (C) 2017  Quentin Peter
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 from tifffile import imread
@@ -11,6 +28,23 @@ from .. import keys
 
 
 def process_background(data, metadata):
+    """Remove optical background from data and background, and clip images.
+
+    Parameters
+    ----------
+    data: array of floats
+        The data to process
+    metadata: dict
+        The metadata informations
+
+    Returns
+    -------
+    data: array
+        data
+    backgrounds: array of float
+        backgrounds if there is any
+
+    """
     backgrounds = get_background(metadata)
     data, backgrounds = remove_optics_background(data, backgrounds, metadata)
     data, backgrounds = clip_border(data, backgrounds, metadata)
@@ -18,19 +52,17 @@ def process_background(data, metadata):
 
 
 def load_images(filename):
-    """ Load the data files and do some preprocessing
+    """ Load image or list of images
 
     Parameters
     ----------
-    metadata: dict
-        The metadata informations
+    filename: dict
+        The image filename
 
     Returns
     -------
     ims: array
-        image or array of data
-    bg: array
-        background or array of backgrounds
+        image
     """
 
     # load data
@@ -43,6 +75,18 @@ def load_images(filename):
 
 
 def load_image(fn):
+    """ Load single image
+
+    Parameters
+    ----------
+    filename: dict
+        The image filename
+
+    Returns
+    -------
+    im: array
+        image
+    """
     ims = imread(fn)
     if len(ims.shape) == 3:
         ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])

@@ -32,7 +32,7 @@ readingpos = [
     0.002556,
     0.021953,
     0.0451
-] # m
+]  # m
 
 # Pixe size
 pixelsize = .833e-6  # m
@@ -51,7 +51,7 @@ device = "Kadi100x50"
 
 # Where is the flow going for each reading position?
 # For scans, only use 'u' up or 'd' down
-flow_direction = ['u', 'd', 'u', 'd'] # 'u', 'd', 't', 'l'
+flow_direction = ['u', 'd', 'u', 'd']  # 'u', 'd', 't', 'l'
 
 # =============================================================================
 # Image infos
@@ -96,7 +96,7 @@ nchannels = 4
 # =============================================================================
 
 # profile position. None means the mean over Z is used.
-prof_z = None # m
+prof_z = None  # m
 
 ########################
 

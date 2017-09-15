@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Keys to be used in json files
+
 Copyright (C) 2017  Quentin Peter
 
 This program is free software: you can redistribute it and/or modify

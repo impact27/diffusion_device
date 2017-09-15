@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Fitting and processing of profiles.
+
 Created on Fri Mar 17 10:25:47 2017
 
 @author: quentinpeter
@@ -43,8 +45,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         The metadata
     settings: dict
         The settings
-    data_dict: dictionnary
-        If not None, returns infos
+    fits: 2d array
+        if not None, same shape and type as profiles
     zpos: float, default None
         Z position of the profile. None for mean
 

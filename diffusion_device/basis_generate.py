@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+This file is used to create synthetic profile of diffusion and electrophorese.
+
 Created on Mon Jan  9 09:32:10 2017
 
 @author: quentinpeter

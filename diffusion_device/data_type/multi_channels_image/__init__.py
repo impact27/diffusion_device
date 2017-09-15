@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Analyse 4 position channels
+
 Created on Tue Apr  4 11:21:01 2017
 
 @author: quentinpeter
@@ -28,6 +30,7 @@ from . import bright, uv, stack
 from ... import profile as dp
 from ... import keys, display_data
 from .. import images_files
+
 
 def load_data(metadata):
     filename = metadata[keys.KEY_MD_FN]

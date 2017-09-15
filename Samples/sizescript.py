@@ -23,4 +23,3 @@ for sfn in settings:
     for mfn in metadatas:
         # Call function
         process_data.full_fit(settingsfn, metadatafn, outpath)
-    

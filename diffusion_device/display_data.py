@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Functions used to display and save results of fitting
+
 Created on Wed Aug  9 19:30:34 2017
 
 @author: quentinpeter
@@ -31,15 +33,24 @@ import tifffile
 from . import profile as dp
 
 
-def plot_and_save(radius, profiles, fits, pixel_size, im, outpath=None):
+def plot_and_save(radius, profiles, fits, pixel_size, data, outpath=None):
     """Plot the sizing data
 
     Parameters
     ----------
-    settingsfn: path
-        path to the fit settings file
-    metadatafn: path
-        path to the metadata file
+    radius: float or list of floats
+        If 1 species:
+            The fitted radius
+        If several species:
+            radii, spectrum: The radii and corresponding coefficients
+    profiles: 2d list of floats
+        The extracted profiles
+    fits: 2d list of floats
+        The fits
+    pixel_size: float
+        The detected pixel size
+    data: array of floats
+        The data that was analysed
     outpath: path
         Folder where to save the figures and data
 
@@ -83,8 +94,8 @@ def plot_and_save(radius, profiles, fits, pixel_size, im, outpath=None):
     #==========================================================================
 
     if outpath is not None:
-        if im is not None:
-            tifffile.imsave(outpath + '_im.tif', im)
+        if data is not None:
+            tifffile.imsave(outpath + '_im.tif', data)
         plt.savefig(outpath + '_fig.pdf')
         with open(outpath + '_result.txt', 'wb') as f:
             f.write("LSE: {:e}\n".format(lse).encode())
@@ -102,7 +113,6 @@ def plot_and_save(radius, profiles, fits, pixel_size, im, outpath=None):
             np.savetxt(f, profiles)
             f.write('Fits:\n'.encode())
             np.savetxt(f, fits)
-    return radius
 
 
 def plot_and_save_stack(radius, profiles, fits, pixel_size, images,
@@ -111,10 +121,22 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size, images,
 
     Parameters
     ----------
-    settingsfn: path
-        path to the fit settings file
-    metadatafn: path
-        path to the metadata file
+    radius: list of floats
+        A list of:
+        If 1 species:
+            The fitted radius
+        If several species:
+            radii, spectrum: The radii and corresponding coefficients
+    profiles: 3d list of floats
+        The extracted profiles
+    fits: 3d list of floats
+        The Fits
+    pixel_size: list of floats
+        The detected pixel size.
+    images: array of floats
+        The data that was analysed
+    overexposed: list of bool
+        For each data file, is the file overexposed?
     outpath: path
         Folder where to save the figures and data
     plotpos: array of ints
@@ -228,8 +250,6 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size, images,
             plt.xlabel('Position [$\mu$m]')
             plt.ylabel('Normalised amplitude')
 
-    return radius
-
 
 def prepare_output(outpath, settingsfn, metadatafn):
     """Prepare output folder
@@ -239,6 +259,8 @@ def prepare_output(outpath, settingsfn, metadatafn):
     outpath: path
         Folder where to save the figures and data
     settingsfn: path
+        path to the fit settings file
+    metadatafn: path
         path to the fit settings file
 
     Returns

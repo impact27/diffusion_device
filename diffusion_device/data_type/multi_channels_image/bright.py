@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Analyse bright 4 positions channels
+
 Created on Tue Apr  4 11:18:33 2017
 
 @author: quentinpeter

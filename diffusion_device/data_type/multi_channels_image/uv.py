@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Analyse uv 4 positions channels
+
 Created on Fri Mar 17 10:26:48 2017
 
 @author: quentinpeter

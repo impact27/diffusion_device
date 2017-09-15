@@ -1,8 +1,27 @@
 # -*- coding: utf-8 -*-
 """
+Main entry point for data processing. Will call modules in data_type.
+The main purpose is to enforce uniform interface between modules
+and load the correct one.
+
 Created on Mon Sep 11 14:32:20 2017
 
 @author: quentinpeter
+
+Copyright (C) 2017  Quentin Peter
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from . import keys, input_files, display_data
 from .data_type import scans, single_channel_image, multi_channels_image
@@ -14,9 +33,11 @@ def full_fit(settingsfn, metadatafn, outpath=None):
     Parameters
     ----------
     settingsfn: path
-        path to the fit settings file
+        Path to the fit settings file
     metadatafn: path
-        path to the metadata file
+        Path to the metadata file
+    outpath: path
+        Path to the save folder
 
     Returns
     -------
@@ -27,16 +48,14 @@ def full_fit(settingsfn, metadatafn, outpath=None):
             radii, spectrum: The radii and corresponding coefficients
         If movie:
             A list of the above
-    profiles: 1d or 2d list of floats
-        The extracted profiles. 2d for movie.
-    fits: 1d or 2d list of floats
-        The Fits. 2d for movie.
-    pixel_size: float or list of floats
+    profiles: 2d or 3d list of floats
+        The extracted profiles. 3d for movie.
+    fits: 2d or 3d list of floats
+        The Fits. 3d for movie.
+    pixel_size: flat or list of floats
         The detected pixel size. List for movie.
     data: array of floats
         The data that was analysed
-    data_type: string
-        The type of data
     overexposed: list of bool
         For each data file, is the file overexposed?
 
@@ -65,6 +84,25 @@ def full_fit(settingsfn, metadatafn, outpath=None):
 
 
 def get_module(data_type):
+    """Returns the correct module corresponding to data_type
+
+    Parameters
+    ----------
+    data_type: string
+        A string corresponding to a data type
+
+    Returns
+    -------
+    module: python module
+        A module defining the following functions:
+
+    data, state = load_data(metadata)
+    data, pixel_size, *infos = process_data(data, metadata, settings)
+    profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
+    radius, fits = size_profiles(profiles, pixel_size, metadata, settings)
+    plot_and_save(radius, profiles, fits, pixel_size, data, outpath, settings)
+
+    """
 
     if data_type == 'scans':
         return scans
@@ -77,10 +115,3 @@ def get_module(data_type):
 
     elif data_type == '4pos_stack':
         return multi_channels_image.stack
-
-# The modules define the following functions:
-#data, state = load_data(metadata)
-#data, pixel_size, *infos = process_data(data, metadata, settings)
-#profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
-#radius, fits = size_profiles(profiles, pixel_size, metadata, settings)
-#plot_and_save(radius, profiles, fits, pixel_size, data, outpath, settings)

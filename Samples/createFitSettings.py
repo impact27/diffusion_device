@@ -41,12 +41,12 @@ imslice = [
     None  # Y Width [m]
 ]
 
-## Bright
+# Bright
 
 # For bright Images, should the image be flattened?
 flattenbright = True
 
-## Movie
+# Movie
 
 # For movies, to analyse subset of frames
 framesSlices = [

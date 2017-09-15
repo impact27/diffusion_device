@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+Save and load json files
+
+
 Created on Tue Jul 18 10:23:24 2017
 
 @author: quentinpeter
@@ -26,7 +29,7 @@ import numpy as np
 
 from . import keys
 
-# Ugly hack to het eng representation
+# Ugly hack to get ENG format
 
 
 class myJSONEncoder(encoder.JSONEncoder):
@@ -161,6 +164,12 @@ def createMetadata(metadata_filename,
         If this is a multichannel image, The number of channels
     border: 4 ints, default None
         The borber to apply on the image (t, d, l, r)
+    datatype: str, default None
+        The type of data represented by this metadata
+    flow_direction: list of string
+        The flow direction of each reading position
+    prof_z: float, default None
+        Z position of the scan. None means take the mean over Z. [m]
     """
     metadata = {}
 
@@ -213,8 +222,6 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     ----------
     settingsfn: path
         The name of the settings file
-    metadata_filename: path
-        path to the metadata file relative to the settings
     rmin, rmax, rstep: 3 floats
         min, max, and step for the radius[m]
     ignore: float, default None
@@ -236,8 +243,8 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
         Should the profiles be normalized?
     imslice: 2 floats, default None
         [Y center, Y width] [m]
-
-
+    framesPlot: list of ints
+        What frames to plot if movie.
     """
     settings = {}
     settings[keys.KEY_STG_R] = (rmin, rmax, rstep)
@@ -259,7 +266,7 @@ def createFitSettings(settingsfn, rmin, rmax, rstep,
     settings[keys.KEY_STG_NSPECIES] = nspecies
 
     with open(settingsfn, 'w') as f:
-        json.dump(settings, f, indent=4)
+        json.dump(settings, f, indent=4, cls=myJSONEncoder)
 
 
 def default(dic, key, value):
@@ -399,34 +406,3 @@ def loadMetadata(metadatafn):
         default(metadata, key, None)
 
     return metadata
-
-
-# def getType(metadata, images_shape):
-#    """Get the type of data this is
-#
-#    Parameters
-#    ----------
-#    metadatafn: path
-#        path to the metadata file
-#
-#    Returns
-#    -------
-#    dtype: str
-#        a string describing the type of data
-#    """
-#    if keys.KEY_MD_TYPE in metadata:
-#        return metadata[keys.KEY_MD_TYPE]
-#
-#    nchannels = metadata[keys.KEY_MD_NCHANNELS]
-#    if nchannels == 1:
-#        if len(images_shape) == 2:
-#            raise RuntimeError('Only 1 channel in 1 image. Please set "'
-#                               + keys.KEY_MD_NCHANNELS + '".')
-#        return '12pos'
-#    elif nchannels != 4:
-#        return 'unknown'
-#    if len(images_shape) == 2:
-#        return '4pos'
-#    elif len(images_shape) == 3:
-#        return '4pos_stack'
-#    return 'unknown'
