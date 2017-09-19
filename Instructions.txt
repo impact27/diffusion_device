@@ -7,6 +7,10 @@ an output folder.
 The json files can also be written and modified by hand. 
 Check keys.py for details.
 
+If you let the script do the background subtraction, it might get more infos from the files.
+
+Please clip away any part you don't want to analyse.
+
 ==============================================================================
  Code Organisation
 ==============================================================================

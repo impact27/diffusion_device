@@ -1,0 +1,33 @@
+{
+    "Image file name": "stack.tif",
+    "Image exposition time [s]": 1,
+    "Wz[m]": 59.2e-6,
+    "Wy[m]": 100e-6,
+    "Wall Width [m]": 100e-6,
+    "Number of channels in a file": 4,
+    "Q[ulph]": 299,
+    "Pixel Size [m]": 1.06e-6,
+    "Read Positions [m]": [
+        0.0,
+        3.956e-3,
+        21.953e-3,
+        46.5e-3
+    ],
+    "Image border[px] (t, d, l, r)": [
+        180,
+        null,
+        50,
+        950
+    ],
+    "Date [YYYYMMDD]": "20170906",
+    "Analyte informations": "?",
+    "Buffer informations": "?",
+    "Device informations": "Kadi100x50",
+    "Type of data": "4pos_stack",
+    "Flow direction (u, d, l, r)": [
+        "u",
+        "d",
+        "u",
+        "d"
+    ]
+}

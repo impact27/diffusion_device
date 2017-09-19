@@ -32,6 +32,20 @@ from .. import images_files
 
 
 def load_data(metadata):
+    """load data from metadata
+
+    Parameters
+    ----------
+    metadata: dict
+        The metadata information
+
+    Returns
+    -------
+    data: array
+        the image
+    overexposed: bool
+        An indicator to see if the data is overexposed
+    """
     filename = metadata[keys.KEY_MD_FN]
     data = images_files.load_images(filename)
     overexposed = is_overexposed(data)
@@ -39,23 +53,104 @@ def load_data(metadata):
 
 
 def process_data(data, metadata, settings):
+    """Do some data processing
+
+    Parameters
+    ----------
+    data: array
+        The data to process
+    metadata: dict
+        The metadata information
+    settings: dict
+        The settings
+
+    Returns
+    -------
+    data: array
+        The processed data
+    pixel_size: float
+        The pixel size
+    centers: array
+        The positions of the centers
+    """
     data = np.asarray(data, dtype=float)
     centers = np.zeros((len(data), 4))
     pixel_size = np.zeros((len(data)))
+    dataout = []
+    skip = []
     for i in range(len(data)):
-        data[i], pixel_size[i], centers[i] = single.process_data(
-            data[i], metadata, settings)
-
-    return data, pixel_size, centers
+        if i==19:
+            from matplotlib.pyplot import imshow, plot, show
+        try:
+            d, pixel_size[i], centers[i] = single.process_data(
+                data[i], metadata, settings)
+            dataout.append(d)
+        except RuntimeError as error:
+            print(error.args[0])
+            pixel_size[i] = np.nan
+            centers[i, :] = np.nan
+            skip.append[i]
+          
+    dataout = np.asarray(dataout)
+    if skip != []:
+        for idx in skip:
+            dataout = np.insert(dataout, idx, 
+                                np.ones(np.shape(dataout)[1:])*np.nan, 0)
+    
+    return dataout, pixel_size, centers
 
 
 def get_profiles(metadata, settings, data, pixel_size, centers):
+    """Do some data processing
+
+    Parameters
+    ----------
+    metadata: dict
+        The metadata information
+    settings: dict
+        The settings
+    data: array
+        The data to process
+    pixel_size: float
+        The pixel size
+    centers: array
+        The positions of the centers
+
+    Returns
+    -------
+    profiles: array
+        The profiles
+    """
     profiles = [single.get_profiles(metadata, settings, im, pxs, cnt, )
                 for im, pxs, cnt in zip(data, pixel_size, centers)]
     return profiles
 
 
 def size_profiles(profiles, pixel_size, metadata, settings):
+    """Size the profiles
+
+     Parameters
+    ----------
+    profiles: 2d array
+        List of profiles to fit
+    pixel_size:float
+        The pixel size in [m]
+    metadata: dict
+        The metadata
+    settings: dict
+        The settings
+
+    Returns
+    -------
+    radius:
+        if nspecies==1:
+            radii: float
+                The best radius fit
+        else:
+            Rs, spectrum, the radii and corresponding spectrum
+    fits: 2d array
+        The fits
+    """
     radius = []
     fits = []
     for i, (profs, pxs) in enumerate(zip(profiles, pixel_size)):
@@ -68,6 +163,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
 
 def plot_and_save(radius, profiles, fits, pixel_size, data, state,
                   outpath, settings):
+    """Plot the sizing data"""
     plotpos = settings[keys.KEY_STG_STACK_POSPLOT]
     display_data.plot_and_save_stack(
         radius, profiles, fits, pixel_size, data, state, outpath, plotpos)

@@ -11,7 +11,7 @@ folder = os.path.dirname(__file__)
 class TestImage(TestCase):
     def test_UV_bg(self):
         settingsfn = os.path.join(folder,
-                                  'test_data/UVim300ulph_fitSettings.json')
+                                  'test_data/settings.json')
         metadatafn = os.path.join(folder,
                                   'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
@@ -23,7 +23,7 @@ class TestImage(TestCase):
 
     def test_scans(self):
         settingsfn = os.path.join(folder,
-                                  'test_data/scans/fitSettings.json')
+                                  'test_data/settings.json')
         metadatafn = os.path.join(folder,
                                   'test_data/scans/metadata.json')
         tempdir = "Test_tempdir"
@@ -35,7 +35,7 @@ class TestImage(TestCase):
 
     def test_UV_bg_poly_2(self):
         settingsfn = os.path.join(
-            folder, 'test_data/UVim300ulph_fitSettings_poly_2.json')
+            folder, 'test_data/settings_poly_2.json')
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
@@ -48,7 +48,7 @@ class TestImage(TestCase):
 
     def test_UV_bg_poly_all(self):
         settingsfn = os.path.join(
-            folder, 'test_data/UVim300ulph_fitSettings_poly_all.json')
+            folder, 'test_data/settings_poly_all.json')
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
@@ -61,7 +61,7 @@ class TestImage(TestCase):
 
     def test_bright(self):
         settingsfn = os.path.join(
-            folder, 'test_data/Brightim900ulph_fitSettings.json')
+            folder, 'test_data/settings.json')
         metadatafn = os.path.join(
             folder, 'test_data/Brightim900ulph_Metadata.json')
         tempdir = "Test_tempdir"
@@ -73,7 +73,7 @@ class TestImage(TestCase):
 
     def test_film(self):
         settingsfn = os.path.join(
-            folder, 'test_data/327.68ul-h-50um device_fitSettings.json')
+            folder, 'test_data/settings.json')
         metadatafn = os.path.join(
             folder, 'test_data/327.68ul-h-50um device_Metadata.json')
         tempdir = "Test_tempdir"
@@ -86,7 +86,7 @@ class TestImage(TestCase):
 
     def test_12pos(self):
         settingsfn = os.path.join(
-            folder, 'test_data/350ulh_12pos/fitsettings.json')
+            folder, 'test_data/settings.json')
         metadatafn = os.path.join(
             folder, 'test_data/350ulh_12pos/metadata.json')
         tempdir = "Test_tempdir"
@@ -98,7 +98,7 @@ class TestImage(TestCase):
 
     def test_bright_walls(self):
         settingsfn = os.path.join(
-            folder, 'test_data/1tf_001tweentico75_100ulhr_Settings.json')
+            folder, 'test_data/settings.json')
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
         tempdir = "Test_tempdir"
@@ -110,7 +110,7 @@ class TestImage(TestCase):
 
     def test_Slice(self):
         settingsfn = os.path.join(
-            folder, 'test_data/1tf_001tweentico75_100ulhr_Settings_Slice.json')
+            folder, 'test_data/settings_slice.json')
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
         tempdir = "Test_tempdir"
@@ -119,3 +119,15 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 4e-9)
+        
+    def test_opticsbg(self):
+        settingsfn = os.path.join(folder,
+                                  'test_data/settings.json')
+        metadatafn = os.path.join(folder,
+                                  'test_data/M4-5_metadata.json')
+        tempdir = "Test_tempdir"
+        radius, profiles, fits, pixel_size, images, overexposed = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(radius, 4e-9)
+        self.assertLess(radius, 4.5e-9)

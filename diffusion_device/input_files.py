@@ -174,7 +174,7 @@ def createMetadata(metadata_filename,
     metadata = {}
 
     metadata[keys.KEY_MD_FN] = filename
-    metadata[keys.KEY_MD_EXP] = exposure
+    optional(metadata, keys.KEY_MD_EXP, exposure)
 
     optional(metadata, keys.KEY_MD_BGFN, background_filename)
     optional(metadata, keys.KEY_MD_BGEXP, background_exposure)
@@ -203,8 +203,8 @@ def createMetadata(metadata_filename,
     metadata[keys.KEY_MD_DEVICE] = device
 
     optional(metadata, keys.KEY_MD_TYPE, datatype)
-    optional(metadata, keys.KEY_MD_SCANZ, flow_direction)
-    optional(metadata, keys.KEY_MD_FLOWDIR, prof_z)
+    optional(metadata, keys.KEY_MD_SCANZ, prof_z)
+    optional(metadata, keys.KEY_MD_FLOWDIR, flow_direction)
     # Optional
 
     with open(metadata_filename, 'w') as f:
@@ -392,7 +392,6 @@ def loadMetadata(metadatafn):
     with open(metadatafn, 'r') as f:
         metadata = json.load(f)
 
-    default(metadata, keys.KEY_MD_NCHANNELS, 1)
     default(metadata, keys.KEY_MD_BORDER, [None, None, None, None])
 
     for key in [keys.KEY_MD_FN, keys.KEY_MD_BGFN, keys.KEY_MD_OPBGFN]:

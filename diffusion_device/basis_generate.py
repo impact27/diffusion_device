@@ -113,7 +113,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
     Cinit = np.array(Cinit, dtype=float)
     if len(Cinit.shape) < 2:
         Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
-        Cinit = Cinit / Zgrid
+        if zpos is None:
+            Cinit = Cinit / Zgrid
     else:
         if Cinit.shape[0] != ZgridEffective:
             raise RuntimeError("Cinit Z dim and Zgrid not aligned.")

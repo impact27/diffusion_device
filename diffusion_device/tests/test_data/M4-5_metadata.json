@@ -1,0 +1,29 @@
+{
+    "Image file name": "M4-5.tif",
+    "Image exposition time [s]": 1,
+    "Optics background file name": "M4-Bg.tif",
+    "Optics background image exposition time [s]": 1,
+    "Wz[m]": 25.055e-6,
+    "Wy[m]": 300e-6,
+    "Wall Width [m]": 100e-6,
+    "Number of channels in a file": 4,
+    "Q[ulph]": 80,
+    "Pixel Size [m]": 3.2e-6,
+    "Read Positions [m]": [
+        0.001,
+        0.01,
+        0.02,
+        0.04
+    ],
+    "Date [YYYYMMDD]": "?",
+    "Analyte informations": "?",
+    "Buffer informations": "?",
+    "Device informations": "Kadi100x50",
+    "Type of data": "4pos",
+    "Flow direction (u, d, l, r)": [
+        "u",
+        "d",
+        "u",
+        "d"
+    ]
+}

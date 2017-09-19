@@ -33,6 +33,20 @@ from .. import images_files
 
 
 def load_data(metadata):
+    """load data from metadata
+
+    Parameters
+    ----------
+    metadata: dict
+        The metadata information
+
+    Returns
+    -------
+    data: array
+        the image
+    overexposed: bool
+        An indicator to see if the data is overexposed
+    """
     filename = metadata[keys.KEY_MD_FN]
     data = images_files.load_image(filename)
     overexposed = is_overexposed(data)
@@ -40,6 +54,26 @@ def load_data(metadata):
 
 
 def process_data(data, metadata, settings):
+    """Do some data processing
+
+    Parameters
+    ----------
+    data: array
+        The data to process
+    metadata: dict
+        The metadata information
+    settings: dict
+        The settings
+
+    Returns
+    -------
+    data: array
+        The processed data
+    pixel_size: float
+        The pixel size
+    centers: array
+        The positions of the centers
+    """
     data, background = images_files.process_background(data, metadata)
     data, centers, pixel_size = process_image(
         data, background, metadata, settings)
@@ -47,6 +81,26 @@ def process_data(data, metadata, settings):
 
 
 def get_profiles(metadata, settings, data, pixel_size, centers):
+    """Do some data processing
+
+    Parameters
+    ----------
+    metadata: dict
+        The metadata information
+    settings: dict
+        The settings
+    data: array
+        The data to process
+    pixel_size: float
+        The pixel size
+    centers: array
+        The positions of the centers
+
+    Returns
+    -------
+    profiles: array
+        The profiles
+    """
     channel_width = metadata[keys.KEY_MD_WY]
     imslice = settings[keys.KEY_STG_SLICE]
     ignore = settings[keys.KEY_STG_IGNORE]
@@ -57,6 +111,30 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
 
 
 def size_profiles(profiles, pixel_size, metadata, settings):
+    """Size the profiles
+
+     Parameters
+    ----------
+    profiles: 2d array
+        List of profiles to fit
+    pixel_size:float
+        The pixel size in [m]
+    metadata: dict
+        The metadata
+    settings: dict
+        The settings
+
+    Returns
+    -------
+    radius:
+        if nspecies==1:
+            radii: float
+                The best radius fit
+        else:
+            Rs, spectrum, the radii and corresponding spectrum
+    fits: 2d array
+        The fits
+    """
     fits = np.zeros_like(profiles)
     radius = dp.size_profiles(profiles, pixel_size, metadata, settings,
                               fits=fits)
@@ -65,6 +143,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
 
 def plot_and_save(radius, profiles, fits, pixel_size, data, state,
                   outpath, settings):
+    """Plot the sizing data"""
     display_data.plot_and_save(
         radius, profiles, fits, pixel_size, data, outpath)
 

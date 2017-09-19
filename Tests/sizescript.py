@@ -9,28 +9,33 @@ from diffusion_device import process_data
 
 
 outpath = 'output'
-plotpos = None
 
 # Settings file location
-#settingsfn = '../diffusion_device/tests/test_data/UVim300ulph_fitSettings.json'
+settingsfn = '../diffusion_device/tests/test_data/settings.json'
+
+
 #metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
-#settingsfn = '../diffusion_device/tests/test_data/Brightim900ulph_fitSettings.json'
+#process_data.full_fit(settingsfn, metadatafn, outpath)
+#
 #metadatafn = '../diffusion_device/tests/test_data/Brightim900ulph_Metadata.json'
-
-#settingsfn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Settings.json'
-#settingsfn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Settings_Slice.json'
-#metadatafn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Metadata.json'
-
-
-# Settings file name
-#settingsfn = '../diffusion_device/tests/test_data/350ulh_12pos/fitsettings_poly.json'
+#process_data.full_fit(settingsfn, metadatafn, outpath)
+#
 #metadatafn = '../diffusion_device/tests/test_data/350ulh_12pos/metadata.json'
+#process_data.full_fit(settingsfn, metadatafn, outpath)
+#
+#metadatafn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Metadata.json'
+#process_data.full_fit(settingsfn, metadatafn, outpath)
+#
+#metadatafn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_Metadata.json'
+#process_data.full_fit(settingsfn, metadatafn, outpath)
 
-# Settings file path
-settingsfn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_fitSettings.json'
-metadatafn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_Metadata.json'
-plotpos = [0, 10, 15]
+metadatafn = '../diffusion_device/tests/test_data/stack_Metadata.json'
+metadatafn = '../diffusion_device/tests/test_data/stack_Metadata_bright.json'
 
-
-radius, profiles, fits, pixel_size, im, image_type, overexposed = \
+radius, profiles, fits, pixel_size, im, __ = \
     process_data.full_fit(settingsfn, metadatafn, outpath)
+
+
+#radius, profiles, fits, pixel_size, im, __ = \
+#    process_data.full_fit(settingsfn, metadatafn, outpath)
+ 

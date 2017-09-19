@@ -94,6 +94,19 @@ def load_image(fn):
 
 
 def get_background(metadata):
+    """Load background
+
+    Parameters
+    ----------
+    metadata: dict
+        The metadata informations
+
+    Returns
+    -------
+    backgrounds: array of float
+        backgrounds if there is any
+
+    """
     backgrounds = None
     background_fn = metadata[keys.KEY_MD_BGFN]
     if background_fn is not None:
@@ -102,6 +115,25 @@ def get_background(metadata):
 
 
 def remove_optics_background(images, backgrounds, metadata):
+    """Remove optical background from data and background
+
+    Parameters
+    ----------
+    images: array of floats
+        The data to process
+    backgrounds: array of floats
+        The data to process
+    metadata: dict
+        The metadata informations
+
+    Returns
+    -------
+    images: array
+        images
+    backgrounds: array of float
+        backgrounds if there is any
+
+    """
     # Remove background from optics
     optics_bgfn = metadata[keys.KEY_MD_OPBGFN]
     if optics_bgfn is not None:
@@ -110,14 +142,34 @@ def remove_optics_background(images, backgrounds, metadata):
         optics_background_exposure = metadata[keys.KEY_MD_OPBGEXP]
 
         optics = load_images(optics_bgfn) / optics_background_exposure
-        images = images / exposure - optics
+        images = images / exposure - optics + np.median(optics)
         if backgrounds is not None:
-            backgrounds = backgrounds / background_exposure - optics
+            backgrounds = (backgrounds / background_exposure 
+                           - optics + np.median(optics))
 
     return images, backgrounds
 
 
 def clip_border(images, backgrounds, metadata):
+    """Remove border from data and background
+
+    Parameters
+    ----------
+    images: array of floats
+        The data to process
+    backgrounds: array of floats
+        The data to process
+    metadata: dict
+        The metadata informations
+
+    Returns
+    -------
+    images: array
+        images
+    backgrounds: array of float
+        backgrounds if there is any
+
+    """
     imborder = metadata[keys.KEY_MD_BORDER]
     if imborder is not None:
         # Remove Border
