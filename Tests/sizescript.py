@@ -14,20 +14,20 @@ outpath = 'output'
 settingsfn = '../diffusion_device/tests/test_data/settings.json'
 
 
-#metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
-#process_data.full_fit(settingsfn, metadatafn, outpath)
-#
-#metadatafn = '../diffusion_device/tests/test_data/Brightim900ulph_Metadata.json'
-#process_data.full_fit(settingsfn, metadatafn, outpath)
-#
-#metadatafn = '../diffusion_device/tests/test_data/350ulh_12pos/metadata.json'
-#process_data.full_fit(settingsfn, metadatafn, outpath)
-#
-#metadatafn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Metadata.json'
-#process_data.full_fit(settingsfn, metadatafn, outpath)
-#
-#metadatafn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_Metadata.json'
-#process_data.full_fit(settingsfn, metadatafn, outpath)
+metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
+process_data.full_fit(settingsfn, metadatafn, outpath)
+
+metadatafn = '../diffusion_device/tests/test_data/Brightim900ulph_Metadata.json'
+process_data.full_fit(settingsfn, metadatafn, outpath)
+
+metadatafn = '../diffusion_device/tests/test_data/350ulh_12pos/metadata.json'
+process_data.full_fit(settingsfn, metadatafn, outpath)
+
+metadatafn = '../diffusion_device/tests/test_data/1tf_001tweentico75_100ulhr_Metadata.json'
+process_data.full_fit(settingsfn, metadatafn, outpath)
+
+metadatafn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_Metadata.json'
+process_data.full_fit(settingsfn, metadatafn, outpath)
 
 metadatafn = '../diffusion_device/tests/test_data/stack_Metadata.json'
 metadatafn = '../diffusion_device/tests/test_data/stack_Metadata_bright.json'

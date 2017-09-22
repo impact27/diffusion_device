@@ -30,6 +30,25 @@ from itertools import combinations
 from .basis_generate import getprofiles
 from . import keys
 
+def normalise_profiles(profiles, pslice):
+    """Normalise a list of profiles
+    """
+    # if profile is mainly negative, error
+    if np.any(np.sum((profiles * (profiles > 0))[..., pslice], 1) <
+              5 * -np.sum((profiles * (profiles < 0))[..., pslice], 1)):
+        warnings.warn("Negative profile", RuntimeWarning)
+    profiles /= np.sum(profiles[..., pslice], -1)[..., np.newaxis]
+    return profiles
+    
+def ignore_slice(ignore, pixel_size):
+    """Get a slice to ignore sides
+    """
+    ignore = int(ignore / pixel_size)
+    if ignore == 0:
+        pslice = slice(None)
+    else:
+        pslice = slice(ignore, -ignore)
+    return pslice
 
 def size_profiles(profiles, pixel_size, metadata, settings,
                   fits=None, zpos=None):
@@ -67,7 +86,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
 
     fit_position_number = settings[keys.KEY_STG_FITPOS]
     ignore = settings[keys.KEY_STG_IGNORE]
-    normalise_profiles = settings[keys.KEY_STG_NORMALISE]
+    norm_profiles = settings[keys.KEY_STG_NORMALISE]
     initmode = settings[keys.KEY_STG_POS0FILTER]
     test_radii = np.arange(*settings[keys.KEY_STG_R])
     Zgrid = settings[keys.KEY_STG_ZGRID]
@@ -78,11 +97,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         raise RuntimeError(
             "Number of profiles and reading positions mismatching.")
     # convert ignore to px
-    ignore = int(ignore / pixel_size)
-    if ignore == 0:
-        pslice = slice(None)
-    else:
-        pslice = slice(ignore, -ignore)
+    pslice = ignore_slice(ignore, pixel_size)
 
     # Check input are arrays
     readingpos = np.asarray(readingpos)
@@ -92,12 +107,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     profiles = np.asarray(profiles)
 
     # normalise if needed
-    if normalise_profiles:
-        # if profile is mainly negative, error
-        if np.any(np.sum((profiles * (profiles > 0))[:, pslice], 1) <
-                  5 * -np.sum((profiles * (profiles < 0))[:, pslice], 1)):
-            warnings.warn("Negative profile", RuntimeWarning)
-        profiles /= np.sum(profiles[:, pslice], -1)[:, np.newaxis]
+    if norm_profiles:
+        profiles = normalise_profiles(profiles, pslice)
 
     if fit_position_number is not None:
         fit_position_number = np.sort(fit_position_number)
@@ -113,7 +124,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     else:
         fit_position_number = fit_position_number[1:]
         # treat init profile
-        init = init_process(profiles[0], initmode, ignore)
+        init = init_process(profiles[0], initmode, pslice)
         # First reading pos is initial profile
         readingposfit = readingposfit[1:] - readingposfit[0]
         profilesfit = profilesfit[1:]
@@ -124,13 +135,13 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                         Zgrid=Zgrid, readingpos=readingposfit,
                         zpos=zpos)
 
-    if normalise_profiles:
+    if norm_profiles:
         # Normalize basis in the same way as profiles
-        Basis /= np.sum(Basis[..., pslice], -1)[..., np.newaxis]
+        Basis = normalise_profiles(Basis, pslice)
 
     if nspecies == 1:
         # Get best fit
-        r = fit_radius(profilesfit, Basis, test_radii, ignore, nspecies=1)
+        r = fit_radius(profilesfit, Basis, test_radii, pslice, nspecies=1)
 
         # fill data if needed
         if fits is not None and not np.isnan(r):
@@ -143,13 +154,13 @@ def size_profiles(profiles, pixel_size, metadata, settings,
             if initmode != 'synthetic':
                 fits[0] = init
 
-            if normalise_profiles:
+            if norm_profiles:
                 # Normalize basis in the same way as profiles
-                fits /= np.sum(fits[..., pslice], -1)[..., np.newaxis]
+                fits = normalise_profiles(fits, pslice)
 
         return r
     else:
-        spectrum = fit_radius(profilesfit, Basis, test_radii, ignore,
+        spectrum = fit_radius(profilesfit, Basis, test_radii, pslice,
                               nspecies=nspecies)
 
         # fill data if needed
@@ -172,7 +183,7 @@ def synthetic_init(prof0, pslice):
     return init
 
 
-def get_matrices(profiles, Basis, ignore=0):
+def get_matrices(profiles, Basis, profslice):
     """Return matrix representation of sums
 
      Parameters
@@ -194,12 +205,6 @@ def get_matrices(profiles, Basis, ignore=0):
     psquare: float
         psquare = sum(profiles*profile)
     """
-    # How many pixels should we ignore?
-    if ignore == 0:
-        profslice = slice(None)
-    else:
-        profslice = slice(ignore, -ignore)
-
     Nb = len(Basis)
     flatbasis = np.reshape(Basis[:, :, profslice], (Nb, -1))
     flatprofs = np.ravel(profiles[:, profslice])
@@ -215,7 +220,7 @@ def get_matrices(profiles, Basis, ignore=0):
     return M, b, psquare
 
 
-def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
+def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1):
     """Find the best monodisperse radius
 
      Parameters
@@ -241,7 +246,7 @@ def fit_radius(profiles, Basis, Rs=None, ignore=0, nspecies=1):
             The best radius fit
     """
 
-    M, b, psquare = get_matrices(profiles, Basis, ignore=ignore)
+    M, b, psquare = get_matrices(profiles, Basis, profslice)
 
     if nspecies == 1 and Rs is not None:
         return fit_monodisperse_radius(M, b, psquare, Rs)
@@ -638,7 +643,7 @@ def image_angle(image, maxAngle=np.pi / 7):
     return angle
 
 
-def init_process(profile, mode, ignore):
+def init_process(profile, mode, ignore_slice):
     """
     Process the initial profile
 
@@ -655,7 +660,7 @@ def init_process(profile, mode, ignore):
             Remove the tails
         'gfilter':
             Apply a gaussian filter of 2 px std
-    ignore: int or None
+    ignore_slice: slice
         The number of pixels to ignore on the edges
 
     Returns
@@ -664,25 +669,23 @@ def init_process(profile, mode, ignore):
         the processed profile
 
     """
-    profile = np.array(profile)
-    if ignore is not None and ignore != 0:
-        profile[:ignore] = 0
-        profile[-ignore:] = 0
+    init = np.zeros_like(profile)
+    init[ignore_slice] = profile[ignore_slice]
 
     if mode == 'none':
-        return profile
+        return init
     elif mode == 'gfilter':
-        return gfilter(profile, 2)
+        return gfilter(init, 2)
     elif mode == 'gaussian' or mode == 'tails':
-        Y = profile
+        Y = init
         X = np.arange(len(Y))
         valid = Y > .5 * Y.max()
         gauss = np.exp(np.poly1d(np.polyfit(X[valid], np.log(Y[valid]), 2))(X))
         if mode == 'gaussian':
             return gauss
         remove = gauss < .01 * gauss.max()
-        profile[remove] = 0
-        return profile
+        init[remove] = 0
+        return init
 
 
 def get_fax(profiles):

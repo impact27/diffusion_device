@@ -25,6 +25,7 @@ import numpy as np
 from tifffile import imread
 from scipy import interpolate
 from registrator.image import is_overexposed
+import tifffile
 
 from . import bright, uv, stack
 from ... import profile as dp
@@ -104,9 +105,19 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     channel_width = metadata[keys.KEY_MD_WY]
     imslice = settings[keys.KEY_STG_SLICE]
     ignore = settings[keys.KEY_STG_IGNORE]
+    flowdir = metadata[keys.KEY_MD_FLOWDIR]
     profiles = extract_profiles(
-        data, centers, channel_width, ignore, pixel_size,
+        data, centers, flowdir, channel_width, ignore, pixel_size,
         imslice=imslice)
+    
+    norm_profiles = settings[keys.KEY_STG_NORMALISE]
+    if norm_profiles:
+        ignore_slice = dp.ignore_slice(ignore, pixel_size)
+        profiles = dp.normalise_profiles(profiles, ignore_slice)
+    
+    # If image upside down, turn
+    if profiles[-1].max() > profiles[0].max():
+        profiles = profiles[::-1]
     return profiles
 
 
@@ -140,12 +151,15 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                               fits=fits)
     return radius, fits
 
+def savedata(data, outpath):
+    """Save the data"""
+    tifffile.imsave(outpath + '_im.tif', data)
 
-def plot_and_save(radius, profiles, fits, pixel_size, data, state,
+def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, pixel_size, data, outpath)
+        radius, profiles, fits, pixel_size, outpath)
 
 
 def process_image(image, background, metadata, settings,
@@ -220,7 +234,7 @@ def process_image(image, background, metadata, settings,
     return image, centers, pixel_size
 
 
-def extract_profiles(image, centers, chwidth, ignore, pixel_size,
+def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
                      imslice=None):
     '''cut the image profile into profiles
 
@@ -242,7 +256,7 @@ def extract_profiles(image, centers, chwidth, ignore, pixel_size,
     Returns
     -------
     profiles: 2d array
-        The profiles
+        The profiles (left to right)
     '''
     # convert ignore to px
     ignore = int(ignore / pixel_size)
@@ -265,15 +279,21 @@ def extract_profiles(image, centers, chwidth, ignore, pixel_size,
 
     # Extract profiles
     firstcenter = None
-    for i, cent in enumerate(centers):
+    for i, (cent, fd) in enumerate(zip(centers, flowdir)):
 
         X = np.arange(len(image_profile)) - cent
         Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
         finterp = interpolate.interp1d(X, image_profile)
         p = finterp(Xc)
+        
+        if fd == 'u' or fd == 'up':
+            switch = True
+        elif fd == 'd' or fd == 'down':
+            switch = False
+        else:
+            raise RuntimeError("unknown orientation: {}".format(fd))
 
-        # switch if uneven
-        if i % 2 == 1:
+        if switch:
             p = p[::-1]
 
         # If the profile is not too flat
@@ -283,22 +303,18 @@ def extract_profiles(image, centers, chwidth, ignore, pixel_size,
             prof_center = dp.center(p[pslice]) + ignore
             if firstcenter is not None:
                 diff = prof_center - firstcenter
-                if i % 2 == 1:
+                if switch:
                     diff *= -1
                 X = np.arange(len(image_profile)) - cent - diff
                 finterp = interpolate.interp1d(X, image_profile)
                 p = finterp(Xc)
-                if i % 2 == 1:
+                if switch:
                     p = p[::-1]
 
             else:
                 firstcenter = prof_center
 
         profiles[i] = p
-
-    # If image upside down, turn
-    if profiles[-1].max() > profiles[0].max():
-        profiles = profiles[::-1]
 
 
 #    from matplotlib.pyplot import plot, figure, imshow

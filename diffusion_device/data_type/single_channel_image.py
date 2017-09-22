@@ -28,6 +28,7 @@ import warnings
 import cv2
 from scipy import interpolate
 from registrator.image import is_overexposed
+import tifffile
 
 from .. import keys, display_data
 from . import images_files
@@ -103,7 +104,18 @@ def get_profiles(metadata, settings, data, pixel_size):
     channel_width = metadata[keys.KEY_MD_WY]
     Npix = int(channel_width // pixel_size) + 1
     profiles = np.zeros((len(data), Npix))
-    for i, im in enumerate(data):
+    flowdir = metadata[keys.KEY_MD_FLOWDIR]
+    for i, (im, fd) in enumerate(zip(data, flowdir)):
+        if fd =='u':
+            pass
+        elif fd == 'r':
+            im = np.rot90(im, 1)
+        elif fd == 'd':
+            im = np.rot90(im, 2)
+        elif fd == 'l':
+            im = np.rot90(im, 3)
+        else:
+            raise RuntimeError('Unknown orientation')
         profiles[i] = extract_profile(im, pixel_size, channel_width)
     return profiles
 
@@ -138,12 +150,15 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                               fits=fits)
     return radius, fits
 
-
-def plot_and_save(radius, profiles, fits, pixel_size, data, state,
+def savedata(data, outpath):
+    """Save the data"""
+    tifffile.imsave(outpath + '_ims.tif', data)
+    
+def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, pixel_size, data, outpath)
+        radius, profiles, fits, pixel_size, outpath)
 
 
 def process_images(images, backgrounds, metadata, settings, rebin=2):

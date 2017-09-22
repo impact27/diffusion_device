@@ -18,5 +18,11 @@
           null,
           null,
           null
+      ],
+      "Flow direction (u, d, l, r)": [
+          "u",
+          "d",
+          "u",
+          "d"
       ]
 }

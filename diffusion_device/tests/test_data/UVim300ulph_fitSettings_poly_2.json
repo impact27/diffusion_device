@@ -5,5 +5,11 @@
         1e-08,
         1e-10
     ],
-    "Number of species to fit": 2
+    "Number of species to fit": 2,
+    "Flow direction (u, d, l, r)": [
+        "u",
+        "d",
+        "u",
+        "d"
+    ]
 }

@@ -13,5 +13,11 @@
     "Pixel Size [m]": 1,
     "Number of channels in a file": 4,
     "Wall Width [m]": 100e-6,
-    "Type of data": "4pos"
+    "Type of data": "4pos",
+    "Flow direction (u, d, l, r)": [
+        "u",
+        "d",
+        "u",
+        "d"
+    ]
 }

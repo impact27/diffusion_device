@@ -60,6 +60,8 @@ def full_fit(settingsfn, metadatafn, outpath=None):
         For each data file, is the file overexposed?
 
     """
+    if outpath is not None:
+        outpath = display_data.prepare_output(outpath, settingsfn, metadatafn)
 
     # Get infos
     metadata = input_files.loadMetadata(metadatafn)
@@ -72,12 +74,16 @@ def full_fit(settingsfn, metadatafn, outpath=None):
 
     data, state = mod.load_data(metadata)
     data, pixel_size, *infos = mod.process_data(data, metadata, settings)
+    
+    if outpath is not None:
+        mod.savedata(data, outpath)
+    
     profiles = mod.get_profiles(metadata, settings, data, pixel_size, *infos)
     radius, fits = mod.size_profiles(profiles, pixel_size, metadata, settings)
+    
     if outpath is not None:
-        outpath = display_data.prepare_output(outpath, settingsfn, metadatafn)
         mod.plot_and_save(
-            radius, profiles, fits, pixel_size, data, state, outpath, settings)
+            radius, profiles, fits, pixel_size, state, outpath, settings)
 
     return radius, profiles, fits, pixel_size, data, state
 
@@ -99,7 +105,8 @@ def get_module(data_type):
     data, pixel_size, *infos = process_data(data, metadata, settings)
     profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
     radius, fits = size_profiles(profiles, pixel_size, metadata, settings)
-    plot_and_save(radius, profiles, fits, pixel_size, data, outpath, settings)
+    plot_and_save(radius, profiles, fits, pixel_size, outpath, settings)
+    savedata(data, outpath)
 
     """
 

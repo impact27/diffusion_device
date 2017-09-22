@@ -28,12 +28,10 @@ from matplotlib.pyplot import plot, figure
 import os
 from matplotlib.image import NonUniformImage
 import shutil
-import tifffile
 
 from . import profile as dp
 
-
-def plot_and_save(radius, profiles, fits, pixel_size, data, outpath=None):
+def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -49,8 +47,6 @@ def plot_and_save(radius, profiles, fits, pixel_size, data, outpath=None):
         The fits
     pixel_size: float
         The detected pixel size
-    data: array of floats
-        The data that was analysed
     outpath: path
         Folder where to save the figures and data
 
@@ -94,8 +90,6 @@ def plot_and_save(radius, profiles, fits, pixel_size, data, outpath=None):
     #==========================================================================
 
     if outpath is not None:
-        if data is not None:
-            tifffile.imsave(outpath + '_im.tif', data)
         plt.savefig(outpath + '_fig.pdf')
         with open(outpath + '_result.txt', 'wb') as f:
             f.write("LSE: {:e}\n".format(lse).encode())
@@ -115,7 +109,7 @@ def plot_and_save(radius, profiles, fits, pixel_size, data, outpath=None):
             np.savetxt(f, fits)
 
 
-def plot_and_save_stack(radius, profiles, fits, pixel_size, images,
+def plot_and_save_stack(radius, profiles, fits, pixel_size,
                         overexposed, outpath=None, plotpos=None):
     """Plot the sizing data
 
@@ -208,7 +202,6 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size, images,
         plt.savefig(outpath + '_pixel_size_fig.pdf')
 
     if outpath is not None:
-        tifffile.imsave(outpath + '_ims.tif', images)
         with open(outpath + '_result.txt', 'wb') as f:
             f.write('Least square error:\n'.encode())
             np.savetxt(f, LSE)

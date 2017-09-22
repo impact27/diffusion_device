@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from registrator.image import is_overexposed
 import numpy as np
+import tifffile
 
 from .. import multi_channels_image as single
 
@@ -160,10 +161,13 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     radius = np.asarray(radius)
     return radius, fits
 
-
-def plot_and_save(radius, profiles, fits, pixel_size, data, state,
+def savedata(data, outpath):
+    """Save the data"""
+    tifffile.imsave(outpath + '_ims.tif', data)
+    
+def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     plotpos = settings[keys.KEY_STG_STACK_POSPLOT]
     display_data.plot_and_save_stack(
-        radius, profiles, fits, pixel_size, data, state, outpath, plotpos)
+        radius, profiles, fits, pixel_size, state, outpath, plotpos)

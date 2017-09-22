@@ -138,12 +138,16 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                               fits=fits, zpos=zpos)
     return radius, fits
 
-
-def plot_and_save(radius, profiles, fits, pixel_size, data, state,
+def savedata(data, outpath):
+    """Save the data"""
+    # Todo: implement
+    pass
+    
+def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, pixel_size, None, outpath)
+        radius, profiles, fits, pixel_size, outpath)
 
 
 def scans_to_profiles(scans, Npix, *,

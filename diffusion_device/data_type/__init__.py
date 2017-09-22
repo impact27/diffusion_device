@@ -6,7 +6,8 @@ data, state = load_data(metadata)
 data, pixel_size, *infos = process_data(data, metadata, settings)
 profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
 radius, fits = size_profiles(profiles, pixel_size, metadata, settings)
-plot_and_save(radius, profiles, fits, pixel_size, data, outpath, settings)
+plot_and_save(radius, profiles, fits, pixel_size, outpath, settings)
+savedata(data, outpath)
 
 Copyright (C) 2017  Quentin Peter
 
