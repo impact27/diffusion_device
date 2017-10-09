@@ -81,15 +81,23 @@ def process_data(data, metadata, settings):
     skip = []
     for i in range(len(data)):
         try:
+            single_metadata = metadata.copy()
+            if isinstance(metadata[keys.KEY_MD_EXP], list):
+                single_metadata[keys.KEY_MD_EXP] = metadata[keys.KEY_MD_EXP][i]
             d, pixel_size[i], centers[i] = single.process_data(
-                data[i], metadata, settings)
+                data[i], single_metadata, settings)
             dataout.append(d)
         except RuntimeError as error:
-            print(error.args[0])
-            pixel_size[i] = np.nan
-            centers[i, :] = np.nan
-            skip.append[i]
-          
+            if settings[keys.KEY_STG_IGNORE_ERROR]:
+                print(error.args[0])
+                pixel_size[i] = np.nan
+                centers[i, :] = np.nan
+                skip.append(i)
+            else:
+                raise error
+     
+    #Fix metadata
+    metadata[keys.KEY_MD_FLOWDIR] = single_metadata[keys.KEY_MD_FLOWDIR]
     dataout = np.asarray(dataout)
     if skip != []:
         for idx in skip:

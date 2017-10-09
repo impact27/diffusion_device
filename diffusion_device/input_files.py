@@ -137,9 +137,9 @@ def createMetadata(metadata_filename,
     metadata[keys.KEY_MD_BUFFER] = buffer
     metadata[keys.KEY_MD_DEVICE] = device
 
-    optional(metadata, keys.KEY_MD_TYPE, datatype)
+    metadata[keys.KEY_MD_TYPE] = datatype
     optional(metadata, keys.KEY_MD_SCANZ, prof_z)
-    optional(metadata, keys.KEY_MD_FLOWDIR, flow_direction)
+    metadata[keys.KEY_MD_FLOWDIR] = flow_direction
     # Optional
 
     with open(metadata_filename, 'w') as f:
@@ -324,6 +324,7 @@ def loadSettings(settingsfn):
     default(settings, keys.KEY_STG_NORMALISE, True)
     default(settings, keys.KEY_STG_SLICE, None)
     default(settings, keys.KEY_STG_STACK_POSPLOT, None)
+    default(settings, keys.KEY_STG_IGNORE_ERROR, True)
     return settings
 
 

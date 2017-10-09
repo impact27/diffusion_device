@@ -162,8 +162,7 @@ def plot_and_save(radius, profiles, fits, pixel_size, state,
         radius, profiles, fits, pixel_size, outpath)
 
 
-def process_image(image, background, metadata, settings,
-                  ignore_error=False):
+def process_image(image, background, metadata, settings):
     """
     Get the hydrodynamic radius from the images
 
@@ -177,8 +176,6 @@ def process_image(image, background, metadata, settings,
         The metadata
     settings: dict
         The settings
-    ignore_error: Bool, default False
-        Should the errors be ignored?
     plotimage: Bool, default False
         Plot how the image is flattened
 
@@ -196,6 +193,7 @@ def process_image(image, background, metadata, settings,
     channel_width = metadata[keys.KEY_MD_WY]
     nchannels = metadata[keys.KEY_MD_NCHANNELS]
     wall_width = metadata[keys.KEY_MD_WALLWIDTH]
+    flowdir = metadata[keys.KEY_MD_FLOWDIR]
 
     # Check shape
     if not len(np.shape(image)) == 2:
@@ -211,29 +209,35 @@ def process_image(image, background, metadata, settings,
         if not len(np.shape(background)) == 2:
             raise RuntimeError("Incorrect background shape: "
                                + str(np.shape(background)))
+            
+    image, background, metadata[keys.KEY_MD_FLOWDIR] = (
+            rotate(image, background, flowdir))
 
-    try:
-        # get profiles
-        if background is None:
-            flatten = settings[keys.KEY_STG_BRIGHT_FLAT]
-            # Single image
-            image, centers, pixel_size = bright.extract_profiles(
-                image, nchannels, channel_width, wall_width, flatten)
-        else:
-            # images and background
-            image, centers, pixel_size = uv.extract_profiles(
-                image, background, nchannels, channel_width, wall_width)
-
-    except RuntimeError as error:
-        print(error.args[0])
-        if ignore_error:
-            return np.nan
-        else:
-            raise error
+    
+    # get profiles
+    if background is None:
+        flatten = settings[keys.KEY_STG_BRIGHT_FLAT]
+        # Single image
+        image, centers, pixel_size = bright.extract_profiles(
+            image, nchannels, channel_width, wall_width, flatten)
+    else:
+        # images and background
+        image, centers, pixel_size = uv.extract_profiles(
+            image, background, nchannels, channel_width, wall_width)
 
     return image, centers, pixel_size
 
-
+def rotate(image, background, flowdir):
+    flowdir = np.asarray(flowdir)
+    if flowdir[0] == 'l' or flowdir[0] == 'r':
+        image = np.rot90(image)
+        if background is not None:
+            background = np.rot90(background)
+        flowdir[flowdir == 'l'] = 'u'
+        flowdir[flowdir == 'r'] = 'd'
+    return image, background, flowdir
+    
+    
 def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
                      imslice=None):
     '''cut the image profile into profiles
