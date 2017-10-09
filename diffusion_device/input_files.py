@@ -24,76 +24,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import json
 import os
-from json import encoder
-import numpy as np
 
 from . import keys
+from .myJSONEncoder import myJSONEncoder
 
-# Ugly hack to get ENG format
 
-
-class myJSONEncoder(encoder.JSONEncoder):
-
-    def __init__(self, *arg, **kargs):
-        super().__init__(*arg, **kargs)
-
-    def iterencode(self, o, _one_shot=False):
-        """Encode the given object and yield each string
-        representation as available.
-
-        For example::
-
-            for chunk in JSONEncoder().iterencode(bigobject):
-                mysocket.write(chunk)
-
-        """
-        if self.check_circular:
-            markers = {}
-        else:
-            markers = None
-        if self.ensure_ascii:
-            _encoder = encoder.encode_basestring_ascii
-        else:
-            _encoder = encoder.encode_basestring
-
-        def floatstr(o, allow_nan=self.allow_nan,
-                     _repr=float.__repr__, _inf=encoder.INFINITY,
-                     _neginf=-encoder.INFINITY):
-            # Check for specials.  Note that this type of test is processor
-            # and/or platform-specific, so do tests which don't depend on the
-            # internals.
-
-            if o != o:
-                text = 'NaN'
-            elif o == _inf:
-                text = 'Infinity'
-            elif o == _neginf:
-                text = '-Infinity'
-            elif o == 0:
-                text = '0.0'
-            else:
-                exp = int(np.floor(np.log10(np.abs(o)) / 3) * 3)
-                text = "{:g}e{:d}".format(o / (10**exp), exp)
-
-            if not allow_nan:
-                raise ValueError(
-                    "Out of range float values are not JSON compliant: " +
-                    repr(o))
-
-            return text
-
-        if (_one_shot and encoder.c_make_encoder is not None
-                and self.indent is None):
-            _iterencode = encoder.c_make_encoder(
-                markers, self.default, _encoder, self.indent,
-                self.key_separator, self.item_separator, self.sort_keys,
-                self.skipkeys, self.allow_nan)
-        else:
-            _iterencode = encoder._make_iterencode(
-                markers, self.default, _encoder, self.indent, floatstr,
-                self.key_separator, self.item_separator, self.sort_keys,
-                self.skipkeys, _one_shot)
-        return _iterencode(o, 0)
 
 
 def optional(dic, key, val):
@@ -283,6 +218,21 @@ def default(dic, key, value):
     """
     if key not in dic or dic[key] is None:
         dic[key] = value
+        
+def required(dic, key, file):
+    """Set valur in dictionnary if None
+
+    Parameters
+    ----------
+    dic: dictionnary
+        the dictionnary
+    key: string
+        the key
+    value: object
+        Value that might be None
+    """
+    if key not in dic:
+        raise RuntimeError("Missing Key: '{}' not in {}".format(key, file))
 
 
 def metadata_fn(filename):
@@ -361,6 +311,8 @@ def loadSettings(settingsfn):
     with open(settingsfn, 'r') as f:
         print()
         settings = json.load(f)
+        
+    required(settings, keys.KEY_STG_R, settingsfn)
 
     default(settings, keys.KEY_STG_IGNORE, 0)
     default(settings, keys.KEY_STG_POS0FILTER, 'none')
@@ -391,6 +343,19 @@ def loadMetadata(metadatafn):
     """
     with open(metadatafn, 'r') as f:
         metadata = json.load(f)
+        
+    required(metadata, keys.KEY_MD_FN, metadatafn)
+#    required(metadata, keys.KEY_MD_EXP, metadatafn)
+    required(metadata, keys.KEY_MD_WZ, metadatafn)
+    required(metadata, keys.KEY_MD_WY, metadatafn)
+    required(metadata, keys.KEY_MD_Q, metadatafn)
+    required(metadata, keys.KEY_MD_RPOS, metadatafn)
+    required(metadata, keys.KEY_MD_PIXSIZE, metadatafn)
+#    required(metadata, keys.KEY_MD_DATE, metadatafn)
+#    required(metadata, keys.KEY_MD_ANALYTE, metadatafn)
+    required(metadata, keys.KEY_MD_TYPE, metadatafn)
+    required(metadata, keys.KEY_MD_FLOWDIR, metadatafn)
+    
 
     default(metadata, keys.KEY_MD_BORDER, [None, None, None, None])
 

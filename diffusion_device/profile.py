@@ -92,23 +92,22 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Zgrid = settings[keys.KEY_STG_ZGRID]
     nspecies = settings[keys.KEY_STG_NSPECIES]
     imslice = settings[keys.KEY_STG_SLICE]
-
+    
+    
+    pslice = ignore_slice(ignore, pixel_size)
+    
+    profiles = np.asarray(profiles)
+    if norm_profiles:
+        profiles = normalise_profiles(profiles, pslice)
+        
+    readingpos = np.asarray(readingpos)
     if len(readingpos) != len(profiles):
         raise RuntimeError(
             "Number of profiles and reading positions mismatching.")
-    # convert ignore to px
-    pslice = ignore_slice(ignore, pixel_size)
-
-    # Check input are arrays
-    readingpos = np.asarray(readingpos)
     if imslice is not None:
         shift = np.resize([1, -1], len(readingpos)) * imslice[0]
         readingpos = readingpos + shift
-    profiles = np.asarray(profiles)
-
-    # normalise if needed
-    if norm_profiles:
-        profiles = normalise_profiles(profiles, pslice)
+    
 
     if fit_position_number is not None:
         fit_position_number = np.sort(fit_position_number)

@@ -80,8 +80,6 @@ def process_data(data, metadata, settings):
     dataout = []
     skip = []
     for i in range(len(data)):
-        if i==19:
-            from matplotlib.pyplot import imshow, plot, show
         try:
             d, pixel_size[i], centers[i] = single.process_data(
                 data[i], metadata, settings)
