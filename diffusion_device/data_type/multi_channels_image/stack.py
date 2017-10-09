@@ -74,7 +74,8 @@ def process_data(data, metadata, settings):
     centers: array
         The positions of the centers
     """
-    data = np.asarray(data, dtype=float)
+    framesslices = slice(*settings[keys.KEY_STG_STACK_FRAMESSLICES])
+    data = np.asarray(data, dtype=float)[framesslices]
     centers = np.zeros((len(data), 4))
     pixel_size = np.zeros((len(data)))
     dataout = []
@@ -83,18 +84,19 @@ def process_data(data, metadata, settings):
         try:
             single_metadata = metadata.copy()
             if isinstance(metadata[keys.KEY_MD_EXP], list):
-                single_metadata[keys.KEY_MD_EXP] = metadata[keys.KEY_MD_EXP][i]
+                single_metadata[keys.KEY_MD_EXP] = (
+                        np.asarray(metadata[keys.KEY_MD_EXP])[framesslices][i])
             d, pixel_size[i], centers[i] = single.process_data(
                 data[i], single_metadata, settings)
             dataout.append(d)
-        except RuntimeError as error:
+        except BaseException as error:
             if settings[keys.KEY_STG_IGNORE_ERROR]:
                 print(error.args[0])
                 pixel_size[i] = np.nan
                 centers[i, :] = np.nan
                 skip.append(i)
             else:
-                raise error
+                raise
      
     #Fix metadata
     metadata[keys.KEY_MD_FLOWDIR] = single_metadata[keys.KEY_MD_FLOWDIR]
@@ -128,8 +130,18 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     profiles: array
         The profiles
     """
-    profiles = [single.get_profiles(metadata, settings, im, pxs, cnt, )
-                for im, pxs, cnt in zip(data, pixel_size, centers)]
+    profiles = []
+    for im, pxs, cnt in zip(data, pixel_size, centers):
+        try:
+            prof = single.get_profiles(metadata, settings, im, pxs, cnt, )
+        except BaseException as error:
+            if settings[keys.KEY_STG_IGNORE_ERROR]:
+                print(error.args[0])
+                prof = None
+            else:
+                print(settings[keys.KEY_STG_IGNORE_ERROR])
+                raise
+        profiles.append(prof)
     return profiles
 
 
@@ -161,10 +173,17 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     radius = []
     fits = []
     for i, (profs, pxs) in enumerate(zip(profiles, pixel_size)):
-        r, fit = single.size_profiles(profs, pxs, metadata, settings)
-        fits.append(fit)
-        radius.append(r)
+        if profs is None:
+            fits.append(None)
+        else:
+            r, fit = single.size_profiles(profs, pxs, metadata, settings)
+            fits.append(fit)
+            radius.append(r)
     radius = np.asarray(radius)
+    for idx, add in enumerate([p is None for p in profiles]):
+        if add:
+            radius = np.insert(radius, idx, 
+                               np.ones(np.shape(radius)[1:])*np.nan, 0)
     return radius, fits
 
 def savedata(data, outpath):
@@ -175,5 +194,8 @@ def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     plotpos = settings[keys.KEY_STG_STACK_POSPLOT]
+    framesslices = slice(*settings[keys.KEY_STG_STACK_FRAMESSLICES])
+    
+    state = state[framesslices]
     display_data.plot_and_save_stack(
         radius, profiles, fits, pixel_size, state, outpath, plotpos)

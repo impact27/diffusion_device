@@ -102,6 +102,8 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     profiles: array
         The profiles
     """
+    if np.isnan(pixel_size):
+        return None
     channel_width = metadata[keys.KEY_MD_WY]
     imslice = settings[keys.KEY_STG_SLICE]
     ignore = settings[keys.KEY_STG_IGNORE]
@@ -279,6 +281,10 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
         image_profile = imageProfileSlice(
             image, imslice[0], imslice[1], pixel_size)
 
+    if (np.min(centers) - prof_npix/2 < 0 or
+            np.max(centers) + prof_npix/2 > len(image_profile)):
+        raise RuntimeError('Channel not fully contained in the image')
+        
     profiles = np.empty((nchannels, prof_npix), dtype=float)
 
     # Extract profiles

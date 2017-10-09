@@ -142,13 +142,16 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
     intensity = np.asarray([np.nanmax(p) for p in profiles])
     LSE = np.zeros(len(profiles))
     for i, (p, f) in enumerate(zip(profiles, fits)):
-        LSE[i] = np.sqrt(np.mean(np.square(p - f)))
+        if p is None or f is None:
+            LSE[i] = np.nan
+        else:
+            LSE[i] = np.sqrt(np.mean(np.square(p - f)))
 
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
 
     if len(np.shape(radius)) == 3:
-        Rs = radius[0, 0] * 1e9
+        Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
         ylim = (0, len(radius))
         xlim = (np.min(Rs), np.max(Rs))
         figure()
@@ -224,7 +227,8 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
         plotpos = np.asarray(plotpos)
 
         for pos in plotpos[plotpos < len(profiles)]:
-
+            if profiles[pos] is None:
+                continue
             profs = dp.get_fax(profiles[pos])
             X = np.arange(len(profs)) * pixel_size[pos] * 1e6
             figure()
