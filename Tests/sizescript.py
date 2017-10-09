@@ -36,6 +36,5 @@ radius, profiles, fits, pixel_size, im, __ = \
     process_data.full_fit(settingsfn, metadatafn, outpath)
 
 
-#radius, profiles, fits, pixel_size, im, __ = \
+# radius, profiles, fits, pixel_size, im, __ = \
 #    process_data.full_fit(settingsfn, metadatafn, outpath)
- 

@@ -85,7 +85,7 @@ def process_data(data, metadata, settings):
             single_metadata = metadata.copy()
             if isinstance(metadata[keys.KEY_MD_EXP], list):
                 single_metadata[keys.KEY_MD_EXP] = (
-                        np.asarray(metadata[keys.KEY_MD_EXP])[framesslices][i])
+                    np.asarray(metadata[keys.KEY_MD_EXP])[framesslices][i])
             d, pixel_size[i], centers[i] = single.process_data(
                 data[i], single_metadata, settings)
             dataout.append(d)
@@ -97,15 +97,15 @@ def process_data(data, metadata, settings):
                 skip.append(i)
             else:
                 raise
-     
-    #Fix metadata
+
+    # Fix metadata
     metadata[keys.KEY_MD_FLOWDIR] = single_metadata[keys.KEY_MD_FLOWDIR]
     dataout = np.asarray(dataout)
     if skip != []:
         for idx in skip:
-            dataout = np.insert(dataout, idx, 
-                                np.ones(np.shape(dataout)[1:])*np.nan, 0)
-    
+            dataout = np.insert(dataout, idx,
+                                np.ones(np.shape(dataout)[1:]) * np.nan, 0)
+
     return dataout, pixel_size, centers
 
 
@@ -182,20 +182,22 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     radius = np.asarray(radius)
     for idx, add in enumerate([p is None for p in profiles]):
         if add:
-            radius = np.insert(radius, idx, 
-                               np.ones(np.shape(radius)[1:])*np.nan, 0)
+            radius = np.insert(radius, idx,
+                               np.ones(np.shape(radius)[1:]) * np.nan, 0)
     return radius, fits
+
 
 def savedata(data, outpath):
     """Save the data"""
     tifffile.imsave(outpath + '_ims.tif', data)
-    
+
+
 def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     plotpos = settings[keys.KEY_STG_STACK_POSPLOT]
     framesslices = slice(*settings[keys.KEY_STG_STACK_FRAMESSLICES])
-    
+
     state = state[framesslices]
     display_data.plot_and_save_stack(
         radius, profiles, fits, pixel_size, state, outpath, plotpos)

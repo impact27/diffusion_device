@@ -29,8 +29,6 @@ from . import keys
 from .myJSONEncoder import myJSONEncoder
 
 
-
-
 def optional(dic, key, val):
     """Set valur in dictionnary if not None
 
@@ -218,7 +216,8 @@ def default(dic, key, value):
     """
     if key not in dic or dic[key] is None:
         dic[key] = value
-        
+
+
 def required(dic, key, file):
     """Set valur in dictionnary if None
 
@@ -311,7 +310,7 @@ def loadSettings(settingsfn):
     with open(settingsfn, 'r') as f:
         print()
         settings = json.load(f)
-        
+
     required(settings, keys.KEY_STG_R, settingsfn)
 
     default(settings, keys.KEY_STG_IGNORE, 0)
@@ -344,7 +343,7 @@ def loadMetadata(metadatafn):
     """
     with open(metadatafn, 'r') as f:
         metadata = json.load(f)
-        
+
     required(metadata, keys.KEY_MD_FN, metadatafn)
 #    required(metadata, keys.KEY_MD_EXP, metadatafn)
     required(metadata, keys.KEY_MD_WZ, metadatafn)
@@ -356,7 +355,6 @@ def loadMetadata(metadatafn):
 #    required(metadata, keys.KEY_MD_ANALYTE, metadatafn)
     required(metadata, keys.KEY_MD_TYPE, metadatafn)
     required(metadata, keys.KEY_MD_FLOWDIR, metadatafn)
-    
 
     default(metadata, keys.KEY_MD_BORDER, [None, None, None, None])
 

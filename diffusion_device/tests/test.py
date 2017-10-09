@@ -119,7 +119,7 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 4e-9)
-        
+
     def test_opticsbg(self):
         settingsfn = os.path.join(folder,
                                   'test_data/settings.json')

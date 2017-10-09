@@ -30,6 +30,7 @@ from itertools import combinations
 from .basis_generate import getprofiles
 from . import keys
 
+
 def normalise_profiles(profiles, pslice):
     """Normalise a list of profiles
     """
@@ -39,7 +40,8 @@ def normalise_profiles(profiles, pslice):
         warnings.warn("Negative profile", RuntimeWarning)
     profiles /= np.sum(profiles[..., pslice], -1)[..., np.newaxis]
     return profiles
-    
+
+
 def ignore_slice(ignore, pixel_size):
     """Get a slice to ignore sides
     """
@@ -49,6 +51,7 @@ def ignore_slice(ignore, pixel_size):
     else:
         pslice = slice(ignore, -ignore)
     return pslice
+
 
 def size_profiles(profiles, pixel_size, metadata, settings,
                   fits=None, zpos=None):
@@ -92,14 +95,13 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Zgrid = settings[keys.KEY_STG_ZGRID]
     nspecies = settings[keys.KEY_STG_NSPECIES]
     imslice = settings[keys.KEY_STG_SLICE]
-    
-    
+
     pslice = ignore_slice(ignore, pixel_size)
-    
+
     profiles = np.asarray(profiles)
     if norm_profiles:
         profiles = normalise_profiles(profiles, pslice)
-        
+
     readingpos = np.asarray(readingpos)
     if len(readingpos) != len(profiles):
         raise RuntimeError(
@@ -107,7 +109,6 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     if imslice is not None:
         shift = np.resize([1, -1], len(readingpos)) * imslice[0]
         readingpos = readingpos + shift
-    
 
     if fit_position_number is not None:
         fit_position_number = np.sort(fit_position_number)

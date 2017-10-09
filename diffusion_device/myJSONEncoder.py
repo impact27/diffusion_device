@@ -8,6 +8,8 @@ Created on Thu Oct  5 17:27:48 2017
 from json import encoder
 import numpy as np
 # Ugly hack to get ENG format
+
+
 class myJSONEncoder(encoder.JSONEncoder):
 
     def __init__(self, *arg, **kargs):

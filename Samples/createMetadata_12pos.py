@@ -12,12 +12,14 @@ import re
 
 folder = 'Confocal diffusion/*/'
 
-fns='Repeat*%d_0000.dat'
+fns = 'Repeat*%d_0000.dat'
 Pos = np.arange(13)
 
 # Where is the flow going for each reading position?
 # For scans, only use 'u' up or 'd' down
-flow_direction = ['u' if p == 0 else 'd' for p in Pos//2%2]  # 'u', 'd', 't', 'l'
+flow_direction = [
+    'u' if p == 0 else 'd' for p in Pos // 2 %
+    2]  # 'u', 'd', 't', 'l'
 
 # Data Type
 # One of "4pos", "4pos_stack", "12pos", "scans"
@@ -33,8 +35,8 @@ Wz = 25e-06  # m
 Wy = 100e-6  # m
 
 # Reading position at the middle of the image [m]
-readingpos = [ 0.    ,  0.0035,  0.0053,  0.0086,  0.0103,  0.0186,  0.0204,
-        0.0286,  0.0304,  0.0587,  0.0605,  0.0887,  0.0905]  # m
+readingpos = [0., 0.0035, 0.0053, 0.0086, 0.0103, 0.0186, 0.0204,
+              0.0286, 0.0304, 0.0587, 0.0605, 0.0887, 0.0905]  # m
 
 # Pixe size
 pixelsize = 2e-6  # m
@@ -85,7 +87,7 @@ optics_background_exposure = None  # s
 # =============================================================================
 
 # Width of the walls [m] (Only for multiple channel in an image)
-wallwidth = None # m
+wallwidth = None  # m
 
 # Number of channels in the image
 nchannels = 1
@@ -105,8 +107,8 @@ for fn in folder:
     else:
         flowrate = Q
     filename = [os.path.basename(glob(
-            os.path.join(fn, fns % (p,)))[0]) for p in Pos]
-    metafn =os.path.join(fn, 'metadata_new.json')
+        os.path.join(fn, fns % (p,)))[0]) for p in Pos]
+    metafn = os.path.join(fn, 'metadata_new.json')
     createMetadata(metafn,
                    filename, exposure,
                    background_filename, background_exposure,
@@ -114,4 +116,3 @@ for fn in folder:
                    Wz, Wy, flowrate, readingpos, pixelsize,
                    date, analyte, buffer, device, wallwidth,
                    nchannels, border, data_type, flow_direction, prof_z)
-

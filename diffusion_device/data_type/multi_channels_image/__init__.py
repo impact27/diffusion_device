@@ -111,12 +111,12 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     profiles = extract_profiles(
         data, centers, flowdir, channel_width, ignore, pixel_size,
         imslice=imslice)
-    
+
     norm_profiles = settings[keys.KEY_STG_NORMALISE]
     if norm_profiles:
         ignore_slice = dp.ignore_slice(ignore, pixel_size)
         profiles = dp.normalise_profiles(profiles, ignore_slice)
-    
+
     # If image upside down, turn
     if profiles[-1].max() > profiles[0].max():
         profiles = profiles[::-1]
@@ -153,9 +153,11 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                               fits=fits)
     return radius, fits
 
+
 def savedata(data, outpath):
     """Save the data"""
     tifffile.imsave(outpath + '_im.tif', data)
+
 
 def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
@@ -211,11 +213,10 @@ def process_image(image, background, metadata, settings):
         if not len(np.shape(background)) == 2:
             raise RuntimeError("Incorrect background shape: "
                                + str(np.shape(background)))
-            
-    image, background, metadata[keys.KEY_MD_FLOWDIR] = (
-            rotate(image, background, flowdir))
 
-    
+    image, background, metadata[keys.KEY_MD_FLOWDIR] = (
+        rotate(image, background, flowdir))
+
     # get profiles
     if background is None:
         flatten = settings[keys.KEY_STG_BRIGHT_FLAT]
@@ -229,6 +230,7 @@ def process_image(image, background, metadata, settings):
 
     return image, centers, pixel_size
 
+
 def rotate(image, background, flowdir):
     flowdir = np.asarray(flowdir)
     if flowdir[0] == 'l' or flowdir[0] == 'r':
@@ -238,8 +240,8 @@ def rotate(image, background, flowdir):
         flowdir[flowdir == 'l'] = 'u'
         flowdir[flowdir == 'r'] = 'd'
     return image, background, flowdir
-    
-    
+
+
 def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
                      imslice=None):
     '''cut the image profile into profiles
@@ -281,10 +283,10 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
         image_profile = imageProfileSlice(
             image, imslice[0], imslice[1], pixel_size)
 
-    if (np.min(centers) - prof_npix/2 < 0 or
-            np.max(centers) + prof_npix/2 > len(image_profile)):
+    if (np.min(centers) - prof_npix / 2 < 0 or
+            np.max(centers) + prof_npix / 2 > len(image_profile)):
         raise RuntimeError('Channel not fully contained in the image')
-        
+
     profiles = np.empty((nchannels, prof_npix), dtype=float)
 
     # Extract profiles
@@ -295,7 +297,7 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
         Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
         finterp = interpolate.interp1d(X, image_profile)
         p = finterp(Xc)
-        
+
         if fd == 'u' or fd == 'up':
             switch = True
         elif fd == 'd' or fd == 'down':

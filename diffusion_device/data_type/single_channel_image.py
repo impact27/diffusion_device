@@ -106,7 +106,7 @@ def get_profiles(metadata, settings, data, pixel_size):
     profiles = np.zeros((len(data), Npix))
     flowdir = metadata[keys.KEY_MD_FLOWDIR]
     for i, (im, fd) in enumerate(zip(data, flowdir)):
-        if fd =='u':
+        if fd == 'u':
             pass
         elif fd == 'r':
             im = np.rot90(im, 1)
@@ -150,10 +150,12 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                               fits=fits)
     return radius, fits
 
+
 def savedata(data, outpath):
     """Save the data"""
     tifffile.imsave(outpath + '_ims.tif', data)
-    
+
+
 def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
@@ -201,13 +203,13 @@ def process_images(images, backgrounds, metadata, settings, rebin=2):
             [cv2.resize(im, size, interpolation=cv2.INTER_AREA)
              for im in images])
         pixel_size *= rebin
-        
+
         if backgrounds is not None:
             size = tuple(np.array(np.shape(backgrounds)[1:][::-1]) // rebin)
             backgrounds = np.array(
                 [cv2.resize(im, size, interpolation=cv2.INTER_AREA)
                  for im in backgrounds])
-        
+
     # Get flat images
     if backgrounds is None:
         # Single images

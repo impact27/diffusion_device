@@ -74,13 +74,13 @@ def full_fit(settingsfn, metadatafn, outpath=None):
 
     data, state = mod.load_data(metadata)
     data, pixel_size, *infos = mod.process_data(data, metadata, settings)
-    
+
     if outpath is not None:
         mod.savedata(data, outpath)
-    
+
     profiles = mod.get_profiles(metadata, settings, data, pixel_size, *infos)
     radius, fits = mod.size_profiles(profiles, pixel_size, metadata, settings)
-    
+
     if outpath is not None:
         mod.plot_and_save(
             radius, profiles, fits, pixel_size, state, outpath, settings)

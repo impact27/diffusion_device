@@ -144,7 +144,7 @@ def remove_optics_background(images, backgrounds, metadata):
         optics = load_images(optics_bgfn) / optics_background_exposure
         images = images / exposure - optics + np.median(optics)
         if backgrounds is not None:
-            backgrounds = (backgrounds / background_exposure 
+            backgrounds = (backgrounds / background_exposure
                            - optics + np.median(optics))
 
     return images, backgrounds

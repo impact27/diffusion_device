@@ -31,6 +31,7 @@ import shutil
 
 from . import profile as dp
 
+
 def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
     """Plot the sizing data
 
