@@ -103,8 +103,8 @@ def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
                 np.savetxt(f, radius[1])
 
             else:
-                f.write("Radius: {:f} nm".format(radius * 1e9).encode())
-            f.write("Profiles:".encode())
+                f.write("Radius: {:f} nm\n".format(radius * 1e9).encode())
+            f.write("Profiles:\n".encode())
             np.savetxt(f, profiles)
             f.write('Fits:\n'.encode())
             np.savetxt(f, fits)
@@ -208,21 +208,30 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
     if outpath is not None:
         with open(outpath + '_result.txt', 'wb') as f:
             f.write('Least square error:\n'.encode())
-            np.savetxt(f, LSE)
+            np.savetxt(f, LSE[np.newaxis])
             if np.any(overexposed):
                 f.write('Overexposed Frames:\n'.encode())
-                np.savetxt(f, overexposed)
+                np.savetxt(f, overexposed[np.newaxis])
             f.write('Pixel size:\n'.encode())
-            np.savetxt(f, pixel_size)
+            np.savetxt(f, pixel_size[np.newaxis])
             if len(np.shape(radius)) == 3:
-                for r, spectrum in zip(Rs, radius[:, 1]):
-                    f.write('Spectrums for radius {:.4e}nm:\n'
-                            .format(r).encode())
-                    np.savetxt(f, spectrum)
+                f.write(f'Radii [nm]:\n'.encode())
+                np.savetxt(f, Rs[np.newaxis])
+                f.write(f'Spectrums:\n'.encode())
+                np.savetxt(f, radius[:, 1])
 
             else:
                 f.write('radius:\n'.encode())
                 np.savetxt(f, radius)
+
+            for i, (prof, fit) in enumerate(zip(profiles, fits)):
+                if prof is not None and fit is not None:
+                    f.write(f"Frame {i}\nProfiles:\n".encode())
+                    np.savetxt(f, prof)
+                    f.write('Fits:\n'.encode())
+                    np.savetxt(f, fit)
+                else:
+                    f.write(f"Frame {i}\nEmpty\n".encode())
 
     if plotpos is not None:
         plotpos = np.asarray(plotpos)

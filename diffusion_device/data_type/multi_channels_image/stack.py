@@ -49,7 +49,7 @@ def load_data(metadata):
     """
     filename = metadata[keys.KEY_MD_FN]
     data = images_files.load_images(filename)
-    overexposed = is_overexposed(data)
+    overexposed = [is_overexposed(d) for d in data]
     return data, overexposed
 
 
