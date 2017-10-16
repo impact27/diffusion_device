@@ -18,8 +18,8 @@ Pos = np.arange(13)
 # Where is the flow going for each reading position?
 # For scans, only use 'u' up or 'd' down
 flow_direction = [
-    'u' if p == 0 else 'd' for p in Pos // 2 %
-    2]  # 'u', 'd', 't', 'l'
+        'u', 'u', 'd', 'd', 'u', 'u', 'd',
+        'd', 'u', 'u', 'd', 'd', 'u']  # 'u', 'd', 't', 'l'
 
 # Data Type
 # One of "4pos", "4pos_stack", "12pos", "scans"

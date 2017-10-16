@@ -93,7 +93,11 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     ignore = settings[keys.KEY_STG_IGNORE]
     norm_profiles = settings[keys.KEY_STG_NORMALISE]
     initmode = settings[keys.KEY_STG_POS0FILTER]
-    test_radii = np.arange(*settings[keys.KEY_STG_R])
+    if settings[keys.KEY_STG_RLOG]:
+        rmin, rmax, Nr = settings[keys.KEY_STG_R]
+        test_radii = np.exp(np.linspace(np.log(rmin), np.log(rmax), Nr))
+    else:
+        test_radii = np.arange(*settings[keys.KEY_STG_R])
     Zgrid = settings[keys.KEY_STG_ZGRID]
     nspecies = settings[keys.KEY_STG_NSPECIES]
     imslice = settings[keys.KEY_STG_SLICE]
