@@ -86,6 +86,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     flow_rate = metadata[keys.KEY_MD_Q]
     channel_height = metadata[keys.KEY_MD_WZ]
     channel_width = metadata[keys.KEY_MD_WY]
+    temperature = metadata[keys.KEY_MD_T]
+    viscosity = metadata[keys.KEY_MD_ETA]
 
     fit_position_number = settings[keys.KEY_STG_FITPOS]
     ignore = settings[keys.KEY_STG_IGNORE]
@@ -95,6 +97,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Zgrid = settings[keys.KEY_STG_ZGRID]
     nspecies = settings[keys.KEY_STG_NSPECIES]
     imslice = settings[keys.KEY_STG_SLICE]
+    
 
     pslice = ignore_slice(ignore, pixel_size)
 
@@ -133,7 +136,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Basis = getprofiles(init, flow_rate, test_radii,
                         Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
-                        zpos=zpos)
+                        zpos=zpos, temperature=temperature, eta=viscosity)
 
     if norm_profiles:
         # Normalize basis in the same way as profiles
@@ -150,7 +153,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                 init, Q=flow_rate, Radii=[r], Wy=channel_width,
                 Wz=channel_height, Zgrid=Zgrid,
                 readingpos=readingposfit,
-                zpos=zpos)[0]
+                zpos=zpos, temperature=temperature)[0]
             if initmode != 'synthetic':
                 fits[0] = init
 

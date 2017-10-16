@@ -42,6 +42,8 @@ KEY_MD_SCANZ = "Z position of scans [m]"
 KEY_MD_FLOWDIR = "Flow direction (u, d, l, r)"
 KEY_MD_OPERATOR = "Operator"
 KEY_MD_SUCCESS = "Success [1-3]"
+KEY_MD_T = "Temperature [K]"
+KEY_MD_ETA = "Viscosity [Pa s]"
 
 KEY_STG_R = "Radii[m] (min, max, step)"
 KEY_STG_NSPECIES = "Number of species to fit"

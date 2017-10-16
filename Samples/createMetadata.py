@@ -53,6 +53,10 @@ device = "Kadi100x50"
 # For scans, only use 'u' up or 'd' down
 flow_direction = ['u', 'd', 'u', 'd']  # 'u', 'd', 't', 'l'
 
+# Temperature
+temperature = 295 #K
+viscosity = 1e-3 #Pa s
+
 # =============================================================================
 # Image infos
 # =============================================================================
@@ -113,4 +117,5 @@ for fn in glob(image_filename):
                    optics_background_filename, optics_background_exposure,
                    Wz, Wy, flowrate, readingpos, pixelsize,
                    date, analyte, buffer, device, wallwidth,
-                   nchannels, border, data_type, flow_direction, prof_z)
+                   nchannels, border, data_type, flow_direction, prof_z, 
+                   temperature, viscosity)

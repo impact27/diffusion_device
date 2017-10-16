@@ -29,8 +29,8 @@ import numpy as np
 
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
                 muEoD=0, *, fullGrid=False, zpos=None,
-                eta=1e-3, kT=1.38e-23 * 295, Zmirror=True,
-                stepMuE=False, dxfactor=1, yboundary='Neumann'):
+                eta=1e-3, Boltzmann_constant=1.38e-23, temperature=295,
+                Zmirror=True, stepMuE=False, dxfactor=1, yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -75,6 +75,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     """
+    kT = Boltzmann_constant*temperature
     Radii = np.array(Radii)
     if stepMuE:
         if muEoD == 0:

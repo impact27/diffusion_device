@@ -54,7 +54,8 @@ def createMetadata(metadata_filename,
                    pixelsize=None, date=None, analyte=None,
                    buffer=None, device=None,
                    wallwidth=None, nchannels=None, border=None,
-                   datatype=None, flow_direction=None, prof_z=None):
+                   datatype=None, flow_direction=None, prof_z=None,
+                   temperature=None, viscosity=None):
     """Creates the metadata for a file name
 
     Parameters
@@ -108,6 +109,8 @@ def createMetadata(metadata_filename,
 
     metadata[keys.KEY_MD_FN] = filename
     optional(metadata, keys.KEY_MD_EXP, exposure)
+    optional(metadata, keys.KEY_MD_T, temperature)
+    optional(metadata, keys.KEY_MD_ETA, viscosity)
 
     optional(metadata, keys.KEY_MD_BGFN, background_filename)
     optional(metadata, keys.KEY_MD_BGEXP, background_exposure)
@@ -352,11 +355,14 @@ def loadMetadata(metadatafn):
     required(metadata, keys.KEY_MD_RPOS, metadatafn)
     required(metadata, keys.KEY_MD_PIXSIZE, metadatafn)
 #    required(metadata, keys.KEY_MD_DATE, metadatafn)
-#    required(metadata, keys.KEY_MD_ANALYTE, metadatafn)
+    required(metadata, keys.KEY_MD_ANALYTE, metadatafn)
     required(metadata, keys.KEY_MD_TYPE, metadatafn)
     required(metadata, keys.KEY_MD_FLOWDIR, metadatafn)
 
     default(metadata, keys.KEY_MD_BORDER, [None, None, None, None])
+    default(metadata, keys.KEY_MD_T, 295)
+    default(metadata, keys.KEY_MD_ETA, 1e-3)
+    
 
     for key in [keys.KEY_MD_FN, keys.KEY_MD_BGFN, keys.KEY_MD_OPBGFN]:
         default(metadata, key, None)
