@@ -12,8 +12,8 @@ from glob import glob
 outpath = 'output'
 
 # json files location (use glob!)
-settingsfn = 'SampleData/fitSettings.json'
-metadatafn = 'SampleData/UVim300ulph_Metadata.json'
+settingsfn = 'SampleData/settings.json'
+metadatafn = 'SampleData/UVim300ulph_metadata.json'
 
 
 settings = glob(settingsfn)

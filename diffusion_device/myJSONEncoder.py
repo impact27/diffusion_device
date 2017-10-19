@@ -9,6 +9,24 @@ from json import encoder
 import numpy as np
 # Ugly hack to get ENG format
 
+def floatstr(o, _inf=encoder.INFINITY,
+                     _neginf=-encoder.INFINITY):
+            if o != o:
+                text = 'NaN'
+            elif o == _inf:
+                text = 'Infinity'
+            elif o == _neginf:
+                text = '-Infinity'
+            elif o == 0:
+                text = '0.0'
+            else:
+                exp = int(np.floor(np.log10(np.abs(o)) / 3) * 3)
+                if exp != 0:
+                    text = "{:g}e{:d}".format(o / (10**exp), exp)
+                else:
+                    text = "{:g}".format(o)
+
+            return text
 
 class myJSONEncoder(encoder.JSONEncoder):
 
@@ -34,25 +52,14 @@ class myJSONEncoder(encoder.JSONEncoder):
         else:
             _encoder = encoder.encode_basestring
 
-        def floatstr(o, allow_nan=self.allow_nan,
+        def _floatstr(o, allow_nan=self.allow_nan,
                      _repr=float.__repr__, _inf=encoder.INFINITY,
                      _neginf=-encoder.INFINITY):
             # Check for specials.  Note that this type of test is processor
             # and/or platform-specific, so do tests which don't depend on the
             # internals.
 
-            if o != o:
-                text = 'NaN'
-            elif o == _inf:
-                text = 'Infinity'
-            elif o == _neginf:
-                text = '-Infinity'
-            elif o == 0:
-                text = '0.0'
-            else:
-                exp = int(np.floor(np.log10(np.abs(o)) / 3) * 3)
-                text = "{:g}e{:d}".format(o / (10**exp), exp)
-
+            text = floatstr(o, _inf, _neginf)
             if not allow_nan:
                 raise ValueError(
                     "Out of range float values are not JSON compliant: " +
@@ -68,7 +75,7 @@ class myJSONEncoder(encoder.JSONEncoder):
                 self.skipkeys, self.allow_nan)
         else:
             _iterencode = encoder._make_iterencode(
-                markers, self.default, _encoder, self.indent, floatstr,
+                markers, self.default, _encoder, self.indent, _floatstr,
                 self.key_separator, self.item_separator, self.sort_keys,
                 self.skipkeys, _one_shot)
         return _iterencode(o, 0)

@@ -28,7 +28,7 @@ import tifffile
 
 from .. import multi_channels_image as single
 
-from ... import keys, display_data
+from ... import display_data
 from .. import images_files
 
 
@@ -47,7 +47,7 @@ def load_data(metadata):
     overexposed: bool
         An indicator to see if the data is overexposed
     """
-    filename = metadata[keys.KEY_MD_FN]
+    filename = metadata["KEY_MD_FN"]
     data = images_files.load_images(filename)
     overexposed = [is_overexposed(d) for d in data]
     return data, overexposed
@@ -74,7 +74,7 @@ def process_data(data, metadata, settings):
     centers: array
         The positions of the centers
     """
-    framesslices = slice(*settings[keys.KEY_STG_STACK_FRAMESSLICES])
+    framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
     data = np.asarray(data, dtype=float)[framesslices]
     centers = np.zeros((len(data), 4))
     pixel_size = np.zeros((len(data)))
@@ -83,14 +83,14 @@ def process_data(data, metadata, settings):
     for i in range(len(data)):
         try:
             single_metadata = metadata.copy()
-            if isinstance(metadata[keys.KEY_MD_EXP], list):
-                single_metadata[keys.KEY_MD_EXP] = (
-                    np.asarray(metadata[keys.KEY_MD_EXP])[framesslices][i])
+            if isinstance(metadata["KEY_MD_EXP"], list):
+                single_metadata["KEY_MD_EXP"] = (
+                    np.asarray(metadata["KEY_MD_EXP"])[framesslices][i])
             d, pixel_size[i], centers[i] = single.process_data(
                 data[i], single_metadata, settings)
             dataout.append(d)
         except BaseException as error:
-            if settings[keys.KEY_STG_IGNORE_ERROR]:
+            if settings["KEY_STG_IGNORE_ERROR"]:
                 print(error.args[0])
                 pixel_size[i] = np.nan
                 centers[i, :] = np.nan
@@ -99,7 +99,7 @@ def process_data(data, metadata, settings):
                 raise
 
     # Fix metadata
-    metadata[keys.KEY_MD_FLOWDIR] = single_metadata[keys.KEY_MD_FLOWDIR]
+    metadata["KEY_MD_FLOWDIR"] = single_metadata["KEY_MD_FLOWDIR"]
     dataout = np.asarray(dataout)
     if skip != []:
         for idx in skip:
@@ -135,11 +135,11 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
         try:
             prof = single.get_profiles(metadata, settings, im, pxs, cnt, )
         except BaseException as error:
-            if settings[keys.KEY_STG_IGNORE_ERROR]:
+            if settings["KEY_STG_IGNORE_ERROR"]:
                 print(error.args[0])
                 prof = None
             else:
-                print(settings[keys.KEY_STG_IGNORE_ERROR])
+                print(settings["KEY_STG_IGNORE_ERROR"])
                 raise
         profiles.append(prof)
     return profiles
@@ -195,8 +195,8 @@ def savedata(data, outpath):
 def plot_and_save(radius, profiles, fits, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
-    plotpos = settings[keys.KEY_STG_STACK_POSPLOT]
-    framesslices = slice(*settings[keys.KEY_STG_STACK_FRAMESSLICES])
+    plotpos = settings["KEY_STG_STACK_POSPLOT"]
+    framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
 
     state = state[framesslices]
     display_data.plot_and_save_stack(

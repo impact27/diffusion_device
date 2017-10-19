@@ -29,7 +29,7 @@ import tifffile
 
 from . import bright, uv, stack
 from ... import profile as dp
-from ... import keys, display_data
+from ... import display_data
 from .. import images_files
 
 
@@ -48,7 +48,7 @@ def load_data(metadata):
     overexposed: bool
         An indicator to see if the data is overexposed
     """
-    filename = metadata[keys.KEY_MD_FN]
+    filename = metadata["KEY_MD_FN"]
     data = images_files.load_image(filename)
     overexposed = is_overexposed(data)
     return data, overexposed
@@ -104,15 +104,15 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     """
     if np.isnan(pixel_size):
         return None
-    channel_width = metadata[keys.KEY_MD_WY]
-    imslice = settings[keys.KEY_STG_SLICE]
-    ignore = settings[keys.KEY_STG_IGNORE]
-    flowdir = metadata[keys.KEY_MD_FLOWDIR]
+    channel_width = metadata["KEY_MD_WY"]
+    imslice = settings["KEY_STG_SLICE"]
+    ignore = settings["KEY_STG_IGNORE"]
+    flowdir = metadata["KEY_MD_FLOWDIR"]
     profiles = extract_profiles(
         data, centers, flowdir, channel_width, ignore, pixel_size,
         imslice=imslice)
 
-    norm_profiles = settings[keys.KEY_STG_NORMALISE]
+    norm_profiles = settings["KEY_STG_NORMALISE"]
     if norm_profiles:
         ignore_slice = dp.ignore_slice(ignore, pixel_size)
         profiles = dp.normalise_profiles(profiles, ignore_slice)
@@ -194,10 +194,10 @@ def process_image(image, background, metadata, settings):
     image = np.asarray(image)
 
     # Read relevant values
-    channel_width = metadata[keys.KEY_MD_WY]
-    nchannels = metadata[keys.KEY_MD_NCHANNELS]
-    wall_width = metadata[keys.KEY_MD_WALLWIDTH]
-    flowdir = metadata[keys.KEY_MD_FLOWDIR]
+    channel_width = metadata["KEY_MD_WY"]
+    nchannels = metadata["KEY_MD_NCHANNELS"]
+    wall_width = metadata["KEY_MD_WALLWIDTH"]
+    flowdir = metadata["KEY_MD_FLOWDIR"]
 
     # Check shape
     if not len(np.shape(image)) == 2:
@@ -214,12 +214,12 @@ def process_image(image, background, metadata, settings):
             raise RuntimeError("Incorrect background shape: "
                                + str(np.shape(background)))
 
-    image, background, metadata[keys.KEY_MD_FLOWDIR] = (
+    image, background, metadata["KEY_MD_FLOWDIR"] = (
         rotate(image, background, flowdir))
 
     # get profiles
     if background is None:
-        flatten = settings[keys.KEY_STG_BRIGHT_FLAT]
+        flatten = settings["KEY_STG_BRIGHT_FLAT"]
         # Single image
         image, centers, pixel_size = bright.extract_profiles(
             image, nchannels, channel_width, wall_width, flatten)

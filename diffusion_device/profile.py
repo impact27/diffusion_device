@@ -82,25 +82,28 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     """
 
     # load variables
-    readingpos = np.asarray(metadata[keys.KEY_MD_RPOS])
-    flow_rate = metadata[keys.KEY_MD_Q]
-    channel_height = metadata[keys.KEY_MD_WZ]
-    channel_width = metadata[keys.KEY_MD_WY]
-    temperature = metadata[keys.KEY_MD_T]
-    viscosity = metadata[keys.KEY_MD_ETA]
+    readingpos = np.asarray(metadata["KEY_MD_RPOS"])
+    flow_rate = metadata["KEY_MD_Q"]
+    channel_height = metadata["KEY_MD_WZ"]
+    channel_width = metadata["KEY_MD_WY"]
+    temperature = metadata["KEY_MD_T"]
+    viscosity = metadata["KEY_MD_ETA"]
 
-    fit_position_number = settings[keys.KEY_STG_FITPOS]
-    ignore = settings[keys.KEY_STG_IGNORE]
-    norm_profiles = settings[keys.KEY_STG_NORMALISE]
-    initmode = settings[keys.KEY_STG_POS0FILTER]
-    if settings[keys.KEY_STG_RLOG]:
-        rmin, rmax, Nr = settings[keys.KEY_STG_R]
+    fit_position_number = settings["KEY_STG_FITPOS"]
+    ignore = settings["KEY_STG_IGNORE"]
+    norm_profiles = settings["KEY_STG_NORMALISE"]
+    initmode = settings["KEY_STG_POS0FILTER"]
+    if settings["KEY_STG_RLOG"]:
+        rmin, rmax, Nr = settings["KEY_STG_R"]
         test_radii = np.exp(np.linspace(np.log(rmin), np.log(rmax), Nr))
     else:
-        test_radii = np.arange(*settings[keys.KEY_STG_R])
-    Zgrid = settings[keys.KEY_STG_ZGRID]
-    nspecies = settings[keys.KEY_STG_NSPECIES]
-    imslice = settings[keys.KEY_STG_SLICE]
+        if settings["KEY_STG_R"] is not None:
+            test_radii = np.linspace(*settings["KEY_STG_R"])
+        else:
+            test_radii = np.arange(*settings["KEY_STG_R_STEP"])
+    Zgrid = settings["KEY_STG_ZGRID"]
+    nspecies = settings["KEY_STG_NSPECIES"]
+    imslice = settings["KEY_STG_SLICE"]
     
 
     pslice = ignore_slice(ignore, pixel_size)

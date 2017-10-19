@@ -25,7 +25,7 @@ import numpy as np
 import warnings
 
 from .. import profile as dp
-from .. import keys, display_data
+from .. import display_data
 
 
 def load_data(metadata):
@@ -43,7 +43,7 @@ def load_data(metadata):
     overexposed: bool
         An indicator to see if the data is overexposed
     """
-    filename = metadata[keys.KEY_MD_FN]
+    filename = metadata["KEY_MD_FN"]
     data = np.asarray([np.loadtxt(fn, skiprows=22) for fn in filename])
     state = False
     return data, state
@@ -68,8 +68,8 @@ def process_data(data, metadata, settings):
     pixel_size: float
         The pixel size
     """
-    pixel_size = metadata[keys.KEY_MD_PIXSIZE]
-    flow_dir = metadata[keys.KEY_MD_FLOWDIR]
+    pixel_size = metadata["KEY_MD_PIXSIZE"]
+    flow_dir = metadata["KEY_MD_FLOWDIR"]
 
     # put scans in the correct order
     if flow_dir is not None:
@@ -102,7 +102,7 @@ def get_profiles(metadata, settings, data, pixel_size):
     profiles: array
         The profiles
     """
-    channel_width = metadata[keys.KEY_MD_WY]
+    channel_width = metadata["KEY_MD_WY"]
     profiles = scans_to_profiles(data, int(channel_width / pixel_size))
     return profiles
 
@@ -132,7 +132,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     fits: 2d array
         The fits
     """
-    zpos = metadata[keys.KEY_MD_SCANZ]
+    zpos = metadata["KEY_MD_SCANZ"]
     fits = np.zeros_like(profiles)
     radius = dp.size_profiles(profiles, pixel_size, metadata, settings,
                               fits=fits, zpos=zpos)

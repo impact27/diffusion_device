@@ -24,9 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from tifffile import imread
 
-from .. import keys
-
-
 def process_background(data, metadata):
     """Remove optical background from data and background, and clip images.
 
@@ -108,7 +105,7 @@ def get_background(metadata):
 
     """
     backgrounds = None
-    background_fn = metadata[keys.KEY_MD_BGFN]
+    background_fn = metadata["KEY_MD_BGFN"]
     if background_fn is not None:
         backgrounds = load_images(background_fn)
     return backgrounds
@@ -135,11 +132,11 @@ def remove_optics_background(images, backgrounds, metadata):
 
     """
     # Remove background from optics
-    optics_bgfn = metadata[keys.KEY_MD_OPBGFN]
+    optics_bgfn = metadata["KEY_MD_OPBGFN"]
     if optics_bgfn is not None:
-        exposure = metadata[keys.KEY_MD_EXP]
-        background_exposure = metadata[keys.KEY_MD_BGEXP]
-        optics_background_exposure = metadata[keys.KEY_MD_OPBGEXP]
+        exposure = metadata["KEY_MD_EXP"]
+        background_exposure = metadata["KEY_MD_BGEXP"]
+        optics_background_exposure = metadata["KEY_MD_OPBGEXP"]
 
         optics = load_images(optics_bgfn) / optics_background_exposure
         images = images / exposure - optics + np.median(optics)
@@ -170,7 +167,7 @@ def clip_border(images, backgrounds, metadata):
         backgrounds if there is any
 
     """
-    imborder = metadata[keys.KEY_MD_BORDER]
+    imborder = metadata["KEY_MD_BORDER"]
     if imborder is not None:
         # Remove Border
         images = images[..., imborder[0]:imborder[1],

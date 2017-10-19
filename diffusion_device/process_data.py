@@ -23,7 +23,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from . import keys, input_files, display_data
+from . import keys, display_data
 from .data_type import scans, single_channel_image, multi_channels_image
 
 
@@ -64,11 +64,11 @@ def full_fit(settingsfn, metadatafn, outpath=None):
         outpath = display_data.prepare_output(outpath, settingsfn, metadatafn)
 
     # Get infos
-    metadata = input_files.loadMetadata(metadatafn)
-    settings = input_files.loadSettings(settingsfn)
+    metadata = keys.metadata.load_json(metadatafn)
+    settings = keys.settings.load_json(settingsfn)
 
     # Get type
-    data_type = metadata[keys.KEY_MD_TYPE]
+    data_type = metadata["KEY_MD_TYPE"]
 
     mod = get_module(data_type)
 

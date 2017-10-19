@@ -30,7 +30,7 @@ from scipy import interpolate
 from registrator.image import is_overexposed
 import tifffile
 
-from .. import keys, display_data
+from .. import display_data
 from . import images_files
 from .. import profile as dp
 
@@ -52,7 +52,7 @@ def load_data(metadata):
     overexposed: bool
         An indicator to see if the data is overexposed
     """
-    filename = metadata[keys.KEY_MD_FN]
+    filename = metadata["KEY_MD_FN"]
     data = images_files.load_images(filename)
     overexposed = is_overexposed(data)
     return data, overexposed
@@ -101,10 +101,10 @@ def get_profiles(metadata, settings, data, pixel_size):
     profiles: array
         The profiles
     """
-    channel_width = metadata[keys.KEY_MD_WY]
+    channel_width = metadata["KEY_MD_WY"]
     Npix = int(channel_width // pixel_size) + 1
     profiles = np.zeros((len(data), Npix))
-    flowdir = metadata[keys.KEY_MD_FLOWDIR]
+    flowdir = metadata["KEY_MD_FLOWDIR"]
     for i, (im, fd) in enumerate(zip(data, flowdir)):
         if fd == 'u':
             pass
@@ -190,8 +190,8 @@ def process_images(images, backgrounds, metadata, settings, rebin=2):
 
     # Check images is numpy array
     images = np.asarray(images)
-    pixel_size = metadata[keys.KEY_MD_PIXSIZE]
-    Wy = metadata[keys.KEY_MD_WY]
+    pixel_size = metadata["KEY_MD_PIXSIZE"]
+    Wy = metadata["KEY_MD_WY"]
 
     if backgrounds is not None:
         # Check bgs is numpy array

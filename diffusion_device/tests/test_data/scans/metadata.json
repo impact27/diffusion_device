@@ -41,5 +41,6 @@
         "d", "d",  "u",  "u", "d", "d",  "u",  "u", "d", "d",  "u",  "u", "d"
     ],
     "Type of data": "scans",
-    "Z position of scans [m]": 12.5e-6
+    "Z position of scans [m]": 12.5e-6,
+    "Image exposition time [s]": 1
 }
