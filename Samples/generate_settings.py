@@ -50,4 +50,7 @@ json_infos['Frames range'] = [
 # Ignore Error
 json_infos['Ignore Error'] = False
 
+# Apply a Savitzky-Golay filter. None = no filter
+json_infos['Savitzky-Golay filter (window, order)'] = None
+
 settings.generate_json(datapath, json_infos)

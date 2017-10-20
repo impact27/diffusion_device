@@ -156,3 +156,7 @@ settings.add_info("KEY_STG_STACK_FRAMESSLICES", "Frames range", int,
 settings.add_info("KEY_STG_IGNORE_ERROR", "Ignore Error", bool,
              required=False,
              default=False)
+settings.add_info("KEY_STG_SGFILTER", "Savitzky-Golay filter (window, order)", int,
+             required=False,
+             default=None,
+             explanation="Apply a Savitzky-Golay filter. None = no filter")

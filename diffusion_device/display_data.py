@@ -32,7 +32,20 @@ import re
 
 from . import profile as dp
 
+def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
+    figure()
+    X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
+    plot(X, dp.get_fax(profiles), label="data")
+    plot(X, dp.get_fax(filts), label="filtered")
+
+    plt.xlabel('Position [$\mu$m]')
+    plt.ylabel('Normalised amplitude')
+    plt.title("Savitzky-Golay: w{}, o{}".format(profiles_filter[0], profiles_filter[1]))
+    plt.legend()
+    if outpath is not None:
+        plt.savefig(outpath + '_filt_fig.pdf')
+    
 def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
     """Plot the sizing data
 
@@ -81,11 +94,12 @@ def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
 
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
-    plot(X, dp.get_fax(profiles))
-    plot(X, dp.get_fax(fits))
+    plot(X, dp.get_fax(profiles), label = "Profiles")
+    plot(X, dp.get_fax(fits), label = "Fits")
 
     plt.xlabel('Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
+    plt.legend()
 
     #==========================================================================
     # Save
@@ -240,14 +254,16 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
         for pos in plotpos[plotpos < len(profiles)]:
             if profiles[pos] is None:
                 continue
+            
             profs = dp.get_fax(profiles[pos])
             X = np.arange(len(profs)) * pixel_size[pos] * 1e6
+            
             figure()
-            plot(X, profs)
+            plot(X, profs, label = "Profiles")
 
             fits = dp.get_fax(fits[pos])
 
-            plot(X, fits)
+            plot(X, fits, label = "Fits")
             if len(np.shape(radius)) == 3:
                 plt.title('LSE = {:.2e}, pixel = {:.3f} um'.format(
                     LSE[pos], pixel_size[pos] * 1e6))
@@ -257,6 +273,9 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
                         radius[pos] * 1e9, LSE[pos], pixel_size[pos] * 1e6))
             plt.xlabel('Position [$\mu$m]')
             plt.ylabel('Normalised amplitude')
+            plt.legend()
+            if outpath is not None:
+                    plt.savefig(outpath + '_{}_fig.pdf'.format(pos))
 
 
 def prepare_output(outpath, settingsfn, metadatafn):
