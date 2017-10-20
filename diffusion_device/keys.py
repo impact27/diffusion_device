@@ -20,7 +20,7 @@ metadata.add_info("KEY_MD_OPBGFN",  "Optics background file name", "path",
              required=False,
              explanation="image file to remove the background coming from the optics (Not chip related)")
 metadata.add_info("KEY_MD_EXP",  "Image exposition time [s]", float,
-             required=True,
+             required=False,
              example=1)
 metadata.add_info("KEY_MD_BGEXP",  "Background image exposition time [s]", float,
              required=False,

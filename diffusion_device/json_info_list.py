@@ -7,7 +7,6 @@ Created on Thu Oct  5 16:50:52 2017
 import json
 import re
 import os
-from natsort import natsorted
 from glob import glob
 import numpy as np
 from diffusion_device.myJSONEncoder import myJSONEncoder, floatstr
@@ -191,7 +190,7 @@ class ListGenerator():
             else:
                 pathprefix = datapath
             
-            value = natsorted(glob(os.path.join(pathprefix, value)))
+            value = sorted(glob(os.path.join(pathprefix, value)))
             value = [os.path.relpath(path, pathprefix) for path in value]
             if len(value) == 0:
                 value = None
@@ -207,7 +206,10 @@ class ListGenerator():
     def _get_name(self, filename):
         if not self.data_related:
             return filename
-        return os.path.splitext(filename)[0] + '_' + self.name + '.json'
+        if os.path.isfile(filename):
+            return os.path.splitext(filename)[0] + '_' + self.name + '.json'
+        else:
+            return os.path.splitext(filename)[0] + self.name + '.json'
     
     def _required(self, file, info, filename):
         if info.description not in file:

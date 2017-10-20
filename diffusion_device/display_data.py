@@ -28,6 +28,7 @@ from matplotlib.pyplot import plot, figure
 import os
 from matplotlib.image import NonUniformImage
 import shutil
+import re
 
 from . import profile as dp
 
@@ -278,9 +279,13 @@ def prepare_output(outpath, settingsfn, metadatafn):
     """
     base_name = None
     if outpath is not None:
+        basename = os.path.splitext(os.path.basename(metadatafn))[0]
+        if re.match(".?metadata", basename, re.IGNORECASE):
+            basename = os.path.basename(os.path.dirname(metadatafn))
         newoutpath = os.path.join(
             outpath,
-            os.path.splitext(os.path.basename(metadatafn))[0])
+            basename)
+        
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
         base_name = os.path.join(
