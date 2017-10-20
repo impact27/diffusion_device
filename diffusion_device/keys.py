@@ -112,6 +112,7 @@ settings.add_info("KEY_STG_R", "Radii[m] (min, max, number)", float,
              ])
 settings.add_info("KEY_STG_R_STEP", "Radii[m] (min, max, step)", float,
              required=False,
+             legacy=True,
              explanation="Alternative way of specifying range")
 settings.add_info("KEY_STG_RLOG", "Radii in log", bool,
              required=False,

@@ -11,9 +11,6 @@ json_infos['Radii[m] (min, max, number)'] = [
     10e-9,
     20]
 
-# Alternative way of specifying range
-json_infos['Radii[m] (min, max, step)'] = None
-
 # Radii in log
 json_infos['Radii in log'] = False
 

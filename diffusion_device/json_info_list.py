@@ -67,7 +67,7 @@ class ListGenerator():
         
     def add_info(self, key, description, dtype, 
             required=True, default=None, example=None,
-            explanation=None, regexp=None):
+            explanation=None, regexp=None, legacy=False):
         info = Object()
         info.key = key
         info.description = description
@@ -77,6 +77,7 @@ class ListGenerator():
         info.example = example
         info.explanation = explanation
         info.regexp = regexp
+        info.legacy = legacy
         self._list[description] = info
       
     def generate_script(self, scriptname):
@@ -88,12 +89,13 @@ class ListGenerator():
             f.write("json_infos = {}")
             for key in self._list:
                 info = self._list[key]
-                f.write("\n\n# ")
-                f.write(self._get_comment(info))
-                f.write("\n")
-                example = self._get_repr(self._get_example(info))
-                f.write("json_infos[{}] = {}".format(
-                        repr(info.description), example))
+                if not info.legacy:
+                    f.write("\n\n# ")
+                    f.write(self._get_comment(info))
+                    f.write("\n")
+                    example = self._get_repr(self._get_example(info))
+                    f.write("json_infos[{}] = {}".format(
+                            repr(info.description), example))
             f.write("\n\n")
             f.write("{}.generate_json(datapath, json_infos)".format(self.name))
             
