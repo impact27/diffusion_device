@@ -22,4 +22,4 @@ metadatas = glob(metadatafn)
 for sfn in settings:
     for mfn in metadatas:
         # Call function
-        process_data.full_fit(settingsfn, metadatafn, outpath)
+        process_data.full_fit(sfn, mfn, outpath)
