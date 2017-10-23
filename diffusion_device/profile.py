@@ -26,9 +26,10 @@ from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import warnings
 from scipy.optimize import basinhopping, minimize
 from itertools import combinations
+from scipy.signal import savgol_filter
 
 from .basis_generate import getprofiles
-from . import keys
+from . import display_data
 
 
 def normalise_profiles(profiles, pslice):
@@ -715,3 +716,28 @@ def get_fax(profiles):
     """
     return np.ravel(np.concatenate(
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
+
+def process_profiles(profiles, pixel_size, settings, outpath):
+    """Process profiles according to settings
+
+    Parameters
+    ----------
+    profiles: 2 dim floats array
+        The profiles
+    settings: dic
+        The settings
+
+    Returns
+    -------
+    profiles: 2 dim floats array
+        The profiles
+    """
+    profiles_filter = settings["KEY_STG_SGFILTER"]
+    if profiles_filter is not None:
+        filts = savgol_filter(
+                profiles, profiles_filter[0], profiles_filter[1], axis=-1)
+        display_data.save_plot_filt(profiles, filts, pixel_size, 
+                                    profiles_filter, outpath)
+        profiles = filts
+        
+    return profiles

@@ -23,7 +23,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from scipy.signal import savgol_filter
+from .profile import process_profiles
 from . import keys, display_data
 from .data_type import scans, single_channel_image, multi_channels_image
 
@@ -89,31 +89,6 @@ def full_fit(settingsfn, metadatafn, outpath=None):
             radius, profiles, fits, pixel_size, state, outpath, settings)
 
     return radius, profiles, fits, pixel_size, data, state
-
-def process_profiles(profiles, pixel_size, settings, outpath):
-    """Process profiles according to settings
-
-    Parameters
-    ----------
-    profiles: 2 dim floats array
-        The profiles
-    settings: dic
-        The settings
-
-    Returns
-    -------
-    profiles: 2 dim floats array
-        The profiles
-    """
-    profiles_filter = settings["KEY_STG_SGFILTER"]
-    if profiles_filter is not None:
-        filts = savgol_filter(
-                profiles, profiles_filter[0], profiles_filter[1], axis=-1)
-        display_data.save_plot_filt(profiles, filts, pixel_size, 
-                                    profiles_filter, outpath)
-        profiles = filts
-        
-    return profiles
     
 def get_module(data_type):
     """Returns the correct module corresponding to data_type
