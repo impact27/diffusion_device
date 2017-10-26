@@ -145,7 +145,7 @@ settings.add_info("KEY_STG_SLICE", "Slice [m] (center(±), width(+))", float,
              explanation="Option to only analyse a slice of the image")
 settings.add_info("KEY_STG_BRIGHT_FLAT", "Flatten bright field", bool,
              required=False,
-             default=False,
+             default=True,
              explanation="For bright Images, should the image be flattened?")
 settings.add_info("KEY_STG_STACK_POSPLOT", "Stack images to plot", int,
              required=False,

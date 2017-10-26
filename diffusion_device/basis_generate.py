@@ -25,8 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 
 #@profile
-
-
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
                 muEoD=0, *, fullGrid=False, zpos=None,
                 eta=1e-3, Boltzmann_constant=1.38e-23, temperature=295,
@@ -148,8 +146,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
     binSteps = np.bitwise_and(Nsteps[None, :], pow2) > 0
 
     # Sort for less calculations
-    sortedbs = np.argsort([str(num)
-                           for num in np.asarray(binSteps, dtype=int).T])
+    sortedbs = np.lexsort(binSteps[::-1])    
 
     # for each unit
     for i, bsUnit in enumerate(binSteps):
@@ -283,8 +280,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
 
     return rets
 
-
-def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
+#@profile
+def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
     """
     Compute the poiseuille flow profile
 
@@ -314,47 +311,48 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=False):
     """
 
     # Poiseuille flow
-    V = np.zeros((Zgrid, Ygrid), dtype='float64')
-    for j in range(Ygrid):
-        for i in range(Zgrid):
-            nz = np.arange(1, 100, 2)[:, None]
-            ny = np.arange(1, 100, 2)[None, :]
-            V[i, j] = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2)) *
-                             (np.sin(nz * np.pi * (i + .5) / Zgrid) *
-                              np.sin(ny * np.pi * (j + .5) / Ygrid)))
+    if yinterface:
+        j = np.arange(1, Ygrid)[None, :, None, None]
+    else:
+        j = np.arange(Ygrid)[None, :, None, None] + .5
+        
+    if zinterface:
+        i = np.arange(1, Zgrid)[:, None, None, None]
+    else:
+        i = np.arange(Zgrid)[:, None, None, None] + .5
+    
+    nz = np.arange(1, 100, 2)[None, None, :, None]
+    ny = np.arange(1, 100, 2)[None, None, None, :]
+    V = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2)) *
+                     (np.sin(nz * np.pi * i / Zgrid) *
+                      np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
     Q /= 3600 * 1e9  # transorm in m^3/s
     # Normalise
     normfactor = Q / (np.mean(V) * Wy * Wz)
     V *= normfactor
 
-    if not get_interface:
-        return V
-    # Y interface
-    Viy = np.zeros((Zgrid, Ygrid - 1), dtype='float64')
-    for j in range(1, Ygrid):
-        for i in range(Zgrid):
-            nz = np.arange(1, 100, 2)[:, None]
-            ny = np.arange(1, 100, 2)[None, :]
-            Viy[i, j - 1] = np.sum(
-                1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
-                * (np.sin(nz * np.pi * (i + .5) / Zgrid)
-                   * np.sin(ny * np.pi * (j) / Ygrid)))
-    Viy *= normfactor
-    # Z interface
-    Viz = np.zeros((Zgrid - 1, Ygrid), dtype='float64')
-    for j in range(Ygrid):
-        for i in range(1, Zgrid):
-            nz = np.arange(1, 100, 2)[:, None]
-            ny = np.arange(1, 100, 2)[None, :]
-            Viz[i - 1, j] = np.sum(
-                1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
-                * (np.sin(nz * np.pi * (i) / Zgrid)
-                   * np.sin(ny * np.pi * (j + .5) / Ygrid)))
+    return V
 
-    Viz *= normfactor
-    return V, Viy, Viz
+#    # Y interface
+#    i = np.arange(Zgrid)[:, None, None, None] + .5
+#    
+#    Viy = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
+#                    * (np.sin(nz * np.pi * i / Zgrid)
+#                    * np.sin(ny * np.pi * (j) / Ygrid)), axis=(2, 3))
+#            
+#    Viy *= normfactor
+#    
+#    # Z interface
+#    
+#    j = np.arange(Ygrid)[None, :, None, None] + .5
+#    Viz = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
+#                    * (np.sin(nz * np.pi * i / Zgrid)
+#                    * np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
+#
+#    Viz *= normfactor
+#    return V, Viy, Viz
 
-
+#@profile
 def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
                method='Trapezoid', dxfactor=1, Zmirror=False,
                yboundary='Neumann'):
@@ -398,7 +396,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     """
 
     # Get Poiseille flow
-    V, Viy, __ = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, get_interface=True)
+    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)
     if outV is not None:
         outV[:] = V
 
@@ -412,7 +410,6 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         Zodd = Zgrid % 2 == 1
         halfZgrid = (Zgrid + 1) // 2
         V = V[:halfZgrid, :]
-        Viy = Viy[:halfZgrid, :]
         Zgrid = halfZgrid
 
     # flatten V
@@ -438,6 +435,9 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     if muEoD == 0:
         Cy = 0
     else:
+        Viy = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=True)
+        if Zmirror:
+            Viy = Viy[:halfZgrid, :]
         # Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
         Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary=yboundary)
 

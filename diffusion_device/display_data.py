@@ -153,6 +153,7 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
         Positions to plot if this is a stack
 
     """
+    overexposed = np.asarray(overexposed)
     # Infer variables
 
     intensity = np.asarray([np.nanmax(p) for p in profiles])
