@@ -5,7 +5,7 @@ from diffusion_device.keys import metadata
 datapath = 'SampleData/UVim300ulph.tif'
 json_infos = {}
 
-# Image file name
+# Location of the data file(s). If None, will take the last path part of datapath.
 json_infos['Image file name'] = None
 
 # Background file, relative to the image file. None means no background
@@ -36,7 +36,7 @@ json_infos['Wall Width [m]'] = 100e-6
 json_infos['Number of channels in a file'] = 4
 
 # Flow [ulph]. If None, is taken from the image_filename. !!!Check!!!
-json_infos['Q[ulph]'] = None
+json_infos['Q[ulph]'] = 300
 
 # Reading position at the middle of the image [m]
 json_infos['Read Positions [m]'] = [

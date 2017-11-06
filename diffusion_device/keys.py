@@ -11,7 +11,8 @@ metadata = ListGenerator('metadata', "SampleData/UVim300ulph.tif", True, "Image 
 
 metadata.add_info("KEY_MD_FN",  "Image file name", "path",
              required=True,
-             example=None)
+             example=None,
+             explanation="Location of the data file(s). If None, will take the last path part of datapath.")
 metadata.add_info("KEY_MD_BGFN",  "Background file name", "path",
              required=False,
              explanation="Background file, relative to the image file. None means no background",
