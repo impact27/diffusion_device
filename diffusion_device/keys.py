@@ -7,11 +7,11 @@ Created on Mon Oct 16 15:37:30 2017
 
 from .json_info_list import ListGenerator
 
-metadata = ListGenerator('metadata', True, "SampleData/UVim300ulph.tif")
+metadata = ListGenerator('metadata', "SampleData/UVim300ulph.tif", True, "Image file name")
 
 metadata.add_info("KEY_MD_FN",  "Image file name", "path",
              required=True,
-             example="UVim300ulph.tif")
+             example=None)
 metadata.add_info("KEY_MD_BGFN",  "Background file name", "path",
              required=False,
              explanation="Background file, relative to the image file. None means no background",
@@ -102,7 +102,7 @@ metadata.add_info("KEY_MD_ETA",  "Viscosity [Pa s]", float,
              required=False,
              default=1e-3)
 
-settings = ListGenerator('settings', False, 'SampleData/settings.json')
+settings = ListGenerator('settings', 'SampleData/settings.json', False)
 settings.add_info("KEY_STG_R", "Radii[m] (min, max, number)", float,
              required=False,
              example=[

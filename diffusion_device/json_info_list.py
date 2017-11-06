@@ -58,12 +58,13 @@ def _listmakeabs(prefix, filename):
 
 class ListGenerator():
     
-    def __init__(self, name, data_related=False, example_path=None):
+    def __init__(self, name, example_path=None, data_related=False, data_field=None):
         super().__init__()
         self._list = {}
         self.name = name
         self.data_related = data_related
         self.example_path = example_path
+        self.data_field = data_field
         
     def add_info(self, key, description, dtype, 
             required=True, default=None, example=None,
@@ -101,7 +102,9 @@ class ListGenerator():
             
     def generate_json(self, datapath ,json_infos):
         if self.data_related:
-            for datafn in glob(datapath):        
+            for datafn in glob(datapath):
+                if json_infos[self.data_field] is None:
+                    json_infos[self.data_field] = os.path.basename(datafn)
                 self._write_json(datafn, json_infos)
         else:
             self._write_json(datapath, json_infos)
@@ -184,7 +187,7 @@ class ListGenerator():
             return None
         
         if info.dtype in [float, int, str, bool]:
-            self._cast_type(value, info.dtype)
+            value = self._cast_type(value, info.dtype)
             
         elif info.dtype == "path":
             if os.path.isfile(datapath) or not self.data_related:

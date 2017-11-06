@@ -13,7 +13,7 @@ outpath = 'output'
 
 # json files location (use glob!)
 settingsfn = 'SampleData/settings.json'
-metadatafn = 'SampleData/UVim300ulph_metadata.json'
+metadatafn = 'SampleData/UVim*ulph_metadata.json'
 
 
 settings = glob(settingsfn)

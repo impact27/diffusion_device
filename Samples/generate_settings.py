@@ -37,7 +37,7 @@ json_infos['Normalise the profiles?'] = True
 json_infos['Slice [m] (center(±), width(+))'] = None
 
 # For bright Images, should the image be flattened?
-json_infos['Flatten bright field'] = False
+json_infos['Flatten bright field'] = True
 
 # For movies, what position should be plotted?
 json_infos['Stack images to plot'] = None
