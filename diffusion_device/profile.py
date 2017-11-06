@@ -102,6 +102,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
             test_radii = np.linspace(*settings["KEY_STG_R"])
         else:
             test_radii = np.arange(*settings["KEY_STG_R_STEP"])
+    if len(test_radii) == 0:
+        raise RuntimeError("The test radius are incorrectly specified.")
     Zgrid = settings["KEY_STG_ZGRID"]
     nspecies = settings["KEY_STG_NSPECIES"]
     imslice = settings["KEY_STG_SLICE"]

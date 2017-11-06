@@ -89,8 +89,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
             Fdir[NSteps] = np.dot(Fdir[NSteps // 2], Fdir[NSteps // 2])
         return Fdir[NSteps]
 
-    def initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor, yboundary):
-        key = (Zgrid, Ygrid, Wz, Wy, Q, muEoD, Zmirror, dxfactor, yboundary)
+    def initF(Zgrid, Ygrid, Wz, Wy, muEoD, Zmirror, dxfactor, yboundary):
+        key = (Zgrid, Ygrid, Wz, Wy, muEoD, Zmirror, dxfactor, yboundary)
         if not hasattr(getprofiles, 'dirFList'):
             getprofiles.dirFList = {}
         # Create dictionnary if doesn't exist
@@ -98,11 +98,11 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
             return getprofiles.dirFList[key]
         else:
             Fdir = {}
-            Fdir[1], dxtd = stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, muEoD=muEoD,
+            Fdir[1], dxtdoQ = stepMatrix(Zgrid, Ygrid, Wz, Wy, muEoD=muEoD,
                                        Zmirror=Zmirror, dxfactor=dxfactor,
                                        yboundary=yboundary)
-            getprofiles.dirFList[key] = (Fdir, dxtd)
-            return Fdir, dxtd
+            getprofiles.dirFList[key] = (Fdir, dxtdoQ)
+            return Fdir, dxtdoQ
 
     # Prepare input and Initialize arrays
     readingpos = np.asarray(readingpos)
@@ -126,17 +126,17 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
     profilespos = np.tile(np.ravel(Cinit), (NRs * Nrp, 1))
 
     # get step matrix
-    Fdir, dxtD = initF(Zgrid, Ygrid, Wz, Wy, Q, muEoD,
+    Fdir, dxtDoQ = initF(Zgrid, Ygrid, Wz, Wy, muEoD,
                        Zmirror, dxfactor, yboundary)
 
     # Get Nsteps for each radius and position
     Nsteps = np.empty((NRs * Nrp, ), dtype=int)
     for i, v in enumerate(Radii):
         if stepMuE:
-            dx = np.abs(dxtD * muEoD / v)
+            dx = np.abs(dxtDoQ * Q * muEoD / v)
         else:
             D = kT / (6 * np.pi * eta * v)
-            dx = dxtD / D
+            dx = dxtDoQ / D * Q
         Nsteps[Nrp * i:Nrp * (i + 1)] = np.asarray(readingpos / dx, dtype=int)
 
     print('{} steps, {}X{}'.format(Nsteps.max(), Zgrid, Ygrid))
@@ -353,7 +353,7 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
 #    return V, Viy, Viz
 
 #@profile
-def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
+def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
                method='Trapezoid', dxfactor=1, Zmirror=False,
                yboundary='Neumann'):
     """
@@ -369,8 +369,6 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
         Channel height [m]
     Wy: float
         Channel width [m]
-    Q:  float
-        The flux in the channel in [ul/h]
     muEoD: float, default 0
         In case of electrophoresis, q*E/k/T = muE/D[m^-1]
     outV: 2d float array
@@ -396,9 +394,9 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     """
 
     # Get Poiseille flow
-    V = poiseuille(Zgrid, Ygrid, Wz, Wy, Q)
+    poiseuille_over_Q = poiseuille(Zgrid, Ygrid, Wz, Wy, 1)
     if outV is not None:
-        outV[:] = V
+        outV[:] = poiseuille_over_Q
 
     # Get steps
     dy = Wy / Ygrid
@@ -409,39 +407,39 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     if Zmirror:
         Zodd = Zgrid % 2 == 1
         halfZgrid = (Zgrid + 1) // 2
-        V = V[:halfZgrid, :]
+        poiseuille_over_Q = poiseuille_over_Q[:halfZgrid, :]
         Zgrid = halfZgrid
 
-    # flatten V
-    V = np.ravel(V)
+    # flatten poiseuille_over_Q
+    poiseuille_over_Q = np.ravel(poiseuille_over_Q)
 
     # get dx
     # The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    dxtD = np.min((dy, dz))**2 * V.min() / 2
+    dxtDoQ = np.min((dy, dz))**2 * poiseuille_over_Q.min() / 2
     if muEoD != 0:
-        dxtD2 = V.min() / np.abs(muEoD)**2
-        dxtD = np.min([dxtD, dxtD2])
-    dxtD *= dxfactor
+        dxtDoQ2 = poiseuille_over_Q.min() / np.abs(muEoD)**2
+        dxtDoQ = np.min([dxtDoQ, dxtDoQ2])
+    dxtDoQ *= dxfactor
 
     # Get the dF matrix
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
-    Cyy = (1 / V)[:, np.newaxis] * ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
+    Cyy = (1 / poiseuille_over_Q)[:, np.newaxis] * ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
     if Zgrid > 1:
         qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
-        Czz = (1 / V)[:, np.newaxis] * ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
+        Czz = (1 / poiseuille_over_Q)[:, np.newaxis] * ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
     else:
         Czz = 0
     if muEoD == 0:
         Cy = 0
     else:
-        Viy = poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=True)
+        ViyoQ = poiseuille(Zgrid, Ygrid, Wz, Wy,1, yinterface=True)
         if Zmirror:
-            Viy = Viy[:halfZgrid, :]
+            ViyoQ = ViyoQ[:halfZgrid, :]
         # Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
-        Cy = getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary=yboundary)
+        Cy = getCy(muEoD, dxtDoQ, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
 
-    dF = dxtD * (Cyy + Czz - muEoD * Cy)
+    dF = dxtDoQ * (Cyy + Czz - muEoD * Cy)
 
     # Get F
     I = np.eye(Ygrid * Zgrid, dtype=float)
@@ -461,7 +459,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, Q, *, muEoD=0, outV=None,
     # The above dx should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
-    return F, dxtD
+    return F, dxtDoQ
 
 
 def getQy(Zgrid, Ygrid, boundary='Neumann'):
