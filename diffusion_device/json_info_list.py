@@ -105,17 +105,21 @@ class ListGenerator():
     def generate_json(self, datapath ,json_infos):
         if self.data_related:
             for datafn in glob(datapath):
+                json_infos_copy = json_infos.copy()
                 if os.path.isfile(datafn):
                     #Check file name corresponds
                     filename = os.path.basename(datafn)
-                    if json_infos[self.data_field] is None:
-                        json_infos[self.data_field] = filename
-                    elif filename != json_infos[self.data_field]:
-                        warnings.warn("Filename Mismatch! {} != {}".format(
-                                json_infos[self.data_field],
-                                filename), RuntimeWarning)
+                    if json_infos_copy[self.data_field] is None:
+                        json_infos_copy[self.data_field] = filename
+                    elif filename != json_infos_copy[self.data_field]:
+                        raise RuntimeError(
+                            "Filename mismatch: ['{}'] is not None and '{}' != "
+                            "'{}'".format(
+                                    self.data_field,
+                                    json_infos_copy[self.data_field],
+                                    filename))
                     
-                self._write_json(datafn, json_infos)
+                self._write_json(datafn, json_infos_copy)
         else:
             self._write_json(datapath, json_infos)
             
