@@ -9,7 +9,9 @@ import re
 import os
 from glob import glob
 import numpy as np
-from diffusion_device.myJSONEncoder import myJSONEncoder, floatstr
+import warnings
+
+from .myJSONEncoder import myJSONEncoder, floatstr
 
 class Object(object):
     pass
@@ -103,8 +105,16 @@ class ListGenerator():
     def generate_json(self, datapath ,json_infos):
         if self.data_related:
             for datafn in glob(datapath):
-                if json_infos[self.data_field] is None:
-                    json_infos[self.data_field] = os.path.basename(datafn)
+                if os.path.isfile(datafn):
+                    #Check file name corresponds
+                    filename = os.path.basename(datafn)
+                    if json_infos[self.data_field] is None:
+                        json_infos[self.data_field] = filename
+                    elif filename != json_infos[self.data_field]:
+                        warnings.warn("Filename Mismatch! {} != {}".format(
+                                json_infos[self.data_field],
+                                filename), RuntimeWarning)
+                    
                 self._write_json(datafn, json_infos)
         else:
             self._write_json(datapath, json_infos)
