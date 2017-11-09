@@ -146,7 +146,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Basis = getprofiles(init, flow_rate, test_radii,
                         Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
-                        zpos=zpos, temperature=temperature, eta=viscosity)
+                        zpos=zpos, temperature=temperature, 
+                        viscosity=viscosity)
 
     if norm_profiles:
         # Normalize basis in the same way as profiles
@@ -163,7 +164,8 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                 init, Q=flow_rate, Radii=[r], Wy=channel_width,
                 Wz=channel_height, Zgrid=Zgrid,
                 readingpos=readingposfit,
-                zpos=zpos, temperature=temperature)[0]
+                zpos=zpos, temperature=temperature, 
+                viscosity=viscosity)[0]
             if initmode != 'synthetic':
                 fits[0] = init
 

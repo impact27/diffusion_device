@@ -27,7 +27,7 @@ import numpy as np
 #@profile
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
                 muEoD=0, *, fullGrid=False, zpos=None,
-                eta=1e-3, Boltzmann_constant=1.38e-23, temperature=295,
+                viscosity=1e-3, Boltzmann_constant=1.38e-23, temperature=295,
                 Zmirror=True, stepMuE=False, dxfactor=1, yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
 
@@ -55,8 +55,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
         Should return full grid?
     zpos: float, default None
         Z position of the profile. None for mean
-    eta: float
-        eta
+    viscosity: float
+        viscosity
     kT: float
         kT
     Zmirror: Bool, default True
@@ -135,7 +135,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
         if stepMuE:
             dx = np.abs(dxtDoQ * Q * muEoD / v)
         else:
-            D = kT / (6 * np.pi * eta * v)
+            D = kT / (6 * np.pi * viscosity * v)
             dx = dxtDoQ / D * Q
         Nsteps[Nrp * i:Nrp * (i + 1)] = np.asarray(readingpos / dx, dtype=int)
 
@@ -194,7 +194,9 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                        Wz, Zgrid=1, *, fullGrid=False, zpos=None,
-                       eta=1e-3, kT=1.38e-23 * 295, Zmirror=True, dxfactor=1,
+                       viscosity=1e-3, boltzmann=1.38e-23,
+                       temperature=295,
+                       Zmirror=True, dxfactor=1,
                        yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
 
@@ -221,8 +223,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
         Should return full grid?=
     zpos: float, default None
         Z position of the profile. None for mean
-    eta: float
-        eta
+    viscosity: float
+        viscosity
     kT: float
         kT
     Zmirror: Bool, default True
@@ -238,7 +240,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
         The list of profiles for the 12 positions at the required radii
 
     """
-
+    kT = boltzmann * temperature
     muEs = np.asarray(muEs)
     absmuEoDs = np.abs(absmuEoDs)
     NqE = len(absmuEoDs)
@@ -257,7 +259,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
 
         for muEoD, ret in zip(muEoDs, rets):
             ret[:] = getprofiles(Cinit, Q, muEs, readingpos, Wy, Wz, Zgrid,
-                                 muEoD, fullGrid=fullGrid, eta=eta, kT=kT,
+                                 muEoD, fullGrid=fullGrid, viscosity=viscosity,
+                                 temperature=temperature,
                                  Zmirror=Zmirror,
                                  zpos=zpos,
                                  stepMuE=True,
