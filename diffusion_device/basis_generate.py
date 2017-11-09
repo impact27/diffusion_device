@@ -25,10 +25,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 
 #@profile
-def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
-                muEoD=0, *, fullGrid=False, zpos=None,
-                viscosity=1e-3, Boltzmann_constant=1.38e-23, temperature=295,
-                Zmirror=True, stepMuE=False, dxfactor=1, yboundary='Neumann'):
+def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature, 
+                Zgrid=1, muEoD=0, *, fullGrid=False, zpos=None,
+                Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
+                dxfactor=1, yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -193,9 +193,9 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, Zgrid=1,
 
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
-                       Wz, Zgrid=1, *, fullGrid=False, zpos=None,
-                       viscosity=1e-3, boltzmann=1.38e-23,
-                       temperature=295,
+                       Wz, viscosity, temperature, Zgrid=1, *,
+                       fullGrid=False, zpos=None,
+                       boltzmann=1.38e-23,
                        Zmirror=True, dxfactor=1,
                        yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
