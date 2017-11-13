@@ -30,6 +30,7 @@ import warnings
 
 from ... import profile as dp
 from . import bright
+from ..images_files import rotate_image
 
 gfilter = scipy.ndimage.filters.gaussian_filter1d
 warnings.filterwarnings('ignore', 'invalid value encountered in greater',
@@ -65,7 +66,7 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
 
     bg = bg / rmbg.polyfit2d(bg)
     if angle is not None:
-        bg = ir.rotate_scale(bg, -angle, 1, borderValue=np.nan)
+        bg = rotate_image(bg, -angle)
 
     prof = gfilter(np.nanmean(bg, 0), 3)
     edges = np.abs(np.diff(prof))
@@ -173,6 +174,8 @@ def bg_angle(im, bg, Nprofs, infoDict=None):
     angle: float
         the image orientation angle
     """
+    if len(np.shape(im)) == 3:
+        im = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
     tmpout = rmbg.remove_curve_background(im, bg, infoDict=infoDict,
                                           bgCoord=True)
     if infoDict is not None:
@@ -186,7 +189,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
 
     Parameters
     ----------
-    im:  2d array
+    im:  2d/3d array
         list of images containning the 4 channels
     bg: 2d array
         Background corresponding to the list
@@ -218,8 +221,8 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
                            angle=angle,
                            edgesOut=edgesOut)
     # rotate and flatten the bg
-    bg = ir.rotate_scale(bg, -angle, 1, borderValue=np.nan)
-    im = ir.rotate_scale(im, -angle, 1, borderValue=np.nan)
+    bg = rotate_image(bg, -angle)
+    im = rotate_image(im, -angle)
 
     maskim = ir.rotate_scale_shift(maskbg, infoDict['diffAngle'],
                                    infoDict['diffScale'],

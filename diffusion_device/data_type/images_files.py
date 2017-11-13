@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 from tifffile import imread
+import registrator.image as ir
+
 
 def process_background(data, metadata):
     """Remove optical background from data and background, and clip images.
@@ -177,3 +179,14 @@ def clip_border(images, backgrounds, metadata):
             backgrounds = backgrounds[..., imborder[0]:imborder[1],
                                       imborder[2]:imborder[3]]
     return images, backgrounds
+
+
+def rotate_image(im, angle):
+    """Rotate the image or stack of images
+    """
+    if len(np.shape(im)) == 3:
+        for image in im:
+            image[:] = ir.rotate_scale(image, angle, 1, borderValue=np.nan)
+    else:
+        im = ir.rotate_scale(im, angle, 1, borderValue=np.nan)
+    return im

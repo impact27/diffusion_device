@@ -81,7 +81,7 @@ def full_fit(settingsfn, metadatafn, outpath=None):
 
     profiles = mod.get_profiles(metadata, settings, data, pixel_size, *infos)
     profiles = process_profiles(profiles, pixel_size, settings, outpath)
-        
+
     radius, fits = mod.size_profiles(profiles, pixel_size, metadata, settings)
 
     if outpath is not None:
@@ -89,7 +89,8 @@ def full_fit(settingsfn, metadatafn, outpath=None):
             radius, profiles, fits, pixel_size, state, outpath, settings)
 
     return radius, profiles, fits, pixel_size, data, state
-    
+
+
 def get_module(data_type):
     """Returns the correct module corresponding to data_type
 

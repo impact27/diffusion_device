@@ -25,7 +25,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 
 #@profile
-def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature, 
+
+
+def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
                 Zgrid=1, muEoD=0, *, fullGrid=False, zpos=None,
                 Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
                 dxfactor=1, yboundary='Neumann'):
@@ -73,7 +75,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     """
-    kT = Boltzmann_constant*temperature
+    kT = Boltzmann_constant * temperature
     Radii = np.array(Radii)
     if stepMuE:
         if muEoD == 0:
@@ -99,8 +101,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
         else:
             Fdir = {}
             Fdir[1], dxtdoQ = stepMatrix(Zgrid, Ygrid, Wz, Wy, muEoD=muEoD,
-                                       Zmirror=Zmirror, dxfactor=dxfactor,
-                                       yboundary=yboundary)
+                                         Zmirror=Zmirror, dxfactor=dxfactor,
+                                         yboundary=yboundary)
             getprofiles.dirFList[key] = (Fdir, dxtdoQ)
             return Fdir, dxtdoQ
 
@@ -127,7 +129,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
 
     # get step matrix
     Fdir, dxtDoQ = initF(Zgrid, Ygrid, Wz, Wy, muEoD,
-                       Zmirror, dxfactor, yboundary)
+                         Zmirror, dxfactor, yboundary)
 
     # Get Nsteps for each radius and position
     Nsteps = np.empty((NRs * Nrp, ), dtype=int)
@@ -146,7 +148,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     binSteps = np.bitwise_and(Nsteps[None, :], pow2) > 0
 
     # Sort for less calculations
-    sortedbs = np.lexsort(binSteps[::-1])    
+    sortedbs = np.lexsort(binSteps[::-1])
 
     # for each unit
     for i, bsUnit in enumerate(binSteps):
@@ -284,6 +286,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
     return rets
 
 #@profile
+
+
 def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
     """
     Compute the poiseuille flow profile
@@ -318,17 +322,17 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
         j = np.arange(1, Ygrid)[None, :, None, None]
     else:
         j = np.arange(Ygrid)[None, :, None, None] + .5
-        
+
     if zinterface:
         i = np.arange(1, Zgrid)[:, None, None, None]
     else:
         i = np.arange(Zgrid)[:, None, None, None] + .5
-    
+
     nz = np.arange(1, 100, 2)[None, None, :, None]
     ny = np.arange(1, 100, 2)[None, None, None, :]
     V = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2)) *
-                     (np.sin(nz * np.pi * i / Zgrid) *
-                      np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
+               (np.sin(nz * np.pi * i / Zgrid) *
+                np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
     Q /= 3600 * 1e9  # transorm in m^3/s
     # Normalise
     normfactor = Q / (np.mean(V) * Wy * Wz)
@@ -338,15 +342,15 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
 
 #    # Y interface
 #    i = np.arange(Zgrid)[:, None, None, None] + .5
-#    
+#
 #    Viy = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
 #                    * (np.sin(nz * np.pi * i / Zgrid)
 #                    * np.sin(ny * np.pi * (j) / Ygrid)), axis=(2, 3))
-#            
+#
 #    Viy *= normfactor
-#    
+#
 #    # Z interface
-#    
+#
 #    j = np.arange(Ygrid)[None, :, None, None] + .5
 #    Viz = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
 #                    * (np.sin(nz * np.pi * i / Zgrid)
@@ -356,6 +360,8 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
 #    return V, Viy, Viz
 
 #@profile
+
+
 def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
                method='Trapezoid', dxfactor=1, Zmirror=False,
                yboundary='Neumann'):
@@ -427,16 +433,18 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
 
     # Get the dF matrix
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
-    Cyy = (1 / poiseuille_over_Q)[:, np.newaxis] * ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
+    Cyy = (1 / poiseuille_over_Q)[:, np.newaxis] * \
+        ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
     if Zgrid > 1:
         qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
-        Czz = (1 / poiseuille_over_Q)[:, np.newaxis] * ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
+        Czz = (1 / poiseuille_over_Q)[:, np.newaxis] * \
+            ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
     else:
         Czz = 0
     if muEoD == 0:
         Cy = 0
     else:
-        ViyoQ = poiseuille(Zgrid, Ygrid, Wz, Wy,1, yinterface=True)
+        ViyoQ = poiseuille(Zgrid, Ygrid, Wz, Wy, 1, yinterface=True)
         if Zmirror:
             ViyoQ = ViyoQ[:halfZgrid, :]
         # Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)

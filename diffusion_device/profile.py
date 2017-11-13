@@ -107,7 +107,6 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Zgrid = settings["KEY_STG_ZGRID"]
     nspecies = settings["KEY_STG_NSPECIES"]
     imslice = settings["KEY_STG_SLICE"]
-    
 
     pslice = ignore_slice(ignore, pixel_size)
 
@@ -146,7 +145,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
     Basis = getprofiles(init, flow_rate, test_radii,
                         Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
-                        zpos=zpos, temperature=temperature, 
+                        zpos=zpos, temperature=temperature,
                         viscosity=viscosity)
 
     if norm_profiles:
@@ -164,7 +163,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                 init, Q=flow_rate, Radii=[r], Wy=channel_width,
                 Wz=channel_height, Zgrid=Zgrid,
                 readingpos=readingposfit,
-                zpos=zpos, temperature=temperature, 
+                zpos=zpos, temperature=temperature,
                 viscosity=viscosity)[0]
             if initmode != 'synthetic':
                 fits[0] = init
@@ -721,6 +720,7 @@ def get_fax(profiles):
     return np.ravel(np.concatenate(
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
 
+
 def process_profiles(profiles, pixel_size, settings, outpath):
     """Process profiles according to settings
 
@@ -739,9 +739,9 @@ def process_profiles(profiles, pixel_size, settings, outpath):
     profiles_filter = settings["KEY_STG_SGFILTER"]
     if profiles_filter is not None:
         filts = savgol_filter(
-                profiles, profiles_filter[0], profiles_filter[1], axis=-1)
-        display_data.save_plot_filt(profiles, filts, pixel_size, 
+            profiles, profiles_filter[0], profiles_filter[1], axis=-1)
+        display_data.save_plot_filt(profiles, filts, pixel_size,
                                     profiles_filter, outpath)
         profiles = filts
-        
+
     return profiles

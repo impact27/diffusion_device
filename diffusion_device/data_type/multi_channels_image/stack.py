@@ -81,8 +81,23 @@ def process_data(data, metadata, settings):
     pixel_size = np.zeros((len(data)))
     dataout = []
     skip = []
+
+    if settings["KEY_STG_STAT_STACK"]:
+        # Check KEY_MD_EXP are all the same
+        if isinstance(metadata["KEY_MD_EXP"], list):
+            if np.all(np.equal(metadata["KEY_MD_EXP"],
+                               metadata["KEY_MD_EXP"][0])):
+                raise RuntimeError(
+                    "Can not have different exposure times"
+                    " when using stationnary option.")
+            else:
+                metadata["KEY_MD_EXP"] = metadata["KEY_MD_EXP"][0]
+
+        return single.process_data(data, metadata, settings)
+
     for i in range(len(data)):
         try:
+            # Get KEY_MD_EXP correct in the metadata
             single_metadata = metadata.copy()
             if isinstance(metadata["KEY_MD_EXP"], list):
                 single_metadata["KEY_MD_EXP"] = (
@@ -132,8 +147,12 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
         The profiles
     """
     profiles = []
-    for im, pxs, cnt in zip(data, pixel_size, centers):
+    for i, im in enumerate(data):
         try:
+            if settings["KEY_STG_STAT_STACK"]:
+                pxs, cnt = pixel_size, centers
+            else:
+                pxs, cnt = pixel_size[i], centers[i]
             prof = single.get_profiles(metadata, settings, im, pxs, cnt, )
         except:
             if settings["KEY_STG_IGNORE_ERROR"]:
@@ -172,11 +191,15 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     """
     radius = []
     fits = []
-    for i, (profs, pxs) in enumerate(zip(profiles, pixel_size)):
+    for i, profs in enumerate(profiles):
         if profs is None:
             fits.append(None)
         else:
             try:
+                if settings["KEY_STG_STAT_STACK"]:
+                    pxs = pixel_size
+                else:
+                    pxs = pixel_size[i]
                 r, fit = single.size_profiles(profs, pxs, metadata, settings)
             except:
                 if settings["KEY_STG_IGNORE_ERROR"]:

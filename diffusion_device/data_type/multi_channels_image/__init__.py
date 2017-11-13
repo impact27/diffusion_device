@@ -180,8 +180,6 @@ def process_image(image, background, metadata, settings):
         The metadata
     settings: dict
         The settings
-    plotimage: Bool, default False
-        Plot how the image is flattened
 
     Returns
     -------
@@ -200,7 +198,7 @@ def process_image(image, background, metadata, settings):
     flowdir = metadata["KEY_MD_FLOWDIR"]
 
     # Check shape
-    if not len(np.shape(image)) == 2:
+    if len(np.shape(image)) not in [2, 3]:
         raise RuntimeError("Incorrect image shape: " + str(np.shape(image)))
 
     if background is not None:
@@ -232,9 +230,11 @@ def process_image(image, background, metadata, settings):
 
 
 def rotate(image, background, flowdir):
+    """ Rotate 2d or 3d image
+    """
     flowdir = np.asarray(flowdir)
     if flowdir[0] == 'l' or flowdir[0] == 'r':
-        image = np.rot90(image)
+        image = np.rot90(image, axes=(-2, -1))
         if background is not None:
             background = np.rot90(background)
         flowdir[flowdir == 'l'] = 'u'
@@ -329,9 +329,9 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
         profiles[i] = p
 
     outmask = np.all(np.abs(np.arange(len(image_profile))[:, np.newaxis]
-                            -centers[np.newaxis])>prof_npix/2, axis=1)
-    #Check the image profiles is not too bad
-    if 2*np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
+                            - centers[np.newaxis]) > prof_npix / 2, axis=1)
+    # Check the image profiles is not too bad
+    if 2 * np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
         print("Large background. Probably incorrect.")
 #    imshow
 #    figure()

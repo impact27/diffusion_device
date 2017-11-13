@@ -26,6 +26,8 @@ from scipy.ndimage.filters import maximum_filter1d
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import background_rm as rmbg
 import registrator.image as ir
+
+from ..images_files import rotate_image
 from ... import profile as dp
 
 
@@ -48,7 +50,7 @@ def image_infos(image, number_profiles):
     """
     # Detect Angle
     angle = dp.image_angle(image)
-    image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
+    image = rotate_image(image, -angle)
     # Get channels infos
     w, a, origin = straight_image_infos(image, number_profiles)
 
@@ -146,7 +148,7 @@ def straight_image_infos(image, number_profiles):
 
 
 def flat_image(image, chwidth, wallwidth, number_profiles, *,
-               frac=.6, infosOut=None, subtract=False, plotimage=False):
+               frac=.6, infosOut=None, subtract=False):
     """
     Flatten input images
 
@@ -173,13 +175,16 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
         The flattened image
 
     """
+    # Get a representative image of the stack (or the image itself)
+    rep_image = best_image(image)
     # Detect Angle
-    angle = dp.image_angle(image - np.median(image))
-    image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
+    angle = dp.image_angle(rep_image - np.median(rep_image))
+    rep_image = rotate_image(rep_image, -angle)
     # Get channels infos
-    w, a, origin = straight_image_infos(image, number_profiles=number_profiles)
+    w, a, origin = straight_image_infos(
+        rep_image, number_profiles=number_profiles)
     # get mask
-    mask = np.ones(np.shape(image)[1])
+    mask = np.ones(np.shape(rep_image)[-1])
     for i in range(number_profiles):
         amin = origin + i * w - frac * w * chwidth / (chwidth + wallwidth)
         amax = origin + i * w + frac * w * chwidth / (chwidth + wallwidth)
@@ -196,21 +201,14 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
 
         mask[int(amin):int(amax)] = 0
     mask = mask > 0
-    mask = np.tile(mask[None, :], (np.shape(image)[0], 1))
+    mask = np.tile(mask[None, :], (np.shape(rep_image)[0], 1))
+
+    fitted_image = rmbg.polyfit2d(image, mask=mask)
     # Flatten
     if not subtract:
-        image = image / rmbg.polyfit2d(image, mask=mask) - 1
+        image = image / fitted_image - 1
     else:
-        image = image - rmbg.polyfit2d(image, mask=mask)
-
-    if plotimage:
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.imshow(image)
-        plt.imshow(mask, alpha=.5)
-        plt.figure()
-        plt.plot(np.nanmean(image, 0))
-        plt.plot(np.zeros(np.shape(image)[1]))
+        image = image - fitted_image
 
     if infosOut is not None:
         infosOut['infos'] = (w, a, origin)
@@ -218,13 +216,13 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
 
 
 def extract_data(image, number_profiles, chwidth,
-                     wallwidth, flatten=False, subtract=False):
+                 wallwidth, flatten=False, subtract=False):
     '''
     Extract profiles from image
 
     Parameters
     ----------
-    image: 2d array
+    image: 2d or 3d array
         The flat image
     number_profiles: integer
         the numbers of channels
@@ -234,8 +232,6 @@ def extract_data(image, number_profiles, chwidth,
         The wall width in [m]
     flatten: Bool, Defaults False
         Should the image be flatten
-    plotimage: Bool, default False
-        Plot how the image is flattened
 
     Returns
     -------
@@ -247,12 +243,22 @@ def extract_data(image, number_profiles, chwidth,
     if flatten:
         image = flat_image(image, chwidth, wallwidth, number_profiles,
                            infosOut=infos, subtract=subtract)
-    angle = dp.image_angle(image)
-    image = ir.rotate_scale(image, -angle, 1, borderValue=np.nan)
+    # Get a representative image of the stack (or the image itself)
+    rep_image = best_image(image)
+    angle = dp.image_angle(rep_image)
+    image = rotate_image(image, -angle)
+    rep_image = rotate_image(rep_image, -angle)
+
     if not flatten:
-        infos['infos'] = straight_image_infos(image, number_profiles)
+        infos['infos'] = straight_image_infos(rep_image, number_profiles)
 
     w, a, origin = infos['infos']
     centers = origin + np.arange(number_profiles) * w
     pixel_size = (chwidth + wallwidth) / w
     return image, centers, pixel_size
+
+
+def best_image(images):
+    if len(np.shape(images)) == 2:
+        return images
+    return images[np.argmax(np.nanmean(images, axis=(-2, -1)))]

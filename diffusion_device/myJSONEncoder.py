@@ -9,24 +9,26 @@ from json import encoder
 import numpy as np
 # Ugly hack to get ENG format
 
-def floatstr(o, _inf=encoder.INFINITY,
-                     _neginf=-encoder.INFINITY):
-            if o != o:
-                text = 'NaN'
-            elif o == _inf:
-                text = 'Infinity'
-            elif o == _neginf:
-                text = '-Infinity'
-            elif o == 0:
-                text = '0.0'
-            else:
-                exp = int(np.floor(np.log10(np.abs(o)) / 3) * 3)
-                if exp != 0:
-                    text = "{:g}e{:d}".format(o / (10**exp), exp)
-                else:
-                    text = "{:g}".format(o)
 
-            return text
+def floatstr(o, _inf=encoder.INFINITY,
+             _neginf=-encoder.INFINITY):
+    if o != o:
+        text = 'NaN'
+    elif o == _inf:
+        text = 'Infinity'
+    elif o == _neginf:
+        text = '-Infinity'
+    elif o == 0:
+        text = '0.0'
+    else:
+        exp = int(np.floor(np.log10(np.abs(o)) / 3) * 3)
+        if exp != 0:
+            text = "{:g}e{:d}".format(o / (10**exp), exp)
+        else:
+            text = "{:g}".format(o)
+
+    return text
+
 
 class myJSONEncoder(encoder.JSONEncoder):
 
@@ -53,8 +55,8 @@ class myJSONEncoder(encoder.JSONEncoder):
             _encoder = encoder.encode_basestring
 
         def _floatstr(o, allow_nan=self.allow_nan,
-                     _repr=float.__repr__, _inf=encoder.INFINITY,
-                     _neginf=-encoder.INFINITY):
+                      _repr=float.__repr__, _inf=encoder.INFINITY,
+                      _neginf=-encoder.INFINITY):
             # Check for specials.  Note that this type of test is processor
             # and/or platform-specific, so do tests which don't depend on the
             # internals.

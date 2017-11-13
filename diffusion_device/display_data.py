@@ -32,6 +32,7 @@ import re
 
 from . import profile as dp
 
+
 def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
     figure()
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
@@ -41,11 +42,13 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
 
     plt.xlabel('Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
-    plt.title("Savitzky-Golay: w{}, o{}".format(profiles_filter[0], profiles_filter[1]))
+    plt.title(
+        "Savitzky-Golay: w{}, o{}".format(profiles_filter[0], profiles_filter[1]))
     plt.legend()
     if outpath is not None:
         plt.savefig(outpath + '_filt_fig.pdf')
-    
+
+
 def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
     """Plot the sizing data
 
@@ -94,8 +97,8 @@ def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
 
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
-    plot(X, dp.get_fax(profiles), label = "Profiles")
-    plot(X, dp.get_fax(fits), label = "Fits")
+    plot(X, dp.get_fax(profiles), label="Profiles")
+    plot(X, dp.get_fax(fits), label="Fits")
 
     plt.xlabel('Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
@@ -154,6 +157,7 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
 
     """
     overexposed = np.asarray(overexposed)
+    pixel_size = np.asarray(pixel_size)
 
     LSE = np.zeros(len(profiles))
     intensity = np.zeros(len(profiles))
@@ -215,12 +219,13 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
     if outpath is not None:
         plt.savefig(outpath + '_max_intensity_fig.pdf')
 
-    figure()
-    plot(x, pixel_size * 1e6, 'x')
-    plt.xlabel('Frame number')
-    plt.ylabel('Pixel size')
-    if outpath is not None:
-        plt.savefig(outpath + '_pixel_size_fig.pdf')
+    if len(np.shape(pixel_size)) > 0:
+        figure()
+        plot(x, pixel_size * 1e6, 'x')
+        plt.xlabel('Frame number')
+        plt.ylabel('Pixel size')
+        if outpath is not None:
+            plt.savefig(outpath + '_pixel_size_fig.pdf')
 
     if outpath is not None:
         with open(outpath + '_result.txt', 'wb') as f:
@@ -256,16 +261,16 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
         for pos in plotpos[plotpos < len(profiles)]:
             if profiles[pos] is None:
                 continue
-            
+
             profs = dp.get_fax(profiles[pos])
             X = np.arange(len(profs)) * pixel_size[pos] * 1e6
-            
+
             figure()
-            plot(X, profs, label = "Profiles")
+            plot(X, profs, label="Profiles")
 
             fits = dp.get_fax(fits[pos])
 
-            plot(X, fits, label = "Fits")
+            plot(X, fits, label="Fits")
             if len(np.shape(radius)) == 3:
                 plt.title('LSE = {:.2e}, pixel = {:.3f} um'.format(
                     LSE[pos], pixel_size[pos] * 1e6))
@@ -277,7 +282,7 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
             plt.ylabel('Normalised amplitude')
             plt.legend()
             if outpath is not None:
-                    plt.savefig(outpath + '_{}_fig.pdf'.format(pos))
+                plt.savefig(outpath + '_{}_fig.pdf'.format(pos))
 
 
 def prepare_output(outpath, settingsfn, metadatafn):
@@ -306,7 +311,7 @@ def prepare_output(outpath, settingsfn, metadatafn):
         newoutpath = os.path.join(
             outpath,
             basename)
-        
+
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
         base_name = os.path.join(

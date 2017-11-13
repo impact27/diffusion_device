@@ -13,8 +13,10 @@ import warnings
 
 from .myJSONEncoder import myJSONEncoder, floatstr
 
+
 class Object(object):
     pass
+
 
 def _makeabs(prefix, filename):
     """Combine a prefix and a filename to create an absolute path.
@@ -58,8 +60,9 @@ def _listmakeabs(prefix, filename):
     else:
         return _makeabs(prefix, filename)
 
+
 class ListGenerator():
-    
+
     def __init__(self, name, example_path=None, data_related=False, data_field=None):
         super().__init__()
         self._list = {}
@@ -67,10 +70,10 @@ class ListGenerator():
         self.data_related = data_related
         self.example_path = example_path
         self.data_field = data_field
-        
-    def add_info(self, key, description, dtype, 
-            required=True, default=None, example=None,
-            explanation=None, regexp=None, legacy=False):
+
+    def add_info(self, key, description, dtype,
+                 required=True, default=None, example=None,
+                 explanation=None, regexp=None, legacy=False):
         info = Object()
         info.key = key
         info.description = description
@@ -82,7 +85,7 @@ class ListGenerator():
         info.regexp = regexp
         info.legacy = legacy
         self._list[description] = info
-      
+
     def generate_script(self, scriptname):
         with open(scriptname, 'w') as f:
             f.write("from diffusion_device.keys import {}".format(self.name))
@@ -101,8 +104,8 @@ class ListGenerator():
                             repr(info.description), example))
             f.write("\n\n")
             f.write("{}.generate_json(datapath, json_infos)".format(self.name))
-            
-    def generate_json(self, datapath ,json_infos):
+
+    def generate_json(self, datapath, json_infos):
         if self.data_related:
             data_list = glob(datapath)
             if data_list == []:
@@ -110,7 +113,7 @@ class ListGenerator():
             for datafn in data_list:
                 json_infos_copy = json_infos.copy()
                 if os.path.isfile(datafn):
-                    #Check file name corresponds
+                    # Check file name corresponds
                     filename = os.path.basename(datafn)
                     if json_infos_copy[self.data_field] is None:
                         json_infos_copy[self.data_field] = filename
@@ -118,14 +121,14 @@ class ListGenerator():
                         raise RuntimeError(
                             "Filename mismatch: ['{}'] is not None and '{}' != "
                             "'{}'".format(
-                                    self.data_field,
-                                    json_infos_copy[self.data_field],
-                                    filename))
-                    
+                                self.data_field,
+                                json_infos_copy[self.data_field],
+                                filename))
+
                 self._write_json(datafn, json_infos_copy)
         else:
             self._write_json(datapath, json_infos)
-            
+
     def load_json(self, filename):
         with open(filename, 'r') as f:
             file = json.load(f)
@@ -139,7 +142,7 @@ class ListGenerator():
             self._prepare_read(file, info, filename)
             ret[info.key] = file[info.description]
         return ret
-    
+
     def _write_json(self, datafn, json_infos):
         metadata = {}
         for description in json_infos:
@@ -148,16 +151,16 @@ class ListGenerator():
             value = self._prepare_write(value, info, datafn)
             if info.required or self._value_given(value):
                 metadata[description] = value
-                
+
         filename = self._get_name(datafn)
         with open(filename, 'w') as f:
             json.dump(metadata, f, indent=4, cls=myJSONEncoder)
-        
+
     def _get_comment(self, info):
         if info.explanation is not None:
             return info.explanation
         return info.description
-    
+
     def _get_example(self, info):
         if info.example is not None:
             return info.example
@@ -170,18 +173,18 @@ class ListGenerator():
         elif info.dtype == str:
             return ""
         return None
-     
+
     def _get_repr(self, value):
         if isinstance(value, (list, tuple)):
             value = ('[\n    '
-                       + ',\n    '.join([self._get_repr(v) for v in value])
+                     + ',\n    '.join([self._get_repr(v) for v in value])
                        + ']')
         elif isinstance(value, (float)):
             value = floatstr(value)
         else:
             value = repr(value)
         return value
-        
+
     def _cast_type(self, value, dtype):
         if value is None:
             return None
@@ -190,28 +193,28 @@ class ListGenerator():
         else:
             value = dtype(value)
         return value
-        
+
     def _prepare_write(self, value, info, datapath):
-        #Regexp
+        # Regexp
         if value is None and info.regexp is not None:
             allfind = re.findall(info.regexp, datapath)
             if len(allfind) > 0:
                 value = allfind[-1]
                 if info.dtype == float:
                     value = re.sub('p', '.', value)
-        #If still None, skip        
+        # If still None, skip
         if value is None:
             return None
-        
+
         if info.dtype in [float, int, str, bool]:
             value = self._cast_type(value, info.dtype)
-            
+
         elif info.dtype == "path":
             if os.path.isfile(datapath) or not self.data_related:
                 pathprefix = os.path.dirname(datapath)
             else:
                 pathprefix = datapath
-            
+
             absdatapath = os.path.join(pathprefix, value)
             value = sorted(glob(absdatapath))
             if value == []:
@@ -219,15 +222,15 @@ class ListGenerator():
             value = [os.path.relpath(path, pathprefix) for path in value]
             if len(value) == 0:
                 value = None
-            elif len(value) ==1:
+            elif len(value) == 1:
                 value = value[0]
         return value
-            
+
     def _value_given(self, value):
         if isinstance(value, (list, tuple)):
             return not np.all([v is None for v in value])
         return value is not None
-                
+
     def _get_name(self, filename):
         if not self.data_related:
             return filename
@@ -235,18 +238,18 @@ class ListGenerator():
             return os.path.splitext(filename)[0] + '_' + self.name + '.json'
         else:
             return os.path.splitext(filename)[0] + self.name + '.json'
-    
+
     def _required(self, file, info, filename):
         if info.description not in file:
             raise RuntimeError("Missing Key: '{}' not in {}".format(
-                    info.description, filename))
-            
+                info.description, filename))
+
     def _default(self, file, info):
         if info.description not in file or file[info.description] is None:
             file[info.description] = info.default
-                
+
     def _prepare_read(self, file, info, filename):
         if info.dtype == "path":
             if file[info.description] is not None:
                 file[info.description] = _listmakeabs(
-                        os.path.dirname(filename), file[info.description])
+                    os.path.dirname(filename), file[info.description])
