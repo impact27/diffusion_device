@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from registrator.image import is_overexposed
 import numpy as np
 import tifffile
+import sys
 
 from .. import multi_channels_image as single
 
@@ -89,9 +90,9 @@ def process_data(data, metadata, settings):
             d, pixel_size[i], centers[i] = single.process_data(
                 data[i], single_metadata, settings)
             dataout.append(d)
-        except BaseException as error:
+        except:
             if settings["KEY_STG_IGNORE_ERROR"]:
-                print(error.args[0])
+                print(sys.exc_info())
                 pixel_size[i] = np.nan
                 centers[i, :] = np.nan
                 skip.append(i)
@@ -134,12 +135,11 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     for im, pxs, cnt in zip(data, pixel_size, centers):
         try:
             prof = single.get_profiles(metadata, settings, im, pxs, cnt, )
-        except BaseException as error:
+        except:
             if settings["KEY_STG_IGNORE_ERROR"]:
-                print(error.args[0])
+                print(sys.exc_info())
                 prof = None
             else:
-                print(settings["KEY_STG_IGNORE_ERROR"])
                 raise
         profiles.append(prof)
     return profiles
@@ -176,7 +176,15 @@ def size_profiles(profiles, pixel_size, metadata, settings):
         if profs is None:
             fits.append(None)
         else:
-            r, fit = single.size_profiles(profs, pxs, metadata, settings)
+            try:
+                r, fit = single.size_profiles(profs, pxs, metadata, settings)
+            except:
+                if settings["KEY_STG_IGNORE_ERROR"]:
+                    print(sys.exc_info())
+                    r = np.nan
+                    fit = None
+                else:
+                    raise
             fits.append(fit)
             radius.append(r)
     radius = np.asarray(radius)

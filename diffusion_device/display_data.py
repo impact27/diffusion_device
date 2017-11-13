@@ -154,15 +154,16 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
 
     """
     overexposed = np.asarray(overexposed)
-    # Infer variables
 
-    intensity = np.asarray([np.nanmax(p) for p in profiles])
     LSE = np.zeros(len(profiles))
+    intensity = np.zeros(len(profiles))
     for i, (p, f) in enumerate(zip(profiles, fits)):
         if p is None or f is None:
             LSE[i] = np.nan
+            intensity[i] = np.nan
         else:
             LSE[i] = np.sqrt(np.mean(np.square(p - f)))
+            intensity[i] = np.nanmax(p)
 
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)

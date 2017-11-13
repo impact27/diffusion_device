@@ -104,7 +104,10 @@ class ListGenerator():
             
     def generate_json(self, datapath ,json_infos):
         if self.data_related:
-            for datafn in glob(datapath):
+            data_list = glob(datapath)
+            if data_list == []:
+                raise RuntimeError("Can't find {}".format(datapath))
+            for datafn in data_list:
                 json_infos_copy = json_infos.copy()
                 if os.path.isfile(datafn):
                     #Check file name corresponds
@@ -209,7 +212,10 @@ class ListGenerator():
             else:
                 pathprefix = datapath
             
-            value = sorted(glob(os.path.join(pathprefix, value)))
+            absdatapath = os.path.join(pathprefix, value)
+            value = sorted(glob(absdatapath))
+            if value == []:
+                raise RuntimeError("Can't find {}".format(absdatapath))
             value = [os.path.relpath(path, pathprefix) for path in value]
             if len(value) == 0:
                 value = None
