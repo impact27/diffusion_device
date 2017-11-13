@@ -221,11 +221,11 @@ def process_image(image, background, metadata, settings):
     if background is None:
         flatten = settings["KEY_STG_BRIGHT_FLAT"]
         # Single image
-        image, centers, pixel_size = bright.extract_profiles(
+        image, centers, pixel_size = bright.extract_data(
             image, nchannels, channel_width, wall_width, flatten)
     else:
         # images and background
-        image, centers, pixel_size = uv.extract_profiles(
+        image, centers, pixel_size = uv.extract_data(
             image, background, nchannels, channel_width, wall_width)
 
     return image, centers, pixel_size

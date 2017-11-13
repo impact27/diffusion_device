@@ -233,7 +233,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
     return ret
 
 
-def extract_profiles(im, bg, Nprofs, chwidth, wallwidth):
+def extract_data(im, bg, Nprofs, chwidth, wallwidth):
     """
     Extract diffusion profiles
 
