@@ -261,23 +261,27 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
         for pos in plotpos[plotpos < len(profiles)]:
             if profiles[pos] is None:
                 continue
+            pixs = pixel_size
+            if len(np.shape(pixel_size)) > 0:
+                pixs = pixel_size[pos]
 
             profs = dp.get_fax(profiles[pos])
-            X = np.arange(len(profs)) * pixel_size[pos] * 1e6
+            X = np.arange(len(profs)) * pixs * 1e6
 
             figure()
             plot(X, profs, label="Profiles")
 
-            fits = dp.get_fax(fits[pos])
-
-            plot(X, fits, label="Fits")
+            if fits[pos] is not None:
+                fit = dp.get_fax(fits[pos])
+    
+                plot(X, fit, label="Fits")
             if len(np.shape(radius)) == 3:
                 plt.title('LSE = {:.2e}, pixel = {:.3f} um'.format(
-                    LSE[pos], pixel_size[pos] * 1e6))
+                    LSE[pos], pixs * 1e6))
             else:
                 plt.title(
-                    'r= {:.2f} nm, LSE = {:.2e}, pixel = {:.3f} um'.format(
-                        radius[pos] * 1e9, LSE[pos], pixel_size[pos] * 1e6))
+                    '{}: r= {:.2f} nm, LSE = {:.2e}, pixel = {:.3f} um'.format(
+                        pos, radius[pos] * 1e9, LSE[pos], pixs * 1e6))
             plt.xlabel('Position [$\mu$m]')
             plt.ylabel('Normalised amplitude')
             plt.legend()

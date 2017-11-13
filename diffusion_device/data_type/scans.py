@@ -248,6 +248,9 @@ def getmaxaround(profile, approxmax, window_r=3):
     edgePos = -coeff[1] / (2 * coeff[0])
     return edgePos
 
+def process_profiles(profiles, pixel_size, settings, outpath):
+    return dp.process_profiles(profiles, pixel_size, settings, outpath)
+
 # def get_profiles(scans, Npix, *,
 #                 offset_edge_idx=None):
 #    """Extract profiles from scans

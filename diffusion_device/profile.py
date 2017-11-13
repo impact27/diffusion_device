@@ -39,7 +39,12 @@ def normalise_profiles(profiles, pslice):
     if np.any(np.sum((profiles * (profiles > 0))[..., pslice], 1) <
               5 * -np.sum((profiles * (profiles < 0))[..., pslice], 1)):
         warnings.warn("Negative profile", RuntimeWarning)
-    profiles /= np.sum(profiles[..., pslice], -1)[..., np.newaxis]
+        
+    norm_factor = np.sum(profiles[..., pslice], -1)[..., np.newaxis]
+    if np.any(norm_factor<=0):
+        raise RuntimeError("Can't normalise profiles")
+    
+    profiles /= norm_factor
     return profiles
 
 
@@ -149,7 +154,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                         viscosity=viscosity)
 
     if norm_profiles:
-        # Normalize basis in the same way as profiles
+        # Normalise basis in the same way as profiles
         Basis = normalise_profiles(Basis, pslice)
 
     if nspecies == 1:
@@ -169,7 +174,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
                 fits[0] = init
 
             if norm_profiles:
-                # Normalize basis in the same way as profiles
+                # Normalise basis in the same way as profiles
                 fits = normalise_profiles(fits, pslice)
 
         return r

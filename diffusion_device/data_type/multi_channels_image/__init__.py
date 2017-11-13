@@ -111,11 +111,10 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     profiles = extract_profiles(
         data, centers, flowdir, channel_width, ignore, pixel_size,
         imslice=imslice)
-
-    norm_profiles = settings["KEY_STG_NORMALISE"]
-    if norm_profiles:
-        ignore_slice = dp.ignore_slice(ignore, pixel_size)
-        profiles = dp.normalise_profiles(profiles, ignore_slice)
+#    TODO: Is that necessary?
+#    if settings["KEY_STG_NORMALISE"]:
+#        ignore_slice = dp.ignore_slice(ignore, pixel_size)
+#        profiles = dp.normalise_profiles(profiles, ignore_slice)
 
     # If image upside down, turn
     if profiles[-1].max() > profiles[0].max():
@@ -368,3 +367,6 @@ def imageProfileSlice(image, center, width, pixel_size):
     if amin < 0 or amax > len(image):
         raise RuntimeError("Poorly defined slice")
     return np.nanmean(image[amin:amax], 0)
+
+def process_profiles(profiles, pixel_size, settings, outpath):
+    return dp.process_profiles(profiles, pixel_size, settings, outpath)

@@ -28,9 +28,9 @@ import tifffile
 import sys
 
 from .. import multi_channels_image as single
-
 from ... import display_data
 from .. import images_files
+from ... import profile as dp
 
 
 def load_data(metadata):
@@ -232,3 +232,17 @@ def plot_and_save(radius, profiles, fits, pixel_size, state,
     state = state[framesslices]
     display_data.plot_and_save_stack(
         radius, profiles, fits, pixel_size, state, outpath, plotpos)
+    
+def process_profiles(profiles, pixel_size, settings, outpath):
+    ret = []
+    for i, prof in enumerate(profiles):
+        if prof is None:
+            ret.append(None)
+        else:
+            if settings["KEY_STG_STAT_STACK"]:
+                pxs = pixel_size
+            else:
+                pxs = pixel_size[i]
+            ret.append(dp.process_profiles(prof, pxs, settings, outpath))
+        
+    return ret

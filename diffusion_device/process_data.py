@@ -23,10 +23,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from .profile import process_profiles
 from . import keys, display_data
 from .data_type import scans, single_channel_image, multi_channels_image
-
 
 def full_fit(settingsfn, metadatafn, outpath=None):
     """Perform a fit with the imformations found in the settings file
@@ -80,7 +78,7 @@ def full_fit(settingsfn, metadatafn, outpath=None):
         mod.savedata(data, outpath)
 
     profiles = mod.get_profiles(metadata, settings, data, pixel_size, *infos)
-    profiles = process_profiles(profiles, pixel_size, settings, outpath)
+    profiles = mod.process_profiles(profiles, pixel_size, settings, outpath)
 
     radius, fits = mod.size_profiles(profiles, pixel_size, metadata, settings)
 

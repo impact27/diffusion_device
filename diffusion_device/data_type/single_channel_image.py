@@ -405,6 +405,9 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     plot([c-Npix//2, c-Npix//2], [np.nanmin(pr), np.nanmax(pr)], 'r')
     plot([c+Npix//2, c+Npix//2], [np.nanmin(pr), np.nanmax(pr)], 'r')
     #"""
+    
+def process_profiles(profiles, pixel_size, settings, outpath):
+    return dp.process_profiles(profiles, pixel_size, settings, outpath)
 
 #    return prof[channel]
 
