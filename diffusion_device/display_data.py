@@ -49,7 +49,7 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
         plt.savefig(outpath + '_filt_fig.pdf')
 
 
-def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
+def plot_and_save(radius, profiles, fits, error, pixel_size, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -74,7 +74,7 @@ def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
     # Fit
     # =========================================================================
 
-    lse = np.sqrt(np.mean(np.square(profiles - fits)))
+    lse = error
 
     if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
@@ -128,7 +128,7 @@ def plot_and_save(radius, profiles, fits, pixel_size, outpath=None):
             np.savetxt(f, fits)
 
 
-def plot_and_save_stack(radius, profiles, fits, pixel_size,
+def plot_and_save_stack(radius, profiles, fits, errors, pixel_size,
                         overexposed, outpath=None, plotpos=None):
     """Plot the sizing data
 
@@ -159,15 +159,14 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
     overexposed = np.asarray(overexposed)
     pixel_size = np.asarray(pixel_size)
 
-    LSE = np.zeros(len(profiles))
     intensity = np.zeros(len(profiles))
-    for i, (p, f) in enumerate(zip(profiles, fits)):
-        if p is None or f is None:
-            LSE[i] = np.nan
+    for i, p in enumerate(profiles):
+        if p is None:
             intensity[i] = np.nan
         else:
-            LSE[i] = np.sqrt(np.mean(np.square(p - f)))
             intensity[i] = np.nanmax(p)
+
+    LSE = np.asarray(errors) / intensity
 
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
@@ -202,7 +201,7 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
     figure()
     plot(x[valid], LSE[valid], 'x', label='regular')
     plt.xlabel('Frame number')
-    plt.ylabel('Least square error')
+    plt.ylabel('Least square error normalized')
     if np.any(overexposed):
         plot(x[overexposed], LSE[overexposed], 'x', label='overexposed')
         plt.legend()
@@ -273,7 +272,7 @@ def plot_and_save_stack(radius, profiles, fits, pixel_size,
 
             if fits[pos] is not None:
                 fit = dp.get_fax(fits[pos])
-    
+
                 plot(X, fit, label="Fits")
             if len(np.shape(radius)) == 3:
                 plt.title('LSE = {:.2e}, pixel = {:.3f} um'.format(

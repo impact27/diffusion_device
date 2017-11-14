@@ -133,10 +133,8 @@ def size_profiles(profiles, pixel_size, metadata, settings):
         The fits
     """
     zpos = metadata["KEY_MD_SCANZ"]
-    fits = np.zeros_like(profiles)
-    radius = dp.size_profiles(profiles, pixel_size, metadata, settings,
-                              fits=fits, zpos=zpos)
-    return radius, fits
+    return dp.size_profiles(profiles, pixel_size, metadata, settings,
+                            zpos=zpos)
 
 
 def savedata(data, outpath):
@@ -145,11 +143,11 @@ def savedata(data, outpath):
     pass
 
 
-def plot_and_save(radius, profiles, fits, pixel_size, state,
+def plot_and_save(radius, profiles, fits, error, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, pixel_size, outpath)
+        radius, profiles, fits, error, pixel_size, outpath)
 
 
 def scans_to_profiles(scans, Npix, *,
@@ -247,6 +245,7 @@ def getmaxaround(profile, approxmax, window_r=3):
     coeff = np.polyfit(X, Y, 2)
     edgePos = -coeff[1] / (2 * coeff[0])
     return edgePos
+
 
 def process_profiles(profiles, pixel_size, settings, outpath):
     return dp.process_profiles(profiles, pixel_size, settings, outpath)

@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from . import keys, display_data
 from .data_type import scans, single_channel_image, multi_channels_image
 
+
 def full_fit(settingsfn, metadatafn, outpath=None):
     """Perform a fit with the imformations found in the settings file
 
@@ -80,13 +81,15 @@ def full_fit(settingsfn, metadatafn, outpath=None):
     profiles = mod.get_profiles(metadata, settings, data, pixel_size, *infos)
     profiles = mod.process_profiles(profiles, pixel_size, settings, outpath)
 
-    radius, fits = mod.size_profiles(profiles, pixel_size, metadata, settings)
+    radius, fits, error = mod.size_profiles(
+        profiles, pixel_size, metadata, settings)
 
     if outpath is not None:
         mod.plot_and_save(
-            radius, profiles, fits, pixel_size, state, outpath, settings)
+            radius, profiles, fits, error, pixel_size,
+            state, outpath, settings)
 
-    return radius, profiles, fits, pixel_size, data, state
+    return radius, profiles, fits, error, pixel_size, data, state
 
 
 def get_module(data_type):
@@ -105,8 +108,8 @@ def get_module(data_type):
     data, state = load_data(metadata)
     data, pixel_size, *infos = process_data(data, metadata, settings)
     profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
-    radius, fits = size_profiles(profiles, pixel_size, metadata, settings)
-    plot_and_save(radius, profiles, fits, pixel_size, outpath, settings)
+    radius, fits, error = size_profiles(profiles, pixel_size, metadata, settings)
+    plot_and_save(radius, profiles, fits, error, pixel_size, outpath, settings)
     savedata(data, outpath)
 
     """

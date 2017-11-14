@@ -145,10 +145,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     fits: 2d array
         The fits
     """
-    fits = np.zeros_like(profiles)
-    radius = dp.size_profiles(profiles, pixel_size, metadata, settings,
-                              fits=fits)
-    return radius, fits
+    return dp.size_profiles(profiles, pixel_size, metadata, settings)
 
 
 def savedata(data, outpath):
@@ -156,11 +153,11 @@ def savedata(data, outpath):
     tifffile.imsave(outpath + '_ims.tif', data)
 
 
-def plot_and_save(radius, profiles, fits, pixel_size, state,
+def plot_and_save(radius, profiles, fits, error, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, pixel_size, outpath)
+        radius, profiles, fits, error, pixel_size, outpath)
 
 
 def process_images(images, backgrounds, metadata, settings, rebin=2):
@@ -405,7 +402,8 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     plot([c-Npix//2, c-Npix//2], [np.nanmin(pr), np.nanmax(pr)], 'r')
     plot([c+Npix//2, c+Npix//2], [np.nanmin(pr), np.nanmax(pr)], 'r')
     #"""
-    
+
+
 def process_profiles(profiles, pixel_size, settings, outpath):
     return dp.process_profiles(profiles, pixel_size, settings, outpath)
 

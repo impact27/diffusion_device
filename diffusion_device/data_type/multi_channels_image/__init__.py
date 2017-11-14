@@ -108,17 +108,14 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
     imslice = settings["KEY_STG_SLICE"]
     ignore = settings["KEY_STG_IGNORE"]
     flowdir = metadata["KEY_MD_FLOWDIR"]
-    profiles = extract_profiles(
+    profiles, noise = extract_profiles(
         data, centers, flowdir, channel_width, ignore, pixel_size,
         imslice=imslice)
-#    TODO: Is that necessary?
-#    if settings["KEY_STG_NORMALISE"]:
-#        ignore_slice = dp.ignore_slice(ignore, pixel_size)
-#        profiles = dp.normalise_profiles(profiles, ignore_slice)
 
     # If image upside down, turn
     if profiles[-1].max() > profiles[0].max():
         profiles = profiles[::-1]
+
     return profiles
 
 
@@ -147,10 +144,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     fits: 2d array
         The fits
     """
-    fits = np.zeros_like(profiles)
-    radius = dp.size_profiles(profiles, pixel_size, metadata, settings,
-                              fits=fits)
-    return radius, fits
+    return dp.size_profiles(profiles, pixel_size, metadata, settings)
 
 
 def savedata(data, outpath):
@@ -158,11 +152,11 @@ def savedata(data, outpath):
     tifffile.imsave(outpath + '_im.tif', data)
 
 
-def plot_and_save(radius, profiles, fits, pixel_size, state,
+def plot_and_save(radius, profiles, fits, error, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, pixel_size, outpath)
+        radius, profiles, fits, error, pixel_size, outpath)
 
 
 def process_image(image, background, metadata, settings):
@@ -332,13 +326,15 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
     # Check the image profiles is not too bad
     if 2 * np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
         print("Large background. Probably incorrect.")
+
+    noise_std = np.sqrt(np.mean(image_profile[outmask]**2))
 #    imshow
 #    figure()
 #    imshow(image)
 #    figure()
 #    plot(image_profile)
 
-    return profiles
+    return profiles, noise_std
 
 
 def imageProfileSlice(image, center, width, pixel_size):
@@ -367,6 +363,7 @@ def imageProfileSlice(image, center, width, pixel_size):
     if amin < 0 or amax > len(image):
         raise RuntimeError("Poorly defined slice")
     return np.nanmean(image[amin:amax], 0)
+
 
 def process_profiles(profiles, pixel_size, settings, outpath):
     return dp.process_profiles(profiles, pixel_size, settings, outpath)

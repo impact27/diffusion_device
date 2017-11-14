@@ -32,20 +32,19 @@ from .basis_generate import getprofiles
 from . import display_data
 
 
-def normalise_profiles(profiles, pslice):
+def scale_factor(profiles, pslice):
     """Normalise a list of profiles
     """
     # if profile is mainly negative, error
     if np.any(np.sum((profiles * (profiles > 0))[..., pslice], 1) <
               5 * -np.sum((profiles * (profiles < 0))[..., pslice], 1)):
         warnings.warn("Negative profile", RuntimeWarning)
-        
+
     norm_factor = np.sum(profiles[..., pslice], -1)[..., np.newaxis]
-    if np.any(norm_factor<=0):
+    if np.any(norm_factor <= 0):
         raise RuntimeError("Can't normalise profiles")
-    
-    profiles /= norm_factor
-    return profiles
+
+    return norm_factor
 
 
 def ignore_slice(ignore, pixel_size):
@@ -59,8 +58,7 @@ def ignore_slice(ignore, pixel_size):
     return pslice
 
 
-def size_profiles(profiles, pixel_size, metadata, settings,
-                  fits=None, zpos=None):
+def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
     """Size the profiles
 
      Parameters
@@ -73,8 +71,6 @@ def size_profiles(profiles, pixel_size, metadata, settings,
         The metadata
     settings: dict
         The settings
-    fits: 2d array
-        if not None, same shape and type as profiles
     zpos: float, default None
         Z position of the profile. None for mean
 
@@ -117,7 +113,7 @@ def size_profiles(profiles, pixel_size, metadata, settings,
 
     profiles = np.asarray(profiles)
     if norm_profiles:
-        profiles = normalise_profiles(profiles, pslice)
+        profiles_scales = scale_factor(profiles, pslice)
 
     readingpos = np.asarray(readingpos)
     if len(readingpos) != len(profiles):
@@ -155,41 +151,45 @@ def size_profiles(profiles, pixel_size, metadata, settings,
 
     if norm_profiles:
         # Normalise basis in the same way as profiles
-        Basis = normalise_profiles(Basis, pslice)
+        basis_scales = scale_factor(Basis, pslice)
+        Basis *= profiles_scales[np.newaxis, 1:] / basis_scales
 
+    fits = np.zeros_like(profiles) * np.nan
+    error = np.nan
     if nspecies == 1:
         # Get best fit
         r = fit_radius(profilesfit, Basis, test_radii, pslice, nspecies=1)
 
         # fill data if needed
-        if fits is not None and not np.isnan(r):
-
+        if not np.isnan(r):
             fits[fit_position_number] = getprofiles(
                 init, Q=flow_rate, Radii=[r], Wy=channel_width,
                 Wz=channel_height, Zgrid=Zgrid,
                 readingpos=readingposfit,
                 zpos=zpos, temperature=temperature,
                 viscosity=viscosity)[0]
+
             if initmode != 'synthetic':
                 fits[0] = init
 
             if norm_profiles:
                 # Normalise basis in the same way as profiles
-                fits = normalise_profiles(fits, pslice)
-
-        return r
+                fits_scale = scale_factor(fits, pslice)
+                fits *= profiles_scales / fits_scale
     else:
         spectrum = fit_radius(profilesfit, Basis, test_radii, pslice,
                               nspecies=nspecies)
 
         # fill data if needed
-        if fits is not None:
-            fits[fit_position_number] = np.sum(
-                spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
-            if initmode != 'synthetic':
-                fits[0] = init
+        fits[fit_position_number] = np.sum(
+            spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
+        if initmode != 'synthetic':
+            fits[0] = init
+        r = (test_radii, spectrum)
 
-        return test_radii, spectrum
+    error = np.sqrt(
+        np.mean(np.square(profiles[..., pslice] - fits[..., pslice])))
+    return r, fits, error
 
 
 def synthetic_init(prof0, pslice):
@@ -505,7 +505,7 @@ def fit_polydisperse_radius(M, b, psquare):
     return spectrum
 
 
-def center(prof):
+def center(prof, subtract_mean=False):
     """
     Uses correlation between Y and the mirror image of Y to get the center
 
@@ -523,7 +523,9 @@ def center(prof):
 
     # We must now detect the position of the center. We use correlation
     # Correlation is equivalent to least squares (A-B)^2=-2AB+ some constants
-    prof = np.array(prof) - np.nanmean(prof)
+    prof = np.array(prof)
+    if subtract_mean:
+        prof -= np.nanmean(prof)
     prof[np.isnan(prof)] = 0
     Yi = prof[::-1]
     corr = np.correlate(prof, Yi, mode='full')

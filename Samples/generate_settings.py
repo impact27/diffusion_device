@@ -53,4 +53,7 @@ json_infos['Ignore Error'] = False
 # Apply a Savitzky-Golay filter. None = no filter
 json_infos['Savitzky-Golay filter (window, order)'] = None
 
+# For optimisation and identical processing
+json_infos['Stack is stationnary'] = False
+
 settings.generate_json(datapath, json_infos)

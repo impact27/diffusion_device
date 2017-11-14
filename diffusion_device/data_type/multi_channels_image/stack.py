@@ -191,6 +191,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     """
     radius = []
     fits = []
+    errors = []
     for i, profs in enumerate(profiles):
         if profs is None:
             fits.append(None)
@@ -200,22 +201,25 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                     pxs = pixel_size
                 else:
                     pxs = pixel_size[i]
-                r, fit = single.size_profiles(profs, pxs, metadata, settings)
+                r, fit, error = single.size_profiles(
+                    profs, pxs, metadata, settings)
             except:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
                     r = np.nan
                     fit = None
+                    error = np.nan
                 else:
                     raise
             fits.append(fit)
             radius.append(r)
+            errors.append(error)
     radius = np.asarray(radius)
     for idx, add in enumerate([p is None for p in profiles]):
         if add:
             radius = np.insert(radius, idx,
                                np.ones(np.shape(radius)[1:]) * np.nan, 0)
-    return radius, fits
+    return radius, fits, errors
 
 
 def savedata(data, outpath):
@@ -223,7 +227,7 @@ def savedata(data, outpath):
     tifffile.imsave(outpath + '_ims.tif', data)
 
 
-def plot_and_save(radius, profiles, fits, pixel_size, state,
+def plot_and_save(radius, profiles, fits, error, pixel_size, state,
                   outpath, settings):
     """Plot the sizing data"""
     plotpos = settings["KEY_STG_STACK_POSPLOT"]
@@ -231,8 +235,9 @@ def plot_and_save(radius, profiles, fits, pixel_size, state,
 
     state = state[framesslices]
     display_data.plot_and_save_stack(
-        radius, profiles, fits, pixel_size, state, outpath, plotpos)
-    
+        radius, profiles, fits, error, pixel_size, state, outpath, plotpos)
+
+
 def process_profiles(profiles, pixel_size, settings, outpath):
     ret = []
     for i, prof in enumerate(profiles):
@@ -244,5 +249,5 @@ def process_profiles(profiles, pixel_size, settings, outpath):
             else:
                 pxs = pixel_size[i]
             ret.append(dp.process_profiles(prof, pxs, settings, outpath))
-        
+
     return ret
