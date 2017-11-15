@@ -63,7 +63,8 @@ def _listmakeabs(prefix, filename):
 
 class ListGenerator():
 
-    def __init__(self, name, example_path=None, data_related=False, data_field=None):
+    def __init__(self, name, example_path=None,
+                 data_related=False, data_field=None):
         super().__init__()
         self._list = {}
         self.name = name

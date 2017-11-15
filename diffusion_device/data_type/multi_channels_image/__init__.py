@@ -324,7 +324,8 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
     outmask = np.all(np.abs(np.arange(len(image_profile))[:, np.newaxis]
                             - centers[np.newaxis]) > prof_npix / 2, axis=1)
     # Check the image profiles is not too bad
-    if 2 * np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
+    if 2 * \
+            np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
         print("Large background. Probably incorrect.")
 
     noise_std = np.sqrt(np.mean(image_profile[outmask]**2))

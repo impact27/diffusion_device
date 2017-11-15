@@ -105,7 +105,7 @@ def process_data(data, metadata, settings):
             d, pixel_size[i], centers[i] = single.process_data(
                 data[i], single_metadata, settings)
             dataout.append(d)
-        except:
+        except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
                 print(sys.exc_info()[1])
                 pixel_size[i] = np.nan
@@ -154,7 +154,7 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
             else:
                 pxs, cnt = pixel_size[i], centers[i]
             prof = single.get_profiles(metadata, settings, im, pxs, cnt, )
-        except:
+        except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
                 print(sys.exc_info()[1])
                 prof = None
@@ -195,6 +195,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     for i, profs in enumerate(profiles):
         if profs is None:
             fits.append(None)
+            errors.append(np.nan)
         else:
             try:
                 if settings["KEY_STG_STAT_STACK"]:
@@ -203,7 +204,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                     pxs = pixel_size[i]
                 r, fit, error = single.size_profiles(
                     profs, pxs, metadata, settings)
-            except:
+            except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
                     r = np.nan
