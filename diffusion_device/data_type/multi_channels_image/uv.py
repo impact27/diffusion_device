@@ -229,7 +229,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None):
                                    infoDict['offset'],
                                    borderValue=np.nan) > .5
 
-    maskim = binary_erosion(maskim, iterations=15)
+    maskim = binary_erosion(maskim, iterations=int(wallwidth / approxpixsize / 10))
     # Get Intensity
     ret = rmbg.remove_curve_background(im, bg, maskbg=maskbg, maskim=maskim,
                                        bgCoord=True, reflatten=True)
@@ -275,43 +275,3 @@ def extract_data(im, bg, Nprofs, chwidth, wallwidth):
 
     return flat_im, centers, pixel_size
 
-
-#    # Profile
-#    imProf = commun.image_profile(flat_im)
-#    # Output profiles
-#    profiles = np.empty((Nprofs, width), dtype=float)
-#    # Extract profiles
-#    firstcenter = None
-#    for i, (e, prof) in enumerate(zip(2*centers, profiles)):
-#        # e is 2*center of the channel
-#        amin = (e - width) // 2
-#        amax = (e + width) // 2
-#        p = imProf[amin:amax]
-#        # All even profiles are switched
-#        if i % 2 == 1:
-#            p = p[::-1]
-#        # Align by detecting center
-#        c = dp.center(p)
-#        if firstcenter is not None:
-#            diff = c - firstcenter
-#            if i % 2 == 1:
-#                diff *= -1
-#            diff = int(diff)
-#            p = imProf[amin + diff:amax + diff]
-#            if i % 2 == 1:
-#                p = p[::-1]
-#        else:
-#            firstcenter = c
-#        prof[:] = p
-#    # If image is inverted
-#    if profiles[-1].max() > profiles[0].max():
-#        profiles = profiles[::-1]
-#
-#    """
-#    from matplotlib.pyplot import plot, figure, imshow
-#    figure()
-#    plot(np.nanmean(flat_im[:100], 0))
-#    plot(np.nanmean(flat_im[-100:], 0))
-#    #"""
-#
-#    return profiles

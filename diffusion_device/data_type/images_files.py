@@ -140,10 +140,14 @@ def remove_optics_background(images, backgrounds, metadata):
         background_exposure = metadata["KEY_MD_BGEXP"]
         optics_background_exposure = metadata["KEY_MD_OPBGEXP"]
 
-        optics = load_images(optics_bgfn) / optics_background_exposure
-        images = images / exposure - optics + np.median(optics)
+        optics = load_images(optics_bgfn)
+        # images = images / exposure - optics + np.median(optics)
+        # if backgrounds is not None:
+        #     backgrounds = (backgrounds / background_exposure
+        #                    - optics + np.median(optics))
+        images = images * np.sum(optics**2)/np.sum(optics*images) - optics + np.median(optics)
         if backgrounds is not None:
-            backgrounds = (backgrounds / background_exposure
+            backgrounds = (backgrounds * np.sum(optics**2)/np.sum(optics*backgrounds)
                            - optics + np.median(optics))
 
     return images, backgrounds

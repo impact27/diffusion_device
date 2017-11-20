@@ -192,6 +192,7 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     radius = []
     fits = []
     errors = []
+    shape_r = None
     for i, profs in enumerate(profiles):
         if profs is None:
             fits.append(None)
@@ -204,10 +205,11 @@ def size_profiles(profiles, pixel_size, metadata, settings):
                     pxs = pixel_size[i]
                 r, fit, error = single.size_profiles(
                     profs, pxs, metadata, settings)
+                shape_r = np.shape(r)
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
-                    r = np.nan
+                    r = None
                     fit = None
                     error = np.nan
                 else:
@@ -215,7 +217,15 @@ def size_profiles(profiles, pixel_size, metadata, settings):
             fits.append(fit)
             radius.append(r)
             errors.append(error)
-    radius = np.asarray(radius)
+    
+    if shape_r is None:
+        raise RuntimeError("Can't find a single good frame")
+    
+    for i, r in enumerate(radius):
+        if r is None:
+            radius[i] = np.nan*np.ones(shape_r)
+            
+    radius = np.asarray(radius, float)
     for idx, add in enumerate([p is None for p in profiles]):
         if add:
             radius = np.insert(radius, idx,
