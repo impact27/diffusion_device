@@ -49,7 +49,7 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
         plt.savefig(outpath + '_filt_fig.pdf')
 
 
-def plot_and_save(radius, profiles, fits, error, pixel_size, outpath=None):
+def plot_and_save(radius, profiles, fits, infos, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -128,8 +128,8 @@ def plot_and_save(radius, profiles, fits, error, pixel_size, outpath=None):
             np.savetxt(f, fits)
 
 
-def plot_and_save_stack(radius, profiles, fits, errors, pixel_size,
-                        overexposed, outpath=None, plotpos=None):
+def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
+                        plotpos=None):
     """Plot the sizing data
 
     Parameters
@@ -156,8 +156,8 @@ def plot_and_save_stack(radius, profiles, fits, errors, pixel_size,
         Positions to plot if this is a stack
 
     """
-    overexposed = np.asarray(overexposed)
-    pixel_size = np.asarray(pixel_size)
+    overexposed = np.asarray(infos["Overexposed"])
+    pixel_size = np.asarray(infos["Pixel size"])
 
     intensity = np.zeros(len(profiles))
     for i, p in enumerate(profiles):
@@ -166,7 +166,7 @@ def plot_and_save_stack(radius, profiles, fits, errors, pixel_size,
         else:
             intensity[i] = np.nanmax(p)
 
-    LSE = np.asarray(errors) / intensity
+    LSE = np.asarray(infos["Reduced least square"])
 
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)

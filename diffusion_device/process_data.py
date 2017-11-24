@@ -69,27 +69,26 @@ def full_fit(settingsfn, metadatafn, outpath=None):
 
     # Get type
     data_type = metadata["KEY_MD_TYPE"]
-
+    infos = {}
     mod = get_module(data_type)
 
-    data, state = mod.load_data(metadata)
-    data, pixel_size, *infos = mod.process_data(data, metadata, settings)
+    data = mod.load_data(metadata, infos=infos)
+    data = mod.process_data(data, metadata, settings, infos=infos)
 
     if outpath is not None:
         mod.savedata(data, outpath)
 
-    profiles = mod.get_profiles(metadata, settings, data, pixel_size, *infos)
-    profiles = mod.process_profiles(profiles, pixel_size, settings, outpath)
+    profiles = mod.get_profiles(data, metadata, settings, infos=infos)
+    profiles = mod.process_profiles(profiles, settings, outpath, infos=infos)
 
-    radius, fits, error = mod.size_profiles(
-        profiles, pixel_size, metadata, settings)
+    radius, fits = mod.size_profiles(profiles, metadata, settings, 
+                                     infos=infos)
 
     if outpath is not None:
         mod.plot_and_save(
-            radius, profiles, fits, error, pixel_size,
-            state, outpath, settings)
+            radius, profiles, fits, outpath, settings, infos=infos)
 
-    return radius, profiles, fits, error, pixel_size, data, state
+    return radius, profiles, fits, data, infos
 
 
 def get_module(data_type):
@@ -105,11 +104,12 @@ def get_module(data_type):
     module: python module
         A module defining the following functions:
 
-    data, state = load_data(metadata)
-    data, pixel_size, *infos = process_data(data, metadata, settings)
-    profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
-    radius, fits, error = size_profiles(profiles, pixel_size, metadata, settings)
-    plot_and_save(radius, profiles, fits, error, pixel_size, outpath, settings)
+    data = load_data(metadata, infos)
+    data = process_data(data, metadata, settings, infos)
+    profiles = get_profiles(data, metadata, settings, infos)
+    profiles = process_profiles(profiles, settings, outpath, infos)
+    radius, fits = size_profiles(profiles, metadata, settings, infos)
+    plot_and_save(radius, profiles, fits, outpath, settings, infos)
     savedata(data, outpath)
 
     """

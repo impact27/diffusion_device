@@ -58,7 +58,7 @@ def ignore_slice(ignore, pixel_size):
     return pslice
 
 
-def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
+def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """Size the profiles
 
      Parameters
@@ -83,6 +83,8 @@ def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
         Rs, spectrum, the radii and corresponding spectrum
     """
 
+    pixel_size = infos["Pixel size"]
+    profiles_noise = infos["Profiles noise"]
     # load variables
     readingpos = np.asarray(metadata["KEY_MD_RPOS"])
     flow_rate = metadata["KEY_MD_Q"]
@@ -112,8 +114,6 @@ def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
     pslice = ignore_slice(ignore, pixel_size)
 
     profiles = np.asarray(profiles)
-    if norm_profiles:
-        profiles_scales = scale_factor(profiles, pslice)
 
     readingpos = np.asarray(readingpos)
     if len(readingpos) != len(profiles):
@@ -150,6 +150,7 @@ def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
                         viscosity=viscosity)
 
     if norm_profiles:
+        profiles_scales = scale_factor(profiles, pslice)
         # Normalise basis in the same way as profiles
         basis_scales = scale_factor(Basis, pslice)
         Basis *= profiles_scales[np.newaxis, 1:] / basis_scales
@@ -176,6 +177,11 @@ def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
                 # Normalise basis in the same way as profiles
                 fits_scale = scale_factor(fits, pslice)
                 fits *= profiles_scales / fits_scale
+                
+        #One free parameter
+        Mfreepar = 1
+                
+            
     else:
         spectrum = fit_radius(profilesfit, Basis, test_radii, pslice,
                               nspecies=nspecies)
@@ -186,10 +192,18 @@ def size_profiles(profiles, pixel_size, metadata, settings, zpos=None):
         if initmode != 'synthetic':
             fits[0] = init
         r = (test_radii, spectrum)
+        
+        #One free parameter
+        Mfreepar = 2*nspecies - 1
+        if nspecies == 0:
+            Mfreepar = len(test_radii)
 
-    error = np.sqrt(
-        np.mean(np.square(profiles[..., pslice] - fits[..., pslice])))
-    return r, fits, error
+    slicesize = np.sum(np.ones(np.shape(profiles)[-1])[pslice])
+    reduced_least_square = ((np.sum(np.square(profiles[..., pslice] 
+                                            - fits[..., pslice]))
+                            / profiles_noise**2) / (slicesize - Mfreepar))
+    infos["Reduced least square"] = reduced_least_square
+    return r, fits
 
 
 def synthetic_init(prof0, pslice):
@@ -303,12 +317,20 @@ def fit_monodisperse_radius(M, b, psquare, Rs):
     res = psquare + np.diag(M) - 2 * b
 
     i, j = np.argsort(res)[:2]
+    
     # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
     c = (b[i] - b[j] - M[i, j] + M[j, j]) / \
         (M[i, i] + M[j, j] - M[i, j] - M[j, i])
 
     # Get resulting r
     r = c * (Rs[i] - Rs[j]) + Rs[j]
+    
+    ystd = 0.034
+    error = np.sqrt((Rs[i] - Rs[j])**2 / (M[i, i] + M[j, j] - M[i, j] - M[j, i])) * ystd
+    print("Error", error)
+#   np.sum((Bai-Bbi)(Bai-Bbi)) = Mii-Mij-Mji+Mjj
+#   
+#   (Ba-Bb).(Ba-Bb)
 
     '''
     from matplotlib.pyplot import figure, plot, title
@@ -728,7 +750,7 @@ def get_fax(profiles):
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
 
 
-def process_profiles(profiles, pixel_size, settings, outpath):
+def process_profiles(profiles, settings, outpath, pixel_size):
     """Process profiles according to settings
 
     Parameters

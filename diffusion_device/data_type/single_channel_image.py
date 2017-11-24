@@ -37,28 +37,28 @@ from .. import profile as dp
 warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
 
 
-def load_data(metadata):
+def load_data(metadata, infos):
     """load data from metadata
 
     Parameters
     ----------
     metadata: dict
         The metadata information
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         the image
-    overexposed: bool
-        An indicator to see if the data is overexposed
     """
     filename = metadata["KEY_MD_FN"]
     data = images_files.load_images(filename)
-    overexposed = is_overexposed(data)
-    return data, overexposed
+    infos["Overexposed"] = is_overexposed(data)
+    return data
 
 
-def process_data(data, metadata, settings):
+def process_data(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
@@ -69,42 +69,45 @@ def process_data(data, metadata, settings):
         The metadata information
     settings: dict
         The settings
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         The processed data
-    pixel_size: float
-        The pixel size
     """
     data, backgrounds = images_files.process_background(data, metadata)
     data, pixel_size = process_images(data, backgrounds, metadata, settings)
-    return data, pixel_size
+    infos["Pixel size"] = pixel_size
+    return data
 
 
-def get_profiles(metadata, settings, data, pixel_size):
+def get_profiles(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
     ----------
+    data: array
+        The data to process
     metadata: dict
         The metadata information
     settings: dict
         The settings
-    data: array
-        The data to process
-    pixel_size: float
-        The pixel size
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     profiles: array
         The profiles
     """
+    pixel_size = infos["Pixel size"]
     channel_width = metadata["KEY_MD_WY"]
     Npix = int(channel_width // pixel_size) + 1
     profiles = np.zeros((len(data), Npix))
     flowdir = metadata["KEY_MD_FLOWDIR"]
+    noise = np.zeros(len(data))
     for i, (im, fd) in enumerate(zip(data, flowdir)):
         if fd == 'u':
             pass
@@ -116,11 +119,13 @@ def get_profiles(metadata, settings, data, pixel_size):
             im = np.rot90(im, 3)
         else:
             raise RuntimeError('Unknown orientation')
-        profiles[i] = extract_profile(im, pixel_size, channel_width)
+        profiles[i], noise[i] = extract_profile(im, pixel_size, channel_width)
+        
+    infos["Profiles noise"] = np.mean(noise)
     return profiles
 
 
-def size_profiles(profiles, pixel_size, metadata, settings):
+def size_profiles(profiles, metadata, settings, infos):
     """Size the profiles
 
      Parameters
@@ -145,7 +150,8 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     fits: 2d array
         The fits
     """
-    return dp.size_profiles(profiles, pixel_size, metadata, settings)
+    return dp.size_profiles(profiles, metadata, settings, 
+                            infos)
 
 
 def savedata(data, outpath):
@@ -153,11 +159,11 @@ def savedata(data, outpath):
     tifffile.imsave(outpath + '_ims.tif', data)
 
 
-def plot_and_save(radius, profiles, fits, error, pixel_size, state,
-                  outpath, settings):
+def plot_and_save(radius, profiles, fits,
+                  outpath, settings, infos):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, error, pixel_size, outpath)
+        radius, profiles, fits, infos, outpath)
 
 
 def process_images(images, backgrounds, metadata, settings, rebin=2):
@@ -383,12 +389,15 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     Xc *= pixel_size
 
     finterp = interpolate.interp1d(X, prof, bounds_error=False, fill_value=0)
+    
+    
+    noise = np.std(prof[X > chanWidth / 2])
     """
     from matplotlib.pyplot import figure, imshow, plot
     figure()
     plot(X, prof)
     #"""
-    return finterp(Xc)
+    return finterp(Xc), noise
 
     """
     from matplotlib.pyplot import figure, imshow, plot
@@ -404,8 +413,8 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     #"""
 
 
-def process_profiles(profiles, pixel_size, settings, outpath):
-    return dp.process_profiles(profiles, pixel_size, settings, outpath)
+def process_profiles(profiles, settings, outpath, infos):
+    return dp.process_profiles(profiles, settings, outpath, infos["Pixel size"])
 
 #    return prof[channel]
 

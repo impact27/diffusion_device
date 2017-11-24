@@ -33,28 +33,28 @@ from .. import images_files
 from ... import profile as dp
 
 
-def load_data(metadata):
+def load_data(metadata, infos):
     """load data from metadata
 
     Parameters
     ----------
     metadata: dict
         The metadata information
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         the image
-    overexposed: bool
-        An indicator to see if the data is overexposed
     """
     filename = metadata["KEY_MD_FN"]
     data = images_files.load_images(filename)
-    overexposed = [is_overexposed(d) for d in data]
-    return data, overexposed
+    infos["Overexposed"] =  [is_overexposed(d) for d in data]
+    return data
 
 
-def process_data(data, metadata, settings):
+def process_data(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
@@ -65,19 +65,18 @@ def process_data(data, metadata, settings):
         The metadata information
     settings: dict
         The settings
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         The processed data
-    pixel_size: float
-        The pixel size
-    centers: array
-        The positions of the centers
     """
+    Nchannel = metadata['KEY_MD_NCHANNELS']
     framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
     data = np.asarray(data, dtype=float)[framesslices]
-    centers = np.zeros((len(data), 4))
+    centers = np.zeros((len(data), Nchannel))
     pixel_size = np.zeros((len(data)))
     dataout = []
     skip = []
@@ -93,7 +92,7 @@ def process_data(data, metadata, settings):
             else:
                 metadata["KEY_MD_EXP"] = metadata["KEY_MD_EXP"][0]
 
-        return single.process_data(data, metadata, settings)
+        return single.process_data(data, metadata, settings, infos)
 
     for i in range(len(data)):
         try:
@@ -102,8 +101,12 @@ def process_data(data, metadata, settings):
             if isinstance(metadata["KEY_MD_EXP"], list):
                 single_metadata["KEY_MD_EXP"] = (
                     np.asarray(metadata["KEY_MD_EXP"])[framesslices][i])
-            d, pixel_size[i], centers[i] = single.process_data(
-                data[i], single_metadata, settings)
+            infos_i = {}
+            d = single.process_data(
+                data[i], single_metadata, settings, infos_i)
+            
+            pixel_size[i] = infos_i["Pixel size"]
+            centers[i]  = infos_i["Centers"]
             dataout.append(d)
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
@@ -122,38 +125,46 @@ def process_data(data, metadata, settings):
             dataout = np.insert(dataout, idx,
                                 np.ones(np.shape(dataout)[1:]) * np.nan, 0)
 
-    return dataout, pixel_size, centers
+    infos["Pixel size"] = pixel_size
+    infos["Centers"] = centers
+    return dataout
 
 
-def get_profiles(metadata, settings, data, pixel_size, centers):
+def get_profiles(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
     ----------
+    data: array
+        The data to process
     metadata: dict
         The metadata information
     settings: dict
         The settings
-    data: array
-        The data to process
-    pixel_size: float
-        The pixel size
-    centers: array
-        The positions of the centers
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     profiles: array
         The profiles
     """
+    pixel_size = infos["Pixel size"]
+    centers = infos["Centers"]
     profiles = []
+    noises = np.zeros(len(data))
     for i, im in enumerate(data):
         try:
             if settings["KEY_STG_STAT_STACK"]:
                 pxs, cnt = pixel_size, centers
             else:
                 pxs, cnt = pixel_size[i], centers[i]
-            prof = single.get_profiles(metadata, settings, im, pxs, cnt, )
+            
+            infos_i = {
+                    "Pixel size": pxs,
+                    "Centers": cnt}
+            prof = single.get_profiles(im, metadata, settings, infos_i)
+            noises[i] = infos_i["Profiles noise"]
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
                 print(sys.exc_info()[1])
@@ -161,10 +172,12 @@ def get_profiles(metadata, settings, data, pixel_size, centers):
             else:
                 raise
         profiles.append(prof)
+        
+    infos["Profiles noise"] = noises
     return profiles
 
 
-def size_profiles(profiles, pixel_size, metadata, settings):
+def size_profiles(profiles, metadata, settings, infos):
     """Size the profiles
 
      Parameters
@@ -200,12 +213,17 @@ def size_profiles(profiles, pixel_size, metadata, settings):
         else:
             try:
                 if settings["KEY_STG_STAT_STACK"]:
-                    pxs = pixel_size
+                    infos_i = {
+                            "Pixel size": infos["Pixel size"],
+                            "Profiles noise": infos["Profiles noise"][i]}
                 else:
-                    pxs = pixel_size[i]
-                r, fit, error = single.size_profiles(
-                    profs, pxs, metadata, settings)
+                    infos_i = {
+                            "Pixel size": infos["Pixel size"][i],
+                            "Profiles noise": infos["Profiles noise"][i]}
+                r, fit = single.size_profiles(
+                    profs, metadata, settings, infos_i)
                 shape_r = np.shape(r)
+                error = infos_i["Reduced least square"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
@@ -230,7 +248,8 @@ def size_profiles(profiles, pixel_size, metadata, settings):
         if add:
             radius = np.insert(radius, idx,
                                np.ones(np.shape(radius)[1:]) * np.nan, 0)
-    return radius, fits, errors
+    infos["Reduced least square"] = errors
+    return radius, fits
 
 
 def savedata(data, outpath):
@@ -238,27 +257,28 @@ def savedata(data, outpath):
     tifffile.imsave(outpath + '_ims.tif', data)
 
 
-def plot_and_save(radius, profiles, fits, error, pixel_size, state,
-                  outpath, settings):
+def plot_and_save(radius, profiles, fits,
+                  outpath, settings, infos):
     """Plot the sizing data"""
     plotpos = settings["KEY_STG_STACK_POSPLOT"]
     framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
 
-    state = state[framesslices]
+    infos["Overexposed"] = infos["Overexposed"][framesslices]
+    
     display_data.plot_and_save_stack(
-        radius, profiles, fits, error, pixel_size, state, outpath, plotpos)
+        radius, profiles, fits, infos, outpath, plotpos)
 
 
-def process_profiles(profiles, pixel_size, settings, outpath):
+def process_profiles(profiles, settings, outpath, infos):
     ret = []
     for i, prof in enumerate(profiles):
         if prof is None:
             ret.append(None)
         else:
             if settings["KEY_STG_STAT_STACK"]:
-                pxs = pixel_size
+                pxs = infos["Pixel size"]
             else:
-                pxs = pixel_size[i]
-            ret.append(dp.process_profiles(prof, pxs, settings, outpath))
+                pxs = infos["Pixel size"][i]
+            ret.append(dp.process_profiles(prof, settings, outpath, pxs))
 
     return ret

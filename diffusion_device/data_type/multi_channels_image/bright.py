@@ -83,8 +83,7 @@ def straight_image_infos(image, number_profiles):
         Position of the first channel center
 
     """
-    assert number_profiles == 4, "Not implemented"
-
+    assert number_profiles >= 4
     width_pixels = np.shape(image)[1] // 10
 
     profiles = np.nanmean(image - np.nanmedian(image), 0)

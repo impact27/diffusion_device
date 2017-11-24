@@ -2,11 +2,11 @@
 """
 Folder of modules defining:
 
-data, state = load_data(metadata)
-data, pixel_size, *infos = process_data(data, metadata, settings)
-profiles = get_profiles(metadata, settings, data, pixel_size, *infos)
-radius, fits, error = size_profiles(profiles, pixel_size, metadata, settings)
-plot_and_save(radius, profiles, fits, error, pixel_size, outpath, settings)
+data = load_data(metadata, infos)
+data = process_data(data, metadata, settings, infos)
+profiles = get_profiles(data, metadata, settings, infos)
+radius, fits = size_profiles(profiles, metadata, settings, infos)
+plot_and_save(radius, profiles, fits, outpath, settings, infos)
 savedata(data, outpath)
 
 Copyright (C) 2017  Quentin Peter

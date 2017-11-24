@@ -23,33 +23,33 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 import warnings
+from scipy.signal import savgol_filter
 
 from .. import profile as dp
 from .. import display_data
 
 
-def load_data(metadata):
+def load_data(metadata, infos):
     """load data from metadata
 
     Parameters
     ----------
     metadata: dict
         The metadata information
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         the image
-    overexposed: bool
-        An indicator to see if the data is overexposed
     """
     filename = metadata["KEY_MD_FN"]
     data = np.asarray([np.loadtxt(fn, skiprows=22) for fn in filename])
-    state = False
-    return data, state
+    return data
 
 
-def process_data(data, metadata, settings):
+def process_data(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
@@ -60,15 +60,14 @@ def process_data(data, metadata, settings):
         The metadata information
     settings: dict
         The settings
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         The processed data
-    pixel_size: float
-        The pixel size
     """
-    pixel_size = metadata["KEY_MD_PIXSIZE"]
     flow_dir = metadata["KEY_MD_FLOWDIR"]
 
     # put scans in the correct order
@@ -79,47 +78,52 @@ def process_data(data, metadata, settings):
             elif o != 'd':
                 raise RuntimeError(
                     'Flow direction must be up or down for scans.')
+    
+    infos["Pixel size"] = metadata["KEY_MD_PIXSIZE"]
+    return data
 
-    return data, pixel_size
 
-
-def get_profiles(metadata, settings, data, pixel_size):
+def get_profiles(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
     ----------
+    data: array
+        The data to process
     metadata: dict
         The metadata information
     settings: dict
         The settings
-    data: array
-        The data to process
-    pixel_size: float
-        The pixel size
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     profiles: array
         The profiles
     """
-    channel_width = metadata["KEY_MD_WY"]
-    profiles = scans_to_profiles(data, int(channel_width / pixel_size))
+    channel_width_px = int(metadata["KEY_MD_WY"] / infos["Pixel size"])
+    profiles = scans_to_profiles(data, channel_width_px)
+    #Guess measurment noise from savgol filter
+    infos["Profiles noise"] = np.std(profiles - savgol_filter(profiles, 31, 5))
     return profiles
 
+def process_profiles(profiles, settings, outpath, infos):
+    return dp.process_profiles(profiles, settings, outpath, infos["Pixel size"])
 
-def size_profiles(profiles, pixel_size, metadata, settings):
+def size_profiles(profiles, metadata, settings, infos):
     """Size the profiles
 
      Parameters
     ----------
     profiles: 2d array
         List of profiles to fit
-    pixel_size:float
-        The pixel size in [m]
     metadata: dict
         The metadata
     settings: dict
         The settings
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
@@ -133,7 +137,8 @@ def size_profiles(profiles, pixel_size, metadata, settings):
         The fits
     """
     zpos = metadata["KEY_MD_SCANZ"]
-    return dp.size_profiles(profiles, pixel_size, metadata, settings,
+    return dp.size_profiles(profiles, metadata, settings, 
+                            infos,
                             zpos=zpos)
 
 
@@ -143,11 +148,10 @@ def savedata(data, outpath):
     pass
 
 
-def plot_and_save(radius, profiles, fits, error, pixel_size, state,
-                  outpath, settings):
+def plot_and_save(radius, profiles, fits, outpath, settings, infos):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, error, pixel_size, outpath)
+        radius, profiles, fits, infos, outpath)
 
 
 def scans_to_profiles(scans, Npix, *,
@@ -245,10 +249,6 @@ def getmaxaround(profile, approxmax, window_r=3):
     coeff = np.polyfit(X, Y, 2)
     edgePos = -coeff[1] / (2 * coeff[0])
     return edgePos
-
-
-def process_profiles(profiles, pixel_size, settings, outpath):
-    return dp.process_profiles(profiles, pixel_size, settings, outpath)
 
 # def get_profiles(scans, Npix, *,
 #                 offset_edge_idx=None):

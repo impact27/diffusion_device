@@ -33,28 +33,28 @@ from ... import display_data
 from .. import images_files
 
 
-def load_data(metadata):
+def load_data(metadata, infos):
     """load data from metadata
 
     Parameters
     ----------
     metadata: dict
         The metadata information
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     data: array
         the image
-    overexposed: bool
-        An indicator to see if the data is overexposed
     """
     filename = metadata["KEY_MD_FN"]
     data = images_files.load_image(filename)
-    overexposed = is_overexposed(data)
-    return data, overexposed
+    infos["Overexposed"] = is_overexposed(data)
+    return data
 
 
-def process_data(data, metadata, settings):
+def process_data(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
@@ -65,61 +65,67 @@ def process_data(data, metadata, settings):
         The metadata information
     settings: dict
         The settings
-
+    infos: dict
+        Dictionnary with other infos
+        
     Returns
     -------
     data: array
         The processed data
-    pixel_size: float
-        The pixel size
-    centers: array
-        The positions of the centers
     """
     data, background = images_files.process_background(data, metadata)
     data, centers, pixel_size = process_image(
         data, background, metadata, settings)
-    return data, pixel_size, centers
+    infos["Pixel size"] = pixel_size
+    infos["Centers"] = centers
+    return data
 
 
-def get_profiles(metadata, settings, data, pixel_size, centers):
+def get_profiles(data, metadata, settings, infos):
     """Do some data processing
 
     Parameters
     ----------
+    data: array
+        The data to process
     metadata: dict
         The metadata information
     settings: dict
         The settings
-    data: array
-        The data to process
-    pixel_size: float
-        The pixel size
-    centers: array
-        The positions of the centers
+    infos: dict
+        Dictionnary with other infos
 
     Returns
     -------
     profiles: array
         The profiles
     """
+    pixel_size = infos["Pixel size"]
+    centers = infos["Centers"]
     if np.isnan(pixel_size):
         return None
     channel_width = metadata["KEY_MD_WY"]
     imslice = settings["KEY_STG_SLICE"]
     ignore = settings["KEY_STG_IGNORE"]
     flowdir = metadata["KEY_MD_FLOWDIR"]
+    superflatten=settings["KEY_STG_SUPERFLATTEN"]
     profiles, noise = extract_profiles(
         data, centers, flowdir, channel_width, ignore, pixel_size,
-        imslice=imslice)
+        imslice=imslice, superflatten=superflatten)
 
     # If image upside down, turn
     if profiles[-1].max() > profiles[0].max():
         profiles = profiles[::-1]
+        
+    infos["Profiles noise"] = noise
 
     return profiles
 
+def process_profiles(profiles, settings, outpath, infos):
+    return dp.process_profiles(profiles, settings, outpath, infos["Pixel size"])
 
-def size_profiles(profiles, pixel_size, metadata, settings):
+
+def size_profiles(profiles, metadata, settings, infos):
     """Size the profiles
 
      Parameters
@@ -144,7 +150,8 @@ def size_profiles(profiles, pixel_size, metadata, settings):
     fits: 2d array
         The fits
     """
-    return dp.size_profiles(profiles, pixel_size, metadata, settings)
+    return dp.size_profiles(profiles, metadata, settings,
+                            infos)
 
 
 def savedata(data, outpath):
@@ -152,11 +159,11 @@ def savedata(data, outpath):
     tifffile.imsave(outpath + '_im.tif', data)
 
 
-def plot_and_save(radius, profiles, fits, error, pixel_size, state,
-                  outpath, settings):
+def plot_and_save(radius, profiles, fits,
+                  outpath, settings, infos):
     """Plot the sizing data"""
     display_data.plot_and_save(
-        radius, profiles, fits, error, pixel_size, outpath)
+        radius, profiles, fits, infos, outpath)
 
 
 def process_image(image, background, metadata, settings):
@@ -217,7 +224,8 @@ def process_image(image, background, metadata, settings):
     else:
         # images and background
         image, centers, pixel_size = uv.extract_data(
-            image, background, nchannels, channel_width, wall_width)
+            image, background, nchannels, channel_width, wall_width, 
+            goodFeatures=settings["KEY_STG_GOODFEATURES"])
 
     return image, centers, pixel_size
 
@@ -236,7 +244,7 @@ def rotate(image, background, flowdir):
 
 
 def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
-                     imslice=None):
+                     imslice=None, superflatten=False):
     '''cut the image profile into profiles
 
     Parameters
@@ -275,6 +283,19 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
     else:
         image_profile = imageProfileSlice(
             image, imslice[0], imslice[1], pixel_size)
+        
+    if superflatten: 
+        Xprof = np.arange(len(image_profile))
+        mask = np.abs(Xprof[:, np.newaxis] - centers[np.newaxis]) < prof_npix / 2
+        mask = np.sum(mask,1) == 0 
+        mask = np.logical_or(mask, image_profile<0)
+        mask = np.logical_and(mask, np.isfinite(image_profile))
+        
+        X = Xprof[mask]
+        Y = image_profile[mask]
+        
+        image_profile -= np.poly1d(np.polyfit(X, Y, 5))(Xprof)
+        
 
     if (np.min(centers) - prof_npix / 2 < 0 or
             np.max(centers) + prof_npix / 2 > len(image_profile)):
@@ -328,7 +349,7 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
             np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
         print("Large background. Probably incorrect.")
 
-    noise_std = np.sqrt(np.mean(image_profile[outmask]**2))
+    noise_std = np.sqrt(np.nanmean(image_profile[outmask]**2))
 #    imshow
 #    figure()
 #    imshow(image)
@@ -366,5 +387,4 @@ def imageProfileSlice(image, center, width, pixel_size):
     return np.nanmean(image[amin:amax], 0)
 
 
-def process_profiles(profiles, pixel_size, settings, outpath):
-    return dp.process_profiles(profiles, pixel_size, settings, outpath)
+
