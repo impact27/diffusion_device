@@ -28,6 +28,7 @@ from scipy.optimize import basinhopping, minimize
 from itertools import combinations
 from scipy.signal import savgol_filter
 
+
 from .basis_generate import getprofiles
 from . import display_data
 
@@ -84,7 +85,6 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """
 
     pixel_size = infos["Pixel size"]
-    profiles_noise = infos["Profiles noise"]
     # load variables
     readingpos = np.asarray(metadata["KEY_MD_RPOS"])
     flow_rate = metadata["KEY_MD_Q"]
@@ -142,6 +142,10 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         readingposfit = readingposfit[1:] - readingposfit[0]
         profilesfit = profilesfit[1:]
 
+    #Check if init is large enough
+    if np.mean(init[pslice]) < 1.5*infos["Profiles noise"]:
+        raise RuntimeError("Intensity too low")
+
     # Get basis function
     Basis = getprofiles(init, flow_rate, test_radii,
                         Wy=channel_width, Wz=channel_height,
@@ -156,10 +160,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         Basis *= profiles_scales[np.newaxis, 1:] / basis_scales
 
     fits = np.zeros_like(profiles) * np.nan
-    error = np.nan
     if nspecies == 1:
         # Get best fit
-        r = fit_radius(profilesfit, Basis, test_radii, pslice, nspecies=1)
+        r = fit_radius(profilesfit, Basis, test_radii, pslice, nspecies=1, infos=infos)
 
         # fill data if needed
         if not np.isnan(r):
@@ -184,7 +187,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
             
     else:
         spectrum = fit_radius(profilesfit, Basis, test_radii, pslice,
-                              nspecies=nspecies)
+                              nspecies=nspecies, infos=infos)
 
         # fill data if needed
         fits[fit_position_number] = np.sum(
@@ -193,15 +196,17 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
             fits[0] = init
         r = (test_radii, spectrum)
         
-        #One free parameter
+        #2n-1 free parameter
         Mfreepar = 2*nspecies - 1
         if nspecies == 0:
-            Mfreepar = len(test_radii)
+            Mfreepar = 1 #TODO: fix that
 
     slicesize = np.sum(np.ones(np.shape(profiles)[-1])[pslice])
+    nu = slicesize - Mfreepar
     reduced_least_square = ((np.sum(np.square(profiles[..., pslice] 
-                                            - fits[..., pslice]))
-                            / profiles_noise**2) / (slicesize - Mfreepar))
+                                               - fits[..., pslice]))
+                            / infos["Profiles noise"]**2)
+            / nu)
     infos["Reduced least square"] = reduced_least_square
     return r, fits
 
@@ -253,7 +258,8 @@ def get_matrices(profiles, Basis, profslice):
     return M, b, psquare
 
 
-def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1):
+def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1, 
+               infos = None):
     """Find the best monodisperse radius
 
      Parameters
@@ -282,7 +288,7 @@ def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1):
     M, b, psquare = get_matrices(profiles, Basis, profslice)
 
     if nspecies == 1 and Rs is not None:
-        return fit_monodisperse_radius(M, b, psquare, Rs)
+        return fit_monodisperse_radius(M, b, psquare, Rs, infos)
 
     elif nspecies > 0:
         return fit_N_radius(M, b, psquare, nspecies)
@@ -294,7 +300,7 @@ def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1):
         raise RuntimeError('Number of species negative!')
 
 
-def fit_monodisperse_radius(M, b, psquare, Rs):
+def fit_monodisperse_radius(M, b, psquare, Rs, infos = None):
     """Find the best monodisperse radius
 
     Parameters
@@ -324,13 +330,7 @@ def fit_monodisperse_radius(M, b, psquare, Rs):
 
     # Get resulting r
     r = c * (Rs[i] - Rs[j]) + Rs[j]
-    
-    ystd = 0.034
-    error = np.sqrt((Rs[i] - Rs[j])**2 / (M[i, i] + M[j, j] - M[i, j] - M[j, i])) * ystd
-    print("Error", error)
-#   np.sum((Bai-Bbi)(Bai-Bbi)) = Mii-Mij-Mji+Mjj
-#   
-#   (Ba-Bb).(Ba-Bb)
+
 
     '''
     from matplotlib.pyplot import figure, plot, title
@@ -342,6 +342,13 @@ def fit_monodisperse_radius(M, b, psquare, Rs):
         raise RuntimeError('The test radius are too big!')
     if r > np.max(Rs):
         raise RuntimeError('The test radius are too small!')
+        
+    if infos is not None:
+        
+        error = (infos["Profiles noise"]
+                * np.sqrt((Rs[i] - Rs[j])**2 
+                          / (M[i, i] + M[j, j] - M[i, j] - M[j, i]))) 
+        infos["Radius error"] = error
 
     return r
 
@@ -657,8 +664,11 @@ def image_angle(image, maxAngle=np.pi / 7):
     x = pos[valid]
     c = C[valid]
 
-    x = x[c.argmax() - 5:c.argmax() + 6]
-    y = np.log(gfilter(c, 2)[c.argmax() - 5:c.argmax() + 6])
+    argleft = c.argmax() - 5
+    if argleft < 0:
+        argleft = 0
+    x = x[argleft:c.argmax() + 6]
+    y = np.log(gfilter(c, 2)[argleft:c.argmax() + 6])
 
     if np.any(np.isnan(y)):
         raise RuntimeError('The signal is too noisy!')
@@ -714,11 +724,13 @@ def init_process(profile, mode, ignore_slice):
     """
     init = np.zeros_like(profile)
     init[ignore_slice] = profile[ignore_slice]
-
+    
     if mode == 'none':
         return init
     elif mode == 'gfilter':
         return gfilter(init, 2)
+    elif mode == 'savgol':
+        return savgol_filter(init, 31, 5)
     elif mode == 'gaussian' or mode == 'tails':
         Y = init
         X = np.arange(len(Y))

@@ -83,7 +83,7 @@ def straight_image_infos(image, number_profiles):
         Position of the first channel center
 
     """
-    assert number_profiles >= 4
+    assert number_profiles >= 3
     width_pixels = np.shape(image)[1] // 10
 
     profiles = np.nanmean(image - np.nanmedian(image), 0)
@@ -126,21 +126,18 @@ def straight_image_infos(image, number_profiles):
         w = (maxs[2] - maxs[0]) / 2
         a = w / 2 + (maxs[0] - maxs[1]) / 2
         origin = maxs[0] - a
-        lastdist = maxs[3] - (origin + 3 * w - a)
 
     else:
         # Deduce relevant parameters
-        w = (maxs[3] - maxs[1]) / 2
-        a = w / 2 + (maxs[2] - maxs[3]) / 2
-        origin = maxs[3] + a - 3 * w
-        lastdist = maxs[0] - (origin + a)
+        w = (maxs[-1] - maxs[-3]) / 2
+        a = w / 2 + (maxs[-2] - maxs[-1]) / 2
+        origin = maxs[-1] + a - 3 * w
 
     if not w > 0:
         raise RuntimeError('Something went wrong while analysing the images')
     # if position 4 is remotely correct, return infos
-    if (np.abs(lastdist) > w / 2  # Last too far
-            or np.any(np.isnan((a, w, origin, maxs[3])))  # got nans
-            or origin - a + 3.2 * w > len(profiles)  # Right side not in
+    if (np.any(np.isnan((a, w, origin)))  # got nans
+            or origin - a + (number_profiles -.8) * w > len(profiles)  # Right side not in
             or origin + a - .2 * w < 0):  # left side not in
         raise RuntimeError("Can't get image infos")
     return w, a, origin
@@ -260,4 +257,4 @@ def extract_data(image, number_profiles, chwidth,
 def best_image(images):
     if len(np.shape(images)) == 2:
         return images
-    return images[np.argmax(np.nanmean(images, axis=(-2, -1)))]
+    return images[np.argmax(np.nanpercentile(images, 90, axis=(-2, -1)))]

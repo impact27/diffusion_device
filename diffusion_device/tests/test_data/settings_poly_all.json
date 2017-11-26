@@ -4,5 +4,6 @@
         1e-08,
         1e-10
     ],
+    "Ignore Edge[m]": 20e-6,
     "Number of species to fit": 0
 }

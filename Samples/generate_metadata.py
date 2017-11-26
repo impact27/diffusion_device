@@ -5,8 +5,7 @@ from diffusion_device.keys import metadata
 datapath = 'SampleData/UVim300ulph.tif'
 json_infos = {}
 
-# Location of the data file(s). If None, will take the last path part of
-# datapath.
+# Location of the data file(s). If None, will take the last path part of datapath.
 json_infos['Image file name'] = None
 
 # Background file, relative to the image file. None means no background

@@ -15,7 +15,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2.5e-9)
@@ -27,7 +27,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/scans/metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
@@ -39,7 +39,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         Rs, spectrum = radius
@@ -52,7 +52,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         Rs, spectrum = radius
@@ -65,7 +65,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/Brightim900ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, .2e-9)
@@ -77,7 +77,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/327.68ul-h-50um device_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(np.sum(np.isfinite(radius)),
@@ -90,7 +90,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/350ulh_12pos/metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2.5e-9)
@@ -102,7 +102,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
@@ -114,7 +114,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
@@ -126,7 +126,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/M4-5_metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, error, pixel_size, images, overexposed = \
+        radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 4e-9)

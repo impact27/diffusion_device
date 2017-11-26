@@ -306,7 +306,7 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None
         maskim = ir.shift_image(maskbg, (0, infoDict['Shift']), 
                                 borderValue=np.nan) > .5
         
-        ret = remove_curve_background_alt(im, bg, maskim, maskbg)
+        ret = remove_curve_background_alt(im, bg, maskim, maskbg, reflatten=True)
     return ret
 
 

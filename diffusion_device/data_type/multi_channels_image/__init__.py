@@ -26,6 +26,7 @@ from tifffile import imread
 from scipy import interpolate
 from registrator.image import is_overexposed
 import tifffile
+from scipy.ndimage.morphology import binary_erosion
 
 from . import bright, uv, stack
 from ... import profile as dp
@@ -108,10 +109,9 @@ def get_profiles(data, metadata, settings, infos):
     imslice = settings["KEY_STG_SLICE"]
     ignore = settings["KEY_STG_IGNORE"]
     flowdir = metadata["KEY_MD_FLOWDIR"]
-    superflatten=settings["KEY_STG_SUPERFLATTEN"]
     profiles, noise = extract_profiles(
         data, centers, flowdir, channel_width, ignore, pixel_size,
-        imslice=imslice, superflatten=superflatten)
+        imslice=imslice)
 
     # If image upside down, turn
     if profiles[-1].max() > profiles[0].max():
@@ -244,7 +244,7 @@ def rotate(image, background, flowdir):
 
 
 def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
-                     imslice=None, superflatten=False):
+                     imslice=None):
     '''cut the image profile into profiles
 
     Parameters
@@ -283,19 +283,6 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
     else:
         image_profile = imageProfileSlice(
             image, imslice[0], imslice[1], pixel_size)
-        
-    if superflatten: 
-        Xprof = np.arange(len(image_profile))
-        mask = np.abs(Xprof[:, np.newaxis] - centers[np.newaxis]) < prof_npix / 2
-        mask = np.sum(mask,1) == 0 
-        mask = np.logical_or(mask, image_profile<0)
-        mask = np.logical_and(mask, np.isfinite(image_profile))
-        
-        X = Xprof[mask]
-        Y = image_profile[mask]
-        
-        image_profile -= np.poly1d(np.polyfit(X, Y, 5))(Xprof)
-        
 
     if (np.min(centers) - prof_npix / 2 < 0 or
             np.max(centers) + prof_npix / 2 > len(image_profile)):
@@ -343,13 +330,13 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
         profiles[i] = p
 
     outmask = np.all(np.abs(np.arange(len(image_profile))[:, np.newaxis]
-                            - centers[np.newaxis]) > prof_npix / 2, axis=1)
+                            - centers[np.newaxis]) > .55 * prof_npix, axis=1)
     # Check the image profiles is not too bad
     if 2 * \
             np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
-        print("Large background. Probably incorrect.")
+        raise RuntimeError("Large background. Probably incorrect.")
 
-    noise_std = np.sqrt(np.nanmean(image_profile[outmask]**2))
+    noise_std = np.nanstd(image_profile[outmask])
 #    imshow
 #    figure()
 #    imshow(image)

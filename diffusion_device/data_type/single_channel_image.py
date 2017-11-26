@@ -390,8 +390,8 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
 
     finterp = interpolate.interp1d(X, prof, bounds_error=False, fill_value=0)
     
-    
-    noise = np.std(prof[X > chanWidth / 2])
+    valid = np.logical_and(X > chanWidth / 2, np.isfinite(prof))
+    noise = np.std(prof[valid])
     """
     from matplotlib.pyplot import figure, imshow, plot
     figure()

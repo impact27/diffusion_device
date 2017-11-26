@@ -75,7 +75,7 @@ def process_data(data, metadata, settings, infos):
     """
     Nchannel = metadata['KEY_MD_NCHANNELS']
     framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
-    data = np.asarray(data, dtype=float)[framesslices]
+    data = np.asarray(data, dtype="float32")[framesslices]
     centers = np.zeros((len(data), Nchannel))
     pixel_size = np.zeros((len(data)))
     dataout = []
@@ -205,12 +205,15 @@ def size_profiles(profiles, metadata, settings, infos):
     radius = []
     fits = []
     errors = []
+    r_errors = []
     shape_r = None
     for i, profs in enumerate(profiles):
-        if profs is None:
-            fits.append(None)
-            errors.append(np.nan)
-        else:
+        r = None
+        fit = None
+        error = np.nan
+        r_error = np.nan
+        
+        if profs is not None:
             try:
                 if settings["KEY_STG_STAT_STACK"]:
                     infos_i = {
@@ -224,17 +227,16 @@ def size_profiles(profiles, metadata, settings, infos):
                     profs, metadata, settings, infos_i)
                 shape_r = np.shape(r)
                 error = infos_i["Reduced least square"]
+                r_error = infos_i["Radius error"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
-                    r = None
-                    fit = None
-                    error = np.nan
                 else:
                     raise
-            fits.append(fit)
-            radius.append(r)
-            errors.append(error)
+        fits.append(fit)
+        radius.append(r)
+        errors.append(error)
+        r_errors.append(r_error)
     
     if shape_r is None:
         raise RuntimeError("Can't find a single good frame")
@@ -244,11 +246,11 @@ def size_profiles(profiles, metadata, settings, infos):
             radius[i] = np.nan*np.ones(shape_r)
             
     radius = np.asarray(radius, float)
-    for idx, add in enumerate([p is None for p in profiles]):
+    for idx, add in enumerate([r is None for r in radius]):
         if add:
-            radius = np.insert(radius, idx,
-                               np.ones(np.shape(radius)[1:]) * np.nan, 0)
+            radius[idx] = np.ones(np.shape(radius)[1:]) * np.nan
     infos["Reduced least square"] = errors
+    infos["Radius error"] = r_errors
     return radius, fits
 
 

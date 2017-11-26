@@ -56,4 +56,7 @@ json_infos['Savitzky-Golay filter (window, order)'] = None
 # For optimisation and identical processing
 json_infos['Stack is stationnary'] = False
 
+# If there is corners or random blobs, True 
+json_infos['Background had good features'] = True
+
 settings.generate_json(datapath, json_infos)
