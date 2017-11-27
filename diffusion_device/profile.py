@@ -154,10 +154,10 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                         viscosity=viscosity)
 
     if norm_profiles:
-        profiles_scales = scale_factor(profiles, pslice)
+        profiles_scales = scale_factor(profilesfit, pslice)
         # Normalise basis in the same way as profiles
         basis_scales = scale_factor(Basis, pslice)
-        Basis *= profiles_scales[np.newaxis, 1:] / basis_scales
+        Basis *= profiles_scales[np.newaxis, :] / basis_scales
 
     fits = np.zeros_like(profiles) * np.nan
     if nspecies == 1:
@@ -175,11 +175,13 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
             if initmode != 'synthetic':
                 fits[0] = init
-
+                
             if norm_profiles:
+                profiles_scales = scale_factor(profiles, pslice)
                 # Normalise basis in the same way as profiles
                 fits_scale = scale_factor(fits, pslice)
                 fits *= profiles_scales / fits_scale
+
                 
         #One free parameter
         Mfreepar = 1
@@ -201,16 +203,37 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         if nspecies == 0:
             Mfreepar = 1 #TODO: fix that
 
-    slicesize = np.sum(np.ones(np.shape(profiles)[-1])[pslice])
+    slicesize = np.sum(np.ones_like(profilesfit)[..., pslice])
     nu = slicesize - Mfreepar
-    reduced_least_square = ((np.sum(np.square(profiles[..., pslice] 
+    reduced_least_square = ((np.nansum(np.square(profiles[..., pslice] 
                                                - fits[..., pslice]))
                             / infos["Profiles noise"]**2)
             / nu)
     infos["Reduced least square"] = reduced_least_square
     return r, fits
 
-
+#def alt_fit(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1, 
+#               infos = None):
+#    sB2 = np.sum(Basis[..., profslice]**2, -1)
+#    sPB = np.sum(profiles[np.newaxis, ..., profslice] * Basis[..., profslice], -1)
+#    sB = np.sum(Basis[..., profslice], -1)
+#    sP = np.sum(profiles[..., profslice], -1)[np.newaxis]
+#    sP2 = np.sum(profiles[..., profslice]**2, -1)[np.newaxis]
+#    N = np.sum(np.ones_like(profiles)[0, profslice])
+#    
+#    det = N * sB2 - sB **2
+#    a = (N * sPB - sP * sB)/det
+#    b = (sB2 * sP - sB * sPB)/det
+#    
+#    ret = sP2 -2 * a * sPB -2 * b * sP + 2 * a * b * sB + b**2 + a**2 * sB2
+#    bestidx = np.argmin(ret)
+#    import matplotlib.pyplot as plt
+#    plt.figure()
+#    plt.plot(np.ravel(profiles))
+#    plt.plot(np.ravel(a[bestidx, ..., np.newaxis]*Basis[bestidx] 
+#                + b[bestidx, ..., np.newaxis]))
+    
+    
 def synthetic_init(prof0, pslice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
@@ -246,14 +269,16 @@ def get_matrices(profiles, Basis, profslice):
     Nb = len(Basis)
     flatbasis = np.reshape(Basis[:, :, profslice], (Nb, -1))
     flatprofs = np.ravel(profiles[:, profslice])
-    M = np.zeros((Nb, Nb))
-    b = np.zeros((Nb))
 
     psquare = np.sum(flatprofs * flatprofs)
-    for i in range(Nb):
-        b[i] = np.sum(flatbasis[i] * flatprofs)
-        for j in range(Nb):
-            M[i, j] = np.sum(flatbasis[i] * flatbasis[j])
+    b = np.sum(flatbasis * flatprofs[np.newaxis], -1)
+    M = np.sum(flatbasis[:, np.newaxis] * flatbasis[np.newaxis, :], -1)
+#    M = np.zeros((Nb, Nb))
+#    b = np.zeros((Nb))
+#    for i in range(Nb):
+#        b[i] = np.sum(flatbasis[i] * flatprofs)
+#        for j in range(Nb):
+#            M[i, j] = np.sum(flatbasis[i] * flatbasis[j])
 
     return M, b, psquare
 
