@@ -27,6 +27,8 @@ from scipy import interpolate
 from registrator.image import is_overexposed
 import tifffile
 from scipy.ndimage.morphology import binary_erosion
+from scipy.ndimage.measurements import label
+from scipy.signal import savgol_filter
 
 from . import bright, uv, stack
 from ... import profile as dp
@@ -68,7 +70,7 @@ def process_data(data, metadata, settings, infos):
         The settings
     infos: dict
         Dictionnary with other infos
-        
+
     Returns
     -------
     data: array
@@ -116,13 +118,15 @@ def get_profiles(data, metadata, settings, infos):
     # If image upside down, turn
     if profiles[-1].max() > profiles[0].max():
         profiles = profiles[::-1]
-        
+
     infos["Profiles noise"] = noise
 
     return profiles
 
+
 def process_profiles(profiles, settings, outpath, infos):
-    return dp.process_profiles(profiles, settings, outpath, infos["Pixel size"])
+    return dp.process_profiles(
+        profiles, settings, outpath, infos["Pixel size"])
 
 
 def size_profiles(profiles, metadata, settings, infos):
@@ -224,7 +228,7 @@ def process_image(image, background, metadata, settings):
     else:
         # images and background
         image, centers, pixel_size = uv.extract_data(
-            image, background, nchannels, channel_width, wall_width, 
+            image, background, nchannels, channel_width, wall_width,
             goodFeatures=settings["KEY_STG_GOODFEATURES"])
 
     return image, centers, pixel_size
@@ -331,17 +335,27 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
 
     outmask = np.all(np.abs(np.arange(len(image_profile))[:, np.newaxis]
                             - centers[np.newaxis]) > .55 * prof_npix, axis=1)
+    outmask = np.logical_and(outmask, np.isfinite(image_profile))
+
+    lbl, n = label(outmask)
+    medians = np.zeros(n)
+    stds = np.zeros(n)
+
+    for i in np.arange(n):
+        background = image_profile[lbl == i + 1]
+        medians[i] = np.median(background)
+        window = 31
+        if len(background) < window:
+            window = 2*(len(background)//2) -1
+        stds[i] = np.sum(np.square(background
+            - savgol_filter(background, window, window//6)))
+
     # Check the image profiles is not too bad
     if 2 * \
-            np.abs(np.nanmedian(image_profile[outmask])) > np.max(image_profile):
+            np.abs(np.median(medians)) > np.max(image_profile):
         raise RuntimeError("Large background. Probably incorrect.")
 
-    noise_std = np.nanstd(image_profile[outmask])
-#    imshow
-#    figure()
-#    imshow(image)
-#    figure()
-#    plot(image_profile)
+    noise_std = np.sqrt(np.sum(stds) / np.sum(outmask))
 
     return profiles, noise_std
 
@@ -372,6 +386,3 @@ def imageProfileSlice(image, center, width, pixel_size):
     if amin < 0 or amax > len(image):
         raise RuntimeError("Poorly defined slice")
     return np.nanmean(image[amin:amax], 0)
-
-
-

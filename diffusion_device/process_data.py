@@ -81,7 +81,7 @@ def full_fit(settingsfn, metadatafn, outpath=None):
     profiles = mod.get_profiles(data, metadata, settings, infos=infos)
     profiles = mod.process_profiles(profiles, settings, outpath, infos=infos)
 
-    radius, fits = mod.size_profiles(profiles, metadata, settings, 
+    radius, fits = mod.size_profiles(profiles, metadata, settings,
                                      infos=infos)
 
     if outpath is not None:

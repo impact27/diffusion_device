@@ -145,12 +145,13 @@ def remove_optics_background(images, backgrounds, metadata):
         # if backgrounds is not None:
         #     backgrounds = (backgrounds / background_exposure
         #                    - optics + np.median(optics))
-        factor = np.sum(optics**2)/np.sum(optics*images, axis=(-2, -1))
-        if len(np.shape(factor)) ==1:
+        factor = np.sum(optics**2) / np.sum(optics * images, axis=(-2, -1))
+        if len(np.shape(factor)) == 1:
             factor = factor[:, np.newaxis, np.newaxis]
         images = images * factor - optics + np.median(optics)
+
         if backgrounds is not None:
-            backgrounds = (backgrounds * np.sum(optics**2)/np.sum(optics*backgrounds)
+            backgrounds = (backgrounds * np.sum(optics**2) / np.sum(optics * backgrounds)
                            - optics + np.median(optics))
 
     return images, backgrounds

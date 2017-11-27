@@ -78,7 +78,7 @@ def process_data(data, metadata, settings, infos):
             elif o != 'd':
                 raise RuntimeError(
                     'Flow direction must be up or down for scans.')
-    
+
     infos["Pixel size"] = metadata["KEY_MD_PIXSIZE"]
     return data
 
@@ -104,12 +104,15 @@ def get_profiles(data, metadata, settings, infos):
     """
     channel_width_px = int(metadata["KEY_MD_WY"] / infos["Pixel size"])
     profiles = scans_to_profiles(data, channel_width_px)
-    #Guess measurment noise from savgol filter
+    # Guess measurment noise from savgol filter
     infos["Profiles noise"] = np.std(profiles - savgol_filter(profiles, 31, 5))
     return profiles
 
+
 def process_profiles(profiles, settings, outpath, infos):
-    return dp.process_profiles(profiles, settings, outpath, infos["Pixel size"])
+    return dp.process_profiles(
+        profiles, settings, outpath, infos["Pixel size"])
+
 
 def size_profiles(profiles, metadata, settings, infos):
     """Size the profiles
@@ -137,7 +140,7 @@ def size_profiles(profiles, metadata, settings, infos):
         The fits
     """
     zpos = metadata["KEY_MD_SCANZ"]
-    return dp.size_profiles(profiles, metadata, settings, 
+    return dp.size_profiles(profiles, metadata, settings,
                             infos,
                             zpos=zpos)
 

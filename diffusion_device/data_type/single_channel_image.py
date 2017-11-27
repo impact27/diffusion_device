@@ -120,7 +120,7 @@ def get_profiles(data, metadata, settings, infos):
         else:
             raise RuntimeError('Unknown orientation')
         profiles[i], noise[i] = extract_profile(im, pixel_size, channel_width)
-        
+
     infos["Profiles noise"] = np.mean(noise)
     return profiles
 
@@ -150,7 +150,7 @@ def size_profiles(profiles, metadata, settings, infos):
     fits: 2d array
         The fits
     """
-    return dp.size_profiles(profiles, metadata, settings, 
+    return dp.size_profiles(profiles, metadata, settings,
                             infos)
 
 
@@ -389,7 +389,7 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     Xc *= pixel_size
 
     finterp = interpolate.interp1d(X, prof, bounds_error=False, fill_value=0)
-    
+
     valid = np.logical_and(X > chanWidth / 2, np.isfinite(prof))
     noise = np.std(prof[valid])
     """
@@ -414,7 +414,8 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
 
 
 def process_profiles(profiles, settings, outpath, infos):
-    return dp.process_profiles(profiles, settings, outpath, infos["Pixel size"])
+    return dp.process_profiles(
+        profiles, settings, outpath, infos["Pixel size"])
 
 #    return prof[channel]
 

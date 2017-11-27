@@ -153,14 +153,15 @@ def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
         mask[:, maxpos[2 * i]:maxpos[2 * i + 1]] = 0
     return mask
 
-def remove_curve_background_alt(im, bg, maskim=None, maskbg=None, 
+
+def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
                                 infoDict=None, reflatten=False):
     """
     Try to flatten without good features :/
     """
     im = np.asarray(im, dtype='float32')
     bg = np.asarray(bg, dtype='float32')
-    
+
     if maskim is None:
         if len(np.shape(im)) == 2:
             maskim = rmbg.backgroundMask(im)
@@ -181,16 +182,16 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
 
     im = im / fim
     bg = bg / fbg
-    
+
     bg_cpy = np.copy(bg)
     bg_cpy[rmbg.signalMask(bg)] = np.nan
-    
-    pbg = np.nanmean(bg_cpy,0) - 1
+
+    pbg = np.nanmean(bg_cpy, 0) - 1
     pbg[np.isnan(pbg)] = 0
     if len(np.shape(im)) == 2:
         squeeze = True
         im = im[np.newaxis]
-    
+
     data = np.zeros_like(im)
     shifts = []
     for i, image in enumerate(im):
@@ -199,20 +200,21 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         pim = np.nanmean(image_copy, 0) - 1
         pim[np.isnan(pim)] = 0
         cnv = np.correlate(np.diff(pim), np.diff(pbg), mode='full')
-        shift = len(pim)-np.argmax(cnv)-1
-        data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan)-bg
+        shift = len(pim) - np.argmax(cnv) - 1
+        data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
         if reflatten:
             data[i] += 1
             data[i] /= rmbg.polyfit2d(data[i], 2, mask=maskbg)
             data[i] -= 1
         shifts.append(shift)
-    
+
     if squeeze:
         data = np.squeeze(data)
         shifts = np.squeeze(shifts)
     if infoDict is not None:
         infoDict['Shift'] = np.asarray(squeeze)
     return data
+
 
 def bg_angle(im, bg, Nprofs, infoDict=None, goodFeatures=True):
     """
@@ -236,20 +238,20 @@ def bg_angle(im, bg, Nprofs, infoDict=None, goodFeatures=True):
     """
     if len(np.shape(im)) == 3:
         im = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
-    
+
     if goodFeatures:
         tmpout = rmbg.remove_curve_background(
-                im, bg, infoDict=infoDict, bgCoord=True)
+            im, bg, infoDict=infoDict, bgCoord=True)
     else:
         tmpout = remove_curve_background_alt(im, bg, infoDict=infoDict)
-    
+
     if infoDict is not None:
         infoDict['BrightInfos'] = bright.image_infos(tmpout, Nprofs)
     return dp.image_angle(tmpout)
 
 
-def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None
-              , goodFeatures=True):
+def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
+              edgesOut=None, goodFeatures=True):
     """
     Flatten and background subtract images
 
@@ -276,7 +278,12 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None
     """
     # Get bg angle (the other images are the same)
     infoDict = {}
-    angle = bg_angle(im, bg, Nprofs, infoDict=infoDict, goodFeatures=goodFeatures)
+    angle = bg_angle(
+        im,
+        bg,
+        Nprofs,
+        infoDict=infoDict,
+        goodFeatures=goodFeatures)
     approxwidth = infoDict['BrightInfos']['width']
     approxpixsize = (chwidth + wallwidth) / approxwidth
     # Get the mask
@@ -295,18 +302,19 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=None
                                        infoDict['diffScale'],
                                        infoDict['offset'],
                                        borderValue=np.nan) > .5
-    
-        maskim = binary_erosion(maskim, 
+
+        maskim = binary_erosion(maskim,
                                 iterations=int(wallwidth / approxpixsize / 10))
         # Get Intensity
-        ret = rmbg.remove_curve_background(im, bg, 
+        ret = rmbg.remove_curve_background(im, bg,
                                            maskbg=maskbg, maskim=maskim,
                                            bgCoord=True, reflatten=True)
     else:
-        maskim = ir.shift_image(maskbg, (0, infoDict['Shift']), 
+        maskim = ir.shift_image(maskbg, (0, infoDict['Shift']),
                                 borderValue=np.nan) > .5
-        
-        ret = remove_curve_background_alt(im, bg, maskim, maskbg, reflatten=True)
+
+        ret = remove_curve_background_alt(
+            im, bg, maskim, maskbg, reflatten=True)
     return ret
 
 
@@ -349,4 +357,3 @@ def extract_data(im, bg, Nprofs, chwidth, wallwidth, goodFeatures=True):
     pixel_size = chwidth / widthpx
 
     return flat_im, centers, pixel_size
-

@@ -142,8 +142,8 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         readingposfit = readingposfit[1:] - readingposfit[0]
         profilesfit = profilesfit[1:]
 
-    #Check if init is large enough
-    if np.mean(init[pslice]) < 1.5*infos["Profiles noise"]:
+    # Check if init is large enough
+    if np.mean(init[pslice]) < 1.5 * infos["Profiles noise"]:
         raise RuntimeError("Intensity too low")
 
     # Get basis function
@@ -162,7 +162,13 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     fits = np.zeros_like(profiles) * np.nan
     if nspecies == 1:
         # Get best fit
-        r = fit_radius(profilesfit, Basis, test_radii, pslice, nspecies=1, infos=infos)
+        r = fit_radius(
+            profilesfit,
+            Basis,
+            test_radii,
+            pslice,
+            nspecies=1,
+            infos=infos)
 
         # fill data if needed
         if not np.isnan(r):
@@ -175,18 +181,16 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
             if initmode != 'synthetic':
                 fits[0] = init
-                
+
             if norm_profiles:
                 profiles_scales = scale_factor(profiles, pslice)
                 # Normalise basis in the same way as profiles
                 fits_scale = scale_factor(fits, pslice)
                 fits *= profiles_scales / fits_scale
 
-                
-        #One free parameter
+        # One free parameter
         Mfreepar = 1
-                
-            
+
     else:
         spectrum = fit_radius(profilesfit, Basis, test_radii, pslice,
                               nspecies=nspecies, infos=infos)
@@ -197,22 +201,22 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         if initmode != 'synthetic':
             fits[0] = init
         r = (test_radii, spectrum)
-        
-        #2n-1 free parameter
-        Mfreepar = 2*nspecies - 1
+
+        # 2n-1 free parameter
+        Mfreepar = 2 * nspecies - 1
         if nspecies == 0:
-            Mfreepar = 1 #TODO: fix that
+            Mfreepar = 1  # TODO: fix that
 
     slicesize = np.sum(np.ones_like(profilesfit)[..., pslice])
     nu = slicesize - Mfreepar
-    reduced_least_square = ((np.nansum(np.square(profiles[..., pslice] 
-                                               - fits[..., pslice]))
-                            / infos["Profiles noise"]**2)
-            / nu)
+    reduced_least_square = ((np.nansum(np.square(profiles[..., pslice]
+                                                 - fits[..., pslice]))
+                             / infos["Profiles noise"]**2)
+                            / nu)
     infos["Reduced least square"] = reduced_least_square
     return r, fits
 
-#def alt_fit(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1, 
+# def alt_fit(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
 #               infos = None):
 #    sB2 = np.sum(Basis[..., profslice]**2, -1)
 #    sPB = np.sum(profiles[np.newaxis, ..., profslice] * Basis[..., profslice], -1)
@@ -220,20 +224,20 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #    sP = np.sum(profiles[..., profslice], -1)[np.newaxis]
 #    sP2 = np.sum(profiles[..., profslice]**2, -1)[np.newaxis]
 #    N = np.sum(np.ones_like(profiles)[0, profslice])
-#    
+#
 #    det = N * sB2 - sB **2
 #    a = (N * sPB - sP * sB)/det
 #    b = (sB2 * sP - sB * sPB)/det
-#    
+#
 #    ret = sP2 -2 * a * sPB -2 * b * sP + 2 * a * b * sB + b**2 + a**2 * sB2
 #    bestidx = np.argmin(ret)
 #    import matplotlib.pyplot as plt
 #    plt.figure()
 #    plt.plot(np.ravel(profiles))
-#    plt.plot(np.ravel(a[bestidx, ..., np.newaxis]*Basis[bestidx] 
+#    plt.plot(np.ravel(a[bestidx, ..., np.newaxis]*Basis[bestidx]
 #                + b[bestidx, ..., np.newaxis]))
-    
-    
+
+
 def synthetic_init(prof0, pslice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
@@ -283,8 +287,8 @@ def get_matrices(profiles, Basis, profslice):
     return M, b, psquare
 
 
-def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1, 
-               infos = None):
+def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
+               infos=None):
     """Find the best monodisperse radius
 
      Parameters
@@ -325,7 +329,7 @@ def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
         raise RuntimeError('Number of species negative!')
 
 
-def fit_monodisperse_radius(M, b, psquare, Rs, infos = None):
+def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
     """Find the best monodisperse radius
 
     Parameters
@@ -348,14 +352,13 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos = None):
     res = psquare + np.diag(M) - 2 * b
 
     i, j = np.argsort(res)[:2]
-    
+
     # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
     c = (b[i] - b[j] - M[i, j] + M[j, j]) / \
         (M[i, i] + M[j, j] - M[i, j] - M[j, i])
 
     # Get resulting r
     r = c * (Rs[i] - Rs[j]) + Rs[j]
-
 
     '''
     from matplotlib.pyplot import figure, plot, title
@@ -367,12 +370,12 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos = None):
         raise RuntimeError('The test radius are too big!')
     if r > np.max(Rs):
         raise RuntimeError('The test radius are too small!')
-        
+
     if infos is not None:
-        
+
         error = (infos["Profiles noise"]
-                * np.sqrt((Rs[i] - Rs[j])**2 
-                          / (M[i, i] + M[j, j] - M[i, j] - M[j, i]))) 
+                 * np.sqrt((Rs[i] - Rs[j])**2
+                           / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
         infos["Radius error"] = error
 
     return r
@@ -749,7 +752,7 @@ def init_process(profile, mode, ignore_slice):
     """
     init = np.zeros_like(profile)
     init[ignore_slice] = profile[ignore_slice]
-    
+
     if mode == 'none':
         return init
     elif mode == 'gfilter':

@@ -48,39 +48,41 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
     if outpath is not None:
         plt.savefig(outpath + '_filt_fig.pdf')
 
-def plot_single(radius, profiles, fits, lse, pixel_size, 
+
+def plot_single(radius, profiles, fits, lse, pixel_size,
                 signal_noise, radius_error=None, prefix=''):
     # =========================================================================
     # Fit
     # =========================================================================
 
-    if len(np.shape(radius)) > 0:            
-        title = (prefix+'LSE = {:.3f}, pixel = {:.3f} um'.format(
+    if len(np.shape(radius)) > 0:
+        title = (prefix + 'LSE = {:.3f}, pixel = {:.3f} um'.format(
             lse, pixel_size * 1e6))
     else:
-        title = (prefix+'r= {:.2f}$\pm${:.2f}nm, LSE = {:.3f}, '
+        title = (prefix + 'r= {:.2f}$\pm${:.2f}nm, LSE = {:.3f}, '
                  'pixel = {:.3f} um'.format(
-            radius * 1e9, 
-            radius_error * 1e9,
-            lse,
-            pixel_size * 1e6))
+                     radius * 1e9,
+                     radius_error * 1e9,
+                     lse,
+                     pixel_size * 1e6))
     # =========================================================================
     # Plot
     # =========================================================================
     figure()
     plt.title(title)
-    
+
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
     plot(X, dp.get_fax(profiles), 'C0', label="Profiles")
     if fits is not None:
         plot(X, dp.get_fax(fits), 'C1', label="Fits")
-        plt.fill_between(X, dp.get_fax(fits)-signal_noise, 
-                         dp.get_fax(fits)+signal_noise, color="C1", alpha=0.5)
+        plt.fill_between(X, dp.get_fax(fits) - signal_noise,
+                         dp.get_fax(fits) + signal_noise, color="C1", alpha=0.5)
 
     plt.xlabel('Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
     plt.legend()
+
 
 def plot_and_save(radius, profiles, fits, infos, outpath=None):
     """Plot the sizing data
@@ -108,8 +110,8 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
         radius_error = infos["Radius error"]
     else:
         radius_error = None
-    
-    if len(np.shape(radius)) > 0:    
+
+    if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
         figure()
         plot(Rs * 1e9, spectrum, 'x-')
@@ -119,7 +121,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             plt.savefig(outpath + '_rSpectrum_fig.pdf')
 
     plot_single(radius, profiles, fits, lse, pixel_size,
-                infos["Profiles noise"],radius_error)
+                infos["Profiles noise"], radius_error)
 
     #==========================================================================
     # Save
@@ -139,7 +141,9 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
 
             else:
                 f.write("Radius: {:f} nm\n".format(radius * 1e9).encode())
-                f.write("Radius error: {:f} nm\n".format(radius_error * 1e9).encode())
+                f.write(
+                    "Radius error: {:f} nm\n".format(
+                        radius_error * 1e9).encode())
             f.write("Profiles:\n".encode())
             np.savetxt(f, profiles)
             f.write('Fits:\n'.encode())
@@ -205,8 +209,8 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
     else:
         radius_error = np.asarray(infos["Radius error"])
         figure()
-        plt.errorbar(x[valid], radius[valid] * 1e9, 
-                     yerr=radius_error[valid]*1e9, fmt='x', label='data')
+        plt.errorbar(x[valid], radius[valid] * 1e9,
+                     yerr=radius_error[valid] * 1e9, fmt='x', label='data')
         plt.xlabel('Frame number')
         plt.ylabel('Radius [nm]')
         if np.any(overexposed):
@@ -284,7 +288,7 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
             pixs = pixel_size
             if len(np.shape(pixel_size)) > 0:
                 pixs = pixel_size[pos]
-                
+
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
                         pixs, infos["Profiles noise"][pos], radius_error[pos], prefix=f'{pos}: ')
 

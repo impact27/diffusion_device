@@ -50,7 +50,7 @@ def load_data(metadata, infos):
     """
     filename = metadata["KEY_MD_FN"]
     data = images_files.load_images(filename)
-    infos["Overexposed"] =  [is_overexposed(d) for d in data]
+    infos["Overexposed"] = [is_overexposed(d) for d in data]
     return data
 
 
@@ -104,9 +104,9 @@ def process_data(data, metadata, settings, infos):
             infos_i = {}
             d = single.process_data(
                 data[i], single_metadata, settings, infos_i)
-            
+
             pixel_size[i] = infos_i["Pixel size"]
-            centers[i]  = infos_i["Centers"]
+            centers[i] = infos_i["Centers"]
             dataout.append(d)
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
@@ -159,10 +159,10 @@ def get_profiles(data, metadata, settings, infos):
                 pxs, cnt = pixel_size, centers
             else:
                 pxs, cnt = pixel_size[i], centers[i]
-            
+
             infos_i = {
-                    "Pixel size": pxs,
-                    "Centers": cnt}
+                "Pixel size": pxs,
+                "Centers": cnt}
             prof = single.get_profiles(im, metadata, settings, infos_i)
             noises[i] = infos_i["Profiles noise"]
         except BaseException:
@@ -172,7 +172,7 @@ def get_profiles(data, metadata, settings, infos):
             else:
                 raise
         profiles.append(prof)
-        
+
     infos["Profiles noise"] = noises
     return profiles
 
@@ -212,17 +212,17 @@ def size_profiles(profiles, metadata, settings, infos):
         fit = None
         error = np.nan
         r_error = np.nan
-        
+
         if profs is not None:
             try:
                 if settings["KEY_STG_STAT_STACK"]:
                     infos_i = {
-                            "Pixel size": infos["Pixel size"],
-                            "Profiles noise": infos["Profiles noise"][i]}
+                        "Pixel size": infos["Pixel size"],
+                        "Profiles noise": infos["Profiles noise"][i]}
                 else:
                     infos_i = {
-                            "Pixel size": infos["Pixel size"][i],
-                            "Profiles noise": infos["Profiles noise"][i]}
+                        "Pixel size": infos["Pixel size"][i],
+                        "Profiles noise": infos["Profiles noise"][i]}
                 r, fit = single.size_profiles(
                     profs, metadata, settings, infos_i)
                 shape_r = np.shape(r)
@@ -237,14 +237,14 @@ def size_profiles(profiles, metadata, settings, infos):
         radius.append(r)
         errors.append(error)
         r_errors.append(r_error)
-    
+
     if shape_r is None:
         raise RuntimeError("Can't find a single good frame")
-    
+
     for i, r in enumerate(radius):
         if r is None:
-            radius[i] = np.nan*np.ones(shape_r)
-            
+            radius[i] = np.nan * np.ones(shape_r)
+
     radius = np.asarray(radius, float)
     for idx, add in enumerate([r is None for r in radius]):
         if add:
@@ -266,7 +266,7 @@ def plot_and_save(radius, profiles, fits,
     framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
 
     infos["Overexposed"] = infos["Overexposed"][framesslices]
-    
+
     display_data.plot_and_save_stack(
         radius, profiles, fits, infos, outpath, plotpos)
 

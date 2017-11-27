@@ -137,7 +137,8 @@ def straight_image_infos(image, number_profiles):
         raise RuntimeError('Something went wrong while analysing the images')
     # if position 4 is remotely correct, return infos
     if (np.any(np.isnan((a, w, origin)))  # got nans
-            or origin - a + (number_profiles -.8) * w > len(profiles)  # Right side not in
+            # Right side not in
+            or origin - a + (number_profiles - .8) * w > len(profiles)
             or origin + a - .2 * w < 0):  # left side not in
         raise RuntimeError("Can't get image infos")
     return w, a, origin
@@ -199,6 +200,8 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
     mask = mask > 0
     mask = np.tile(mask[None, :], (np.shape(rep_image)[0], 1))
 
+    if np.min(image) < 0:
+        image -= np.min(image)
     fitted_image = rmbg.polyfit2d(image, mask=mask)
     # Flatten
     if not subtract:
