@@ -170,3 +170,8 @@ settings.add_info("KEY_STG_GOODFEATURES", "Background had good features", bool,
                   required=False,
                   default=True,
                   explanation="If there is corners or random blobs, True ")
+settings.add_info("KEY_STG_LSE_THRESHOLD", "Remove bad fits", bool,
+                  required=False,
+                  default=False,
+                  explanation="If LSE/ signal over noise > 1, ignore")
+

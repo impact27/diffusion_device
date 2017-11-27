@@ -222,17 +222,6 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
         plt.savefig(outpath + '_R_fig.pdf')
 
     figure()
-    plot(x[valid], signal_over_noise[valid], 'x', label='regular')
-    plt.xlabel('Frame number')
-    plt.ylabel('Signal over noise')
-    if np.any(overexposed):
-        plot(x[overexposed], signal_over_noise[overexposed], 'x', label='overexposed')
-        plt.legend()
-    if outpath is not None:
-        plt.savefig(outpath + '_SON_fig.pdf')
-        
-        
-    figure()
     plot(x[valid], LSE[valid], 'x', label='regular')
     plt.xlabel('Frame number')
     plt.ylabel('Reduced least square')
@@ -241,6 +230,18 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
         plt.legend()
     if outpath is not None:
         plt.savefig(outpath + '_LSE_fig.pdf')
+        
+    figure()
+    plt.semilogy(x[valid], (LSE/signal_over_noise)[valid],
+                 'x', label='regular')
+    plt.xlabel('Frame number')
+    plt.ylabel('Normalised reduced least square')
+    if np.any(overexposed):
+        plt.semilogy(x[overexposed], (LSE/signal_over_noise)[overexposed],
+                     'x', label='overexposed')
+        plt.legend()
+    if outpath is not None:
+        plt.savefig(outpath + '_LSE_o_SON_fig.pdf')
 
     figure()
     plot(x[valid], intensity[valid], 'x', label='regular')

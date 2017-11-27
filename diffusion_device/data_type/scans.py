@@ -107,7 +107,6 @@ def get_profiles(data, metadata, settings, infos):
     # Guess measurment noise from savgol filter
     noise = np.std(profiles - savgol_filter(profiles, 31, 5))
     infos["Profiles noise std"] = noise
-    infos["Signal over noise"] = np.mean(profiles)/(3*noise)
     return profiles
 
 

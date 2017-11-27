@@ -120,7 +120,6 @@ def get_profiles(data, metadata, settings, infos):
         profiles = profiles[::-1]
 
     infos["Profiles noise std"] = noise
-    infos["Signal over noise"] = np.mean(profiles)/(3*noise)
 
     return profiles
 

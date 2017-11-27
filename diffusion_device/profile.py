@@ -114,6 +114,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     pslice = ignore_slice(ignore, pixel_size)
 
     profiles = np.asarray(profiles)
+    
+    infos["Signal over noise"] = (np.mean(profiles[..., pslice]) 
+                                    / infos["Profiles noise std"])
 
     readingpos = np.asarray(readingpos)
     if len(readingpos) != len(profiles):
@@ -143,8 +146,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         profilesfit = profilesfit[1:]
 
     # Check if init is large enough
-    if np.mean(init[pslice]) < 1.5 * infos["Profiles noise std"]:
-        raise RuntimeError("Intensity too low")
+    threshold = 3 * infos["Profiles noise std"]
+    if np.mean(init[pslice]) < threshold:
+        raise RuntimeError("signal to noise too low")
 
     # Get basis function
     Basis = getprofiles(init, flow_rate, test_radii,
@@ -213,7 +217,12 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                                                  - fits[..., pslice]))
                              / infos["Profiles noise std"]**2)
                             / nu)
-    infos["Reduced least square"] = reduced_least_square
+    infos["Reduced least square"] = np.sqrt(reduced_least_square)
+    
+    ratio = infos["Reduced least square"] / infos["Signal over noise"]
+    if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
+        raise RuntimeError("Least square error too large")
+    
     return r, fits
 
 # def alt_fit(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,

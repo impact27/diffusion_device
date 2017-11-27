@@ -153,7 +153,6 @@ def get_profiles(data, metadata, settings, infos):
     centers = infos["Centers"]
     profiles = []
     noises = np.zeros(len(data)) * np.nan
-    signal_over_noise = np.zeros(len(data)) * np.nan
     for i, im in enumerate(data):
         try:
             if settings["KEY_STG_STAT_STACK"]:
@@ -166,7 +165,6 @@ def get_profiles(data, metadata, settings, infos):
                 "Centers": cnt}
             prof = single.get_profiles(im, metadata, settings, infos_i)
             noises[i] = infos_i["Profiles noise std"]
-            signal_over_noise[i] = infos_i["Signal over noise"]
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
                 print(sys.exc_info()[1])
@@ -176,7 +174,6 @@ def get_profiles(data, metadata, settings, infos):
         profiles.append(prof)
 
     infos["Profiles noise std"] = noises
-    infos["Signal over noise"] = signal_over_noise
     return profiles
 
 
@@ -210,6 +207,7 @@ def size_profiles(profiles, metadata, settings, infos):
     errors = []
     r_errors = []
     shape_r = None
+    signal_over_noise = np.zeros(len(profiles)) * np.nan
     for i, profs in enumerate(profiles):
         r = None
         fit = None
@@ -231,6 +229,7 @@ def size_profiles(profiles, metadata, settings, infos):
                 shape_r = np.shape(r)
                 error = infos_i["Reduced least square"]
                 r_error = infos_i["Radius error"]
+                signal_over_noise[i] = infos_i["Signal over noise"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
@@ -254,6 +253,7 @@ def size_profiles(profiles, metadata, settings, infos):
             radius[idx] = np.ones(np.shape(radius)[1:]) * np.nan
     infos["Reduced least square"] = errors
     infos["Radius error"] = r_errors
+    infos["Signal over noise"] = signal_over_noise
     return radius, fits
 
 
