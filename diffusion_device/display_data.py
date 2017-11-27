@@ -107,6 +107,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
     lse = infos["Reduced least square"]
     pixel_size = infos["Pixel size"]
     radius_error = infos["Radius error"]
+    signal_over_noise = infos["Signal over noise"]
 
     if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
@@ -130,6 +131,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             f.write("Reduced least square: {:f}\n".format(lse).encode())
             f.write("Apparent pixel size: {:f} um\n".format(pixel_size *
                                                             1e6).encode())
+            f.write("Signal over noise: {:f}\n".format(signal_over_noise).encode())
             if len(np.shape(radius)) > 0:
                 f.write("radius:\n".encode())
                 np.savetxt(f, radius[0])

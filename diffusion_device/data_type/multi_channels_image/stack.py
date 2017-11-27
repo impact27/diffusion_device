@@ -166,7 +166,7 @@ def get_profiles(data, metadata, settings, infos):
                 "Centers": cnt}
             prof = single.get_profiles(im, metadata, settings, infos_i)
             noises[i] = infos_i["Profiles noise std"]
-            signal_over_noise[i] = np.mean(prof)/(3*noises[i])
+            signal_over_noise[i] = infos_i["Signal over noise"]
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
                 print(sys.exc_info()[1])

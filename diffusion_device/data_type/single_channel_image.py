@@ -121,7 +121,9 @@ def get_profiles(data, metadata, settings, infos):
             raise RuntimeError('Unknown orientation')
         profiles[i], noise[i] = extract_profile(im, pixel_size, channel_width)
 
-    infos["Profiles noise std"] = np.mean(noise)
+    noise = np.mean(noise)
+    infos["Profiles noise std"] = noise
+    infos["Signal over noise"] = np.mean(profiles)/(3*noise)
     return profiles
 
 
