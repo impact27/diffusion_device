@@ -152,7 +152,8 @@ def get_profiles(data, metadata, settings, infos):
     pixel_size = infos["Pixel size"]
     centers = infos["Centers"]
     profiles = []
-    noises = np.zeros(len(data))
+    noises = np.zeros(len(data)) * np.nan
+    signal_over_noise = np.zeros(len(data)) * np.nan
     for i, im in enumerate(data):
         try:
             if settings["KEY_STG_STAT_STACK"]:
@@ -164,7 +165,8 @@ def get_profiles(data, metadata, settings, infos):
                 "Pixel size": pxs,
                 "Centers": cnt}
             prof = single.get_profiles(im, metadata, settings, infos_i)
-            noises[i] = infos_i["Profiles noise"]
+            noises[i] = infos_i["Profiles noise std"]
+            signal_over_noise[i] = np.mean(prof)/(3*noises[i])
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
                 print(sys.exc_info()[1])
@@ -173,7 +175,8 @@ def get_profiles(data, metadata, settings, infos):
                 raise
         profiles.append(prof)
 
-    infos["Profiles noise"] = noises
+    infos["Profiles noise std"] = noises
+    infos["Signal over noise"] = signal_over_noise
     return profiles
 
 
@@ -218,11 +221,11 @@ def size_profiles(profiles, metadata, settings, infos):
                 if settings["KEY_STG_STAT_STACK"]:
                     infos_i = {
                         "Pixel size": infos["Pixel size"],
-                        "Profiles noise": infos["Profiles noise"][i]}
+                        "Profiles noise std": infos["Profiles noise std"][i]}
                 else:
                     infos_i = {
                         "Pixel size": infos["Pixel size"][i],
-                        "Profiles noise": infos["Profiles noise"][i]}
+                        "Profiles noise std": infos["Profiles noise std"][i]}
                 r, fit = single.size_profiles(
                     profs, metadata, settings, infos_i)
                 shape_r = np.shape(r)

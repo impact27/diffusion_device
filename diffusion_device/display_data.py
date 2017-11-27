@@ -106,10 +106,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
     """
     lse = infos["Reduced least square"]
     pixel_size = infos["Pixel size"]
-    if "Radius error" in infos:
-        radius_error = infos["Radius error"]
-    else:
-        radius_error = None
+    radius_error = infos["Radius error"]
 
     if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
@@ -121,7 +118,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             plt.savefig(outpath + '_rSpectrum_fig.pdf')
 
     plot_single(radius, profiles, fits, lse, pixel_size,
-                infos["Profiles noise"], radius_error)
+                infos["Profiles noise std"], radius_error)
 
     #==========================================================================
     # Save
@@ -138,6 +135,8 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
                 np.savetxt(f, radius[0])
                 f.write("Spectrum:\n".encode())
                 np.savetxt(f, radius[1])
+                f.write("Radius error:\n".encode())
+                np.savetxt(f, radius_error)
 
             else:
                 f.write("Radius: {:f} nm\n".format(radius * 1e9).encode())
@@ -189,10 +188,11 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
             intensity[i] = np.nanmax(p)
 
     LSE = np.asarray(infos["Reduced least square"])
+    signal_over_noise = infos["Signal over noise"]
 
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
-
+    radius_error = np.asarray(infos["Radius error"])
     if len(np.shape(radius)) == 3:
         Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
         ylim = (0, len(radius))
@@ -205,9 +205,7 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
         plt.ylim(*ylim)
         plt.xlabel('Radius [nm]')
         plt.ylabel('Frame number')
-        radius_error = np.zeros(len(radius))
     else:
-        radius_error = np.asarray(infos["Radius error"])
         figure()
         plt.errorbar(x[valid], radius[valid] * 1e9,
                      yerr=radius_error[valid] * 1e9, fmt='x', label='data')
@@ -221,6 +219,17 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
     if outpath is not None:
         plt.savefig(outpath + '_R_fig.pdf')
 
+    figure()
+    plot(x[valid], signal_over_noise[valid], 'x', label='regular')
+    plt.xlabel('Frame number')
+    plt.ylabel('Signal over noise')
+    if np.any(overexposed):
+        plot(x[overexposed], signal_over_noise[overexposed], 'x', label='overexposed')
+        plt.legend()
+    if outpath is not None:
+        plt.savefig(outpath + '_SON_fig.pdf')
+        
+        
     figure()
     plot(x[valid], LSE[valid], 'x', label='regular')
     plt.xlabel('Frame number')
@@ -258,11 +267,16 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
                 np.savetxt(f, overexposed[np.newaxis])
             f.write('Pixel size:\n'.encode())
             np.savetxt(f, pixel_size[np.newaxis])
+            f.write('Signal over noise:\n'.encode())
+            np.savetxt(f, signal_over_noise[np.newaxis])
+            
             if len(np.shape(radius)) == 3:
                 f.write(f'Radii [nm]:\n'.encode())
                 np.savetxt(f, Rs[np.newaxis])
                 f.write(f'Spectrums:\n'.encode())
                 np.savetxt(f, radius[:, 1])
+                f.write('radius error:\n'.encode())
+                np.savetxt(f, radius_error)
 
             else:
                 f.write('radius:\n'.encode())
@@ -290,7 +304,7 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
                 pixs = pixel_size[pos]
 
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
-                        pixs, infos["Profiles noise"][pos], radius_error[pos], prefix=f'{pos}: ')
+                        pixs, infos["Profiles noise std"][pos], radius_error[pos], prefix=f'{pos}: ')
 
             if outpath is not None:
                 plt.savefig(outpath + '_{}_fig.pdf'.format(pos))

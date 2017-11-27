@@ -143,7 +143,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         profilesfit = profilesfit[1:]
 
     # Check if init is large enough
-    if np.mean(init[pslice]) < 1.5 * infos["Profiles noise"]:
+    if np.mean(init[pslice]) < 1.5 * infos["Profiles noise std"]:
         raise RuntimeError("Intensity too low")
 
     # Get basis function
@@ -211,7 +211,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     nu = slicesize - Mfreepar
     reduced_least_square = ((np.nansum(np.square(profiles[..., pslice]
                                                  - fits[..., pslice]))
-                             / infos["Profiles noise"]**2)
+                             / infos["Profiles noise std"]**2)
                             / nu)
     infos["Reduced least square"] = reduced_least_square
     return r, fits
@@ -320,10 +320,10 @@ def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
         return fit_monodisperse_radius(M, b, psquare, Rs, infos)
 
     elif nspecies > 0:
-        return fit_N_radius(M, b, psquare, nspecies)
+        return fit_N_radius(M, b, psquare, nspecies, Rs, infos)
 
     elif nspecies == 0:
-        return fit_polydisperse_radius(M, b, psquare)
+        return fit_polydisperse_radius(M, b, psquare, Rs, infos)
 
     else:
         raise RuntimeError('Number of species negative!')
@@ -373,7 +373,7 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
 
     if infos is not None:
 
-        error = (infos["Profiles noise"]
+        error = (infos["Profiles noise std"]
                  * np.sqrt((Rs[i] - Rs[j])**2
                            / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
         infos["Radius error"] = error
@@ -482,7 +482,7 @@ def get_constraints(Nb):
     return constr
 
 
-def fit_N_radius(M, b, psquare, nspecies):
+def fit_N_radius(M, b, psquare, nspecies, Rs, infos):
     """Find the best N-disperse radius
 
     Parameters
@@ -523,11 +523,23 @@ def fit_N_radius(M, b, psquare, nspecies):
     idx = indices[bestidx]
     spectrum = np.zeros(NRs)
     spectrum[idx] = C[bestidx]
+    
+    if infos is not None:
+        infos["Radius error"] = np.zeros(nspecies)
+        
+        for rn, i in enumerate(idx):
+            j = i+1
+            if j == NRs:
+                j = NRs-2
+            error = (infos["Profiles noise std"]
+                     * np.sqrt((Rs[i] - Rs[j])**2
+                               / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
+            infos["Radius error"][rn] = error
 
     return spectrum
 
 
-def fit_polydisperse_radius(M, b, psquare):
+def fit_polydisperse_radius(M, b, psquare, Rs, infos):
     """Find the best N-disperse radius
 
     Parameters
@@ -559,6 +571,18 @@ def fit_polydisperse_radius(M, b, psquare):
                                          'jac': jac2,
                                          })
     spectrum = np.abs(res.x)
+    
+    if infos is not None:
+        infos["Radius error"] = np.zeros(Nb)
+        
+        for i in range(1, Nb):
+            j = i-1
+            error = (infos["Profiles noise std"]
+                     * np.sqrt((Rs[i] - Rs[j])**2
+                               / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
+            infos["Radius error"][i] = error
+        infos["Radius error"][0] = infos["Radius error"][1] 
+            
     return spectrum
 
 

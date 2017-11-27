@@ -260,4 +260,4 @@ def extract_data(image, number_profiles, chwidth,
 def best_image(images):
     if len(np.shape(images)) == 2:
         return images
-    return images[np.argmax(np.nanpercentile(images, 90, axis=(-2, -1)))]
+    return images[np.argmax(np.nanpercentile(images, 99, axis=(-2, -1)))]

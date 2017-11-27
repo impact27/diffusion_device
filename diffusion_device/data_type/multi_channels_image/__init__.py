@@ -119,7 +119,7 @@ def get_profiles(data, metadata, settings, infos):
     if profiles[-1].max() > profiles[0].max():
         profiles = profiles[::-1]
 
-    infos["Profiles noise"] = noise
+    infos["Profiles noise std"] = noise
 
     return profiles
 
