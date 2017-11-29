@@ -228,7 +228,7 @@ def size_profiles(profiles, metadata, settings, infos):
                     profs, metadata, settings, infos_i)
                 shape_r = np.shape(r)
                 error = infos_i["Reduced least square"]
-                r_error = infos_i["Radius error"]
+                r_error = infos_i["Radius error std"]
                 signal_over_noise[i] = infos_i["Signal over noise"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
@@ -252,7 +252,7 @@ def size_profiles(profiles, metadata, settings, infos):
         if add:
             radius[idx] = np.ones(np.shape(radius)[1:]) * np.nan
     infos["Reduced least square"] = errors
-    infos["Radius error"] = r_errors
+    infos["Radius error std"] = r_errors
     infos["Signal over noise"] = signal_over_noise
     return radius, fits
 

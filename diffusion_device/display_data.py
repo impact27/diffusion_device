@@ -62,7 +62,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
         title = (prefix + 'r= {:.2f}$\pm${:.2f}nm, LSE = {:.3f}, '
                  'pixel = {:.3f} um'.format(
                      radius * 1e9,
-                     radius_error * 1e9,
+                     radius_error * 3e9,
                      lse,
                      pixel_size * 1e6))
     # =========================================================================
@@ -106,7 +106,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
     """
     lse = infos["Reduced least square"]
     pixel_size = infos["Pixel size"]
-    radius_error = infos["Radius error"]
+    radius_error = infos["Radius error std"]
     signal_over_noise = infos["Signal over noise"]
 
     if len(np.shape(radius)) > 0:
@@ -137,13 +137,13 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
                 np.savetxt(f, radius[0])
                 f.write("Spectrum:\n".encode())
                 np.savetxt(f, radius[1])
-                f.write("Radius error:\n".encode())
+                f.write("Radius error std:\n".encode())
                 np.savetxt(f, radius_error)
 
             else:
                 f.write("Radius: {:f} nm\n".format(radius * 1e9).encode())
                 f.write(
-                    "Radius error: {:f} nm\n".format(
+                    "Radius error std: {:f} nm\n".format(
                         radius_error * 1e9).encode())
             f.write("Profiles:\n".encode())
             np.savetxt(f, profiles)
@@ -187,14 +187,14 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
         if p is None:
             intensity[i] = np.nan
         else:
-            intensity[i] = np.nanmax(p)
+            intensity[i] = np.nanmean(p)
 
     LSE = np.asarray(infos["Reduced least square"])
     signal_over_noise = infos["Signal over noise"]
 
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
-    radius_error = np.asarray(infos["Radius error"])
+    radius_error = np.asarray(infos["Radius error std"])
     if len(np.shape(radius)) == 3:
         Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
         ylim = (0, len(radius))
@@ -210,11 +210,12 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
     else:
         figure()
         plt.errorbar(x[valid], radius[valid] * 1e9,
-                     yerr=radius_error[valid] * 1e9, fmt='x', label='data')
+                     yerr=radius_error[valid] * 3e9, fmt='x', label='data')
         plt.xlabel('Frame number')
         plt.ylabel('Radius [nm]')
         if np.any(overexposed):
-            plot(x[overexposed], radius[overexposed] * 1e9, 'x',
+            plt.errorbar(x[overexposed], radius[overexposed] * 1e9,
+                         yerr=radius_error[overexposed] * 3e9, fmt='x',
                  label='overexposed data')
             plt.legend()
 
@@ -246,12 +247,12 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
     figure()
     plot(x[valid], intensity[valid], 'x', label='regular')
     plt.xlabel('Frame number')
-    plt.ylabel('Maximum intensity')
+    plt.ylabel('Mean intensity')
     if np.any(overexposed):
         plot(x[overexposed], intensity[overexposed], 'x', label='overexposed')
         plt.legend()
     if outpath is not None:
-        plt.savefig(outpath + '_max_intensity_fig.pdf')
+        plt.savefig(outpath + '_mean_intensity_fig.pdf')
 
     if len(np.shape(pixel_size)) > 0:
         figure()

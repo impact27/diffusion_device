@@ -385,7 +385,7 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
         error = (infos["Profiles noise std"]
                  * np.sqrt((Rs[i] - Rs[j])**2
                            / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-        infos["Radius error"] = error
+        infos["Radius error std"] = error
 
     return r
 
@@ -534,7 +534,7 @@ def fit_N_radius(M, b, psquare, nspecies, Rs, infos):
     spectrum[idx] = C[bestidx]
     
     if infos is not None:
-        infos["Radius error"] = np.zeros(nspecies)
+        infos["Radius error std"] = np.zeros(nspecies)
         
         for rn, i in enumerate(idx):
             j = i+1
@@ -543,7 +543,7 @@ def fit_N_radius(M, b, psquare, nspecies, Rs, infos):
             error = (infos["Profiles noise std"]
                      * np.sqrt((Rs[i] - Rs[j])**2
                                / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-            infos["Radius error"][rn] = error
+            infos["Radius error std"][rn] = error
 
     return spectrum
 
@@ -582,15 +582,15 @@ def fit_polydisperse_radius(M, b, psquare, Rs, infos):
     spectrum = np.abs(res.x)
     
     if infos is not None:
-        infos["Radius error"] = np.zeros(Nb)
+        infos["Radius error std"] = np.zeros(Nb)
         
         for i in range(1, Nb):
             j = i-1
             error = (infos["Profiles noise std"]
                      * np.sqrt((Rs[i] - Rs[j])**2
                                / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-            infos["Radius error"][i] = error
-        infos["Radius error"][0] = infos["Radius error"][1] 
+            infos["Radius error std"][i] = error
+        infos["Radius error std"][0] = infos["Radius error std"][1] 
             
     return spectrum
 
