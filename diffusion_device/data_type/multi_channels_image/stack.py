@@ -110,7 +110,7 @@ def process_data(data, metadata, settings, infos):
             dataout.append(d)
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
-                print(sys.exc_info()[1])
+                print(sys.exc_info())
                 pixel_size[i] = np.nan
                 centers[i, :] = np.nan
                 skip.append(i)
@@ -167,7 +167,7 @@ def get_profiles(data, metadata, settings, infos):
             noises[i] = infos_i["Profiles noise std"]
         except BaseException:
             if settings["KEY_STG_IGNORE_ERROR"]:
-                print(sys.exc_info()[1])
+                print(sys.exc_info())
                 prof = None
             else:
                 raise
@@ -232,7 +232,7 @@ def size_profiles(profiles, metadata, settings, infos):
                 signal_over_noise[i] = infos_i["Signal over noise"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
-                    print(sys.exc_info()[1])
+                    print(sys.exc_info())
                 else:
                     raise
         fits.append(fit)

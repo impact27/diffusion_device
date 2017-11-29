@@ -284,9 +284,9 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
 
             else:
                 f.write('radius:\n'.encode())
-                np.savetxt(f, radius)
+                np.savetxt(f, radius[np.newaxis])
                 f.write('radius error:\n'.encode())
-                np.savetxt(f, radius_error)
+                np.savetxt(f, radius_error[np.newaxis])
 
             for i, (prof, fit) in enumerate(zip(profiles, fits)):
                 if prof is not None and fit is not None:

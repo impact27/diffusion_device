@@ -188,6 +188,8 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
 
     pbg = np.nanmean(bg_cpy, 0) - 1
     pbg[np.isnan(pbg)] = 0
+    
+    squeeze = False
     if len(np.shape(im)) == 2:
         squeeze = True
         im = im[np.newaxis]
@@ -198,8 +200,9 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         image_copy = np.copy(image)
         image_copy[rmbg.signalMask(image)] = np.nan
         pim = np.nanmean(image_copy, 0) - 1
+        pim = np.diff(pim)
         pim[np.isnan(pim)] = 0
-        cnv = np.correlate(np.diff(pim), np.diff(pbg), mode='full')
+        cnv = np.correlate(np.abs(pim), np.abs(np.diff(pbg)), mode='full')
         shift = len(pim) - np.argmax(cnv) - 1
         data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
         if reflatten:
