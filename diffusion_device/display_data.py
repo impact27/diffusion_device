@@ -151,8 +151,8 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             np.savetxt(f, fits)
 
 
-def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
-                        plotpos=None):
+def plot_and_save_stack(radius, profiles, fits, infos,
+                        settings, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -179,6 +179,7 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
         Positions to plot if this is a stack
 
     """
+    plotpos = settings["KEY_STG_STACK_POSPLOT"]
     overexposed = np.asarray(infos["Overexposed"])
     pixel_size = np.asarray(infos["Pixel size"])
 
@@ -218,6 +219,8 @@ def plot_and_save_stack(radius, profiles, fits, infos, outpath=None,
                          yerr=radius_error[overexposed] * 3e9, fmt='x',
                  label='overexposed data')
             plt.legend()
+        if settings["KEY_STG_RLOG"]:
+            plt.yscale("log")
 
     if outpath is not None:
         plt.savefig(outpath + '_R_fig.pdf')
@@ -334,17 +337,21 @@ def prepare_output(outpath, settingsfn, metadatafn):
     """
     base_name = None
     if outpath is not None:
-        basename = os.path.splitext(os.path.basename(metadatafn))[0]
-        if re.match(".?metadata", basename, re.IGNORECASE):
-            basename = os.path.basename(os.path.dirname(metadatafn))
+        settings_name = os.path.splitext(os.path.basename(settingsfn))[0] 
+        metadata_name = os.path.splitext(os.path.basename(metadatafn))[0]
+        if re.match(".?metadata", metadata_name, re.IGNORECASE):
+            metadata_name = os.path.basename(os.path.dirname(metadatafn))
+        if re.match(".+metadata", metadata_name, re.IGNORECASE):
+            metadata_name = metadata_name[:-8]
         newoutpath = os.path.join(
             outpath,
-            basename)
+            settings_name)
 
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
+        shutil.copy(settingsfn, os.path.join(newoutpath , settings_name + '.json'))
+            
         base_name = os.path.join(
             newoutpath,
-            os.path.splitext(os.path.basename(settingsfn))[0])
-        shutil.copy(settingsfn, base_name + '.json')
+            metadata_name)
     return base_name

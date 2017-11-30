@@ -88,7 +88,7 @@ def process_data(data, metadata, settings, infos):
                                metadata["KEY_MD_EXP"][0])):
                 raise RuntimeError(
                     "Can not have different exposure times"
-                    " when using stationnary option.")
+                    " when using stationary option.")
             else:
                 metadata["KEY_MD_EXP"] = metadata["KEY_MD_EXP"][0]
 
@@ -265,13 +265,12 @@ def savedata(data, outpath):
 def plot_and_save(radius, profiles, fits,
                   outpath, settings, infos):
     """Plot the sizing data"""
-    plotpos = settings["KEY_STG_STACK_POSPLOT"]
     framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
 
     infos["Overexposed"] = infos["Overexposed"][framesslices]
 
     display_data.plot_and_save_stack(
-        radius, profiles, fits, infos, outpath, plotpos)
+        radius, profiles, fits, infos, settings, outpath)
 
 
 def process_profiles(profiles, settings, outpath, infos):

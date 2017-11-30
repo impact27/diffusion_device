@@ -205,11 +205,12 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         cnv = np.correlate(np.abs(pim), np.abs(np.diff(pbg)), mode='full')
         shift = len(pim) - np.argmax(cnv) - 1
         data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
-        if reflatten:
-            data[i] += 1
-            data[i] /= rmbg.polyfit2d(data[i], 2, mask=maskbg)
-            data[i] -= 1
         shifts.append(shift)
+    
+    if reflatten:
+        data += 1
+        data /= rmbg.polyfit2d(data, 2, mask=maskbg)
+        data -= 1
 
     if squeeze:
         data = np.squeeze(data)

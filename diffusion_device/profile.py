@@ -524,7 +524,7 @@ def fit_N_radius(M, b, psquare, nspecies, Rs, infos):
                            constraints=get_constraints(nspecies))
         if min_res.fun < best:
             best = min_res.fun
-            print('New best: ', best)
+#            print('New best: ', best)
         res[i] = min_res.fun
         C[i] = min_res.x
 

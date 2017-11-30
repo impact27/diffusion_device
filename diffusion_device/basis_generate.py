@@ -141,7 +141,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
             dx = dxtDoQ / D * Q
         Nsteps[Nrp * i:Nrp * (i + 1)] = np.asarray(readingpos / dx, dtype=int)
 
-    print('{} steps, {}X{}'.format(Nsteps.max(), Zgrid, Ygrid))
+#    print('{} steps, {}X{}'.format(Nsteps.max(), Zgrid, Ygrid))
     # transform Nsteps to binary array
     pow2 = 1 << np.arange(int(np.floor(np.log2(Nsteps.max()) + 1)))
     pow2 = pow2[:, None]
