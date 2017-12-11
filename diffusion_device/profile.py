@@ -376,9 +376,9 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
     #'''
 
     if r < np.min(Rs):
-        raise RuntimeError('The test radius are too big!')
+        raise RuntimeError('The test radius are too big! ({} < {})'.format(r, np.min(Rs)))
     if r > np.max(Rs):
-        raise RuntimeError('The test radius are too small!')
+        raise RuntimeError('The test radius are too small! ({} > {})'.format(r, np.max(Rs)))
 
     if infos is not None:
 

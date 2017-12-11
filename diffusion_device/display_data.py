@@ -339,10 +339,12 @@ def prepare_output(outpath, settingsfn, metadatafn):
     if outpath is not None:
         settings_name = os.path.splitext(os.path.basename(settingsfn))[0] 
         metadata_name = os.path.splitext(os.path.basename(metadatafn))[0]
-        if re.match(".?metadata", metadata_name, re.IGNORECASE):
+        if re.match("metadata$", metadata_name, re.IGNORECASE):
             metadata_name = os.path.basename(os.path.dirname(metadatafn))
-        if re.match(".+metadata", metadata_name, re.IGNORECASE):
+        if re.match(".+metadata$", metadata_name, re.IGNORECASE):
             metadata_name = metadata_name[:-8]
+        if metadata_name[-1] == '_':
+            metadata_name = metadata_name[:-1]
         newoutpath = os.path.join(
             outpath,
             settings_name)

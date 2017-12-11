@@ -111,7 +111,7 @@ Don't:
 - Don't take a background without buffer in the channels
 
 Do:
-- Take a background before and after the experiment
+- Take a background before and after the experiment (use the latter)
 - Take an image in an empty region of the chip
 - Take the background with conditions as similar as possible to the data
   - same flow rate

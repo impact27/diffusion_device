@@ -94,4 +94,10 @@ json_infos['Temperature [K]'] = 295
 # Viscosity [Pa s]
 json_infos['Viscosity [Pa s]'] = 1e-3
 
+# Frame rate for movies
+json_infos['Frame rate [1/s]'] = None
+
+# For non constant frames rate
+json_infos['Frames times [s]'] = None
+
 metadata.generate_json(datapath, json_infos)

@@ -103,6 +103,12 @@ metadata.add_info("KEY_MD_T", "Temperature [K]", float,
 metadata.add_info("KEY_MD_ETA", "Viscosity [Pa s]", float,
                   required=False,
                   default=1e-3)
+metadata.add_info("KEY_MD_FPS", "Frame rate [1/s]", float,
+                  required=False,
+                  explanation="Frame rate for movies")
+metadata.add_info("KEY_MD_FPS", "Frames times [s]", float,
+                  required=False,
+                  explanation="For non constant frames rate")
 
 settings = ListGenerator('settings', 'SampleData/settings.json', False)
 settings.add_info("KEY_STG_R", "Radii[m] (min, max, number)", float,
