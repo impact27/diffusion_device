@@ -242,7 +242,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
         The list of profiles for the 12 positions at the required radii
 
     """
-    kT = boltzmann * temperature
+#    kT = boltzmann * temperature
     muEs = np.asarray(muEs)
     absmuEoDs = np.abs(absmuEoDs)
     NqE = len(absmuEoDs)
@@ -260,8 +260,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
             rets = np.zeros((NqE, NuEs, Nrp, Ygrid))
 
         for muEoD, ret in zip(muEoDs, rets):
-            ret[:] = getprofiles(Cinit, Q, muEs, readingpos, Wy, Wz, Zgrid,
-                                 muEoD, fullGrid=fullGrid, viscosity=viscosity,
+            ret[:] = getprofiles(Cinit, Q, muEs, readingpos, Wy=Wy, Wz=Wz, Zgrid=Zgrid,
+                                 muEoD=muEoD, fullGrid=fullGrid, viscosity=viscosity,
                                  temperature=temperature,
                                  Zmirror=Zmirror,
                                  zpos=zpos,
@@ -402,22 +402,22 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
         The position step multiplied by the diffusion coefficient
     """
 
+    realZgrid = Zgrid
     # Get Poiseille flow
-    poiseuille_over_Q = poiseuille(Zgrid, Ygrid, Wz, Wy, 1)
+    poiseuille_over_Q = poiseuille(realZgrid, Ygrid, Wz, Wy, 1)
     if outV is not None:
         outV[:] = poiseuille_over_Q
 
     # Get steps
     dy = Wy / Ygrid
-    dz = Wz / Zgrid
+    dz = Wz / realZgrid
 
     # If the Z is a mirror, make adjustments
     Zodd = False
     if Zmirror:
         Zodd = Zgrid % 2 == 1
-        halfZgrid = (Zgrid + 1) // 2
-        poiseuille_over_Q = poiseuille_over_Q[:halfZgrid, :]
-        Zgrid = halfZgrid
+        Zgrid = (Zgrid + 1) // 2
+        poiseuille_over_Q = poiseuille_over_Q[:Zgrid, :]
 
     # flatten poiseuille_over_Q
     poiseuille_over_Q = np.ravel(poiseuille_over_Q)
@@ -444,10 +444,10 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
     if muEoD == 0:
         Cy = 0
     else:
-        ViyoQ = poiseuille(Zgrid, Ygrid, Wz, Wy, 1, yinterface=True)
+        ViyoQ = poiseuille(realZgrid, Ygrid, Wz, Wy, 1, yinterface=True)
         if Zmirror:
-            ViyoQ = ViyoQ[:halfZgrid, :]
-        # Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
+            ViyoQ = ViyoQ[:Zgrid, :]
+#        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
         Cy = getCy(muEoD, dxtDoQ, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
 
     dF = dxtDoQ * (Cyy + Czz - muEoD * Cy)
@@ -532,43 +532,44 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
     qz:  3d array
         A list of matrices to access [-2, +2] z neighbors
     """
+    if Zmirror and Zodd:
+        shift = 1
+    else:
+        shift = 0
+        
     def midx(i, j):
-        if i < 0:
-            I = np.arange(-Ygrid, 0) + (i + 1) * Ygrid
-        else:
-            I = np.arange(Ygrid) + i * Ygrid
-        if j < 0:
-            J = np.arange(-Ygrid, 0) + (j + 1) * Ygrid
-        else:
-            J = np.arange(Ygrid) + j * Ygrid
-        return (I, J)
-
+        def single(l):
+            if l >= Zgrid:
+                l = Zgrid - l - 1 - shift
+            if l < -Zgrid:
+                l = -Zgrid - l - 1
+            if l < 0:
+                L = np.arange(-Ygrid, 0) + (l + 1) * Ygrid
+            else:
+                L = np.arange(Ygrid) + l * Ygrid
+            return L
+        I, J = single(i), single(j)
+        return I, J
+    
     # Create the q matrices
     q = np.zeros((5, Zgrid * Ygrid, Zgrid * Ygrid))
     for i in range(-2, 3):
         q[i] = np.diag(np.ones(Ygrid * (Zgrid - np.abs(i))), i * Ygrid)
         # Border
-        if i < 0:
-            q[i][midx(0, 0)] = 1
-        if i < -1:
+        if i == -2:
             q[i][midx(1, 0)] = 1
-
+            q[i][midx(0, 1)] = 1
+        
+        if i == -1:
+            q[i][midx(0, 0)] = 1
+            
         if i == 1:
-            if Zmirror and Zodd:
-                q[i][midx(-1, -2)] = 1
-            else:
-                q[i][midx(-1, -1)] = 1
+            q[i][midx(-1, -1 - shift)] = 1
+            
         if i == 2:
-            if Zmirror:
-                if Zodd:
-                    q[i][midx(-2, -2)] = 1
-                    q[i][midx(-1, -3)] = 1
-                else:
-                    q[i][midx(-2, -1)] = 1
-                    q[i][midx(-1, -2)] = 1
-            else:
-                q[i][midx(-1, -1)] = 1
-                q[i][midx(-2, -1)] = 1
+            q[i][midx(-2, -1 - shift)] = 1
+            q[i][midx(-1, -2 - shift)] = 1
+            
 
     return q
 
