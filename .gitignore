@@ -1,2 +1,6 @@
 .DS_Store
 __pycache__/
+Old/
+Samples/SampleData/*.json
+Tests/
+diffusion_device.egg-info/
