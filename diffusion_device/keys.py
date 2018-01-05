@@ -180,4 +180,8 @@ settings.add_info("KEY_STG_LSE_THRESHOLD", "Remove bad fits", bool,
                   required=False,
                   default=False,
                   explanation="If LSE/ signal over noise > 1, ignore")
+settings.add_info("KEY_STG_DXFACTOR", "dx factor", float,
+                  required=False,
+                  default=1,
+                  explanation="Set to 0<x<1 to reduce fitting error from step size.")
 

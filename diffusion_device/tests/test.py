@@ -1,10 +1,14 @@
 from unittest import TestCase
 
-from ..process_data import full_fit
 import numpy as np
-from . import __file__
 import os
 import shutil
+
+from .. import basis_generate as ddbg
+from ..process_data import full_fit
+
+from . import __file__
+
 folder = os.path.dirname(__file__)
 
 
@@ -131,3 +135,45 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 4e-9)
         self.assertLess(radius, 4.5e-9)
+        
+    def test_electrophoresis(self):
+        basisfn = os.path.join(folder,
+                                  'test_data/q12_basis1_002.dat')
+        initfn = os.path.join(folder,
+                                  'test_data/q12_init.dat')
+        
+        
+        qelectron=1.6021766e-19
+
+        viscosity = 1e-3
+        temperature = 295
+        Wz=50e-6
+        Wy=1400e-6
+        D=1.2*1e-10
+        Q=308
+        readingpos=5.6e-3
+        V = 2
+        Zgrid=7
+        q = 12*qelectron
+        
+        kT = 1.38e-23*temperature;
+        
+        
+        E = V / Wy
+        r = kT / (6 * np.pi * viscosity * D)
+        
+        prof2 = np.loadtxt(basisfn)
+        init=np.loadtxt(initfn)
+        init/=init.sum()
+        init*=prof2.sum()
+        
+        
+        prof = ddbg.getprofiles(init, Q, [r], [readingpos],
+                 Wy, Wz,
+                 viscosity=viscosity, temperature=temperature,
+                 Zgrid=Zgrid,
+                 muEoD=q*E/kT)
+        prof = np.squeeze(prof)
+            
+        self.assertLess(np.max(np.abs(
+                (prof-prof2)/np.max(prof[ :-3]))[ :-2]), .1)

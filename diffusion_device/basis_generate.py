@@ -30,7 +30,7 @@ import numpy as np
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
                 Zgrid=1, muEoD=0, *, fullGrid=False, zpos=None,
                 Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
-                dxfactor=1, yboundary='Neumann'):
+                dxfactor=1, yboundary='Neumann', infos={}):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -84,6 +84,98 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
         if np.any(Radii <= 0):
             raise RuntimeError("Can't work with negative radii!")
 
+    # Prepare input and Initialize arrays
+    readingpos = np.asarray(readingpos)
+
+    mu_prime_E = muEoD * Wy
+    beta = Wz / Wy
+    Q = Q / (3600 * 1e9)  # transorm in m^3/s
+    
+    if stepMuE:
+        D = Radii / muEoD
+    else:
+        D = kT / (6 * np.pi * viscosity * Radii)
+            
+    X = readingpos[np.newaxis] * D[..., np.newaxis] / Q * beta
+    Xshape = np.shape(X)
+    X = np.ravel(X)
+    
+    profilespos, dx = get_unitless_profiles(
+            Cinit, X, beta, Zgrid=Zgrid,
+            mu_prime_E=mu_prime_E, fullGrid=fullGrid, zpos=zpos,
+            Zmirror=Zmirror, dxfactor=dxfactor, yboundary=yboundary)
+
+    # reshape correctly
+    profilespos.shape = (*Xshape, *profilespos.shape[1:])
+    
+    #Get the fit error from rounding
+    Rp = np.min(readingpos)
+    if Rp == 0:
+        Rp = readingpos[1] 
+    error = (dx / Rp * Q / (beta * D))
+    infos['Fit error'] = error
+    if np.any(error> 1e-2):
+        raise RuntimeError("The relative error is larger than 1%")
+
+    return profilespos
+
+"""
+The PDE is:
+    dC/dx = D/V * (d2C/dy2 + d2C/dz2) - muE/V * dC/dy
+
+We replace:
+    x' = x * D / Q * beta
+    y' = y / Wy
+    z' = z / Wy
+    beta = Wz / Wy
+    V' = V * Wy^2 * beta / Q
+    mu' = mu * Wy / D
+
+The unitless equation is:
+    V' dx'C = (dy'^2D + dz'^2C) - mu'E dy'C
+
+"""
+def get_unitless_profiles(Cinit, X, beta,
+                Zgrid=1, mu_prime_E=0, *, fullGrid=False, zpos=None,
+                Zmirror=True, dxfactor=1, yboundary='Neumann'):
+    """Returns the theorical profiles for the input variables
+
+    Parameters
+    ----------
+    Cinit:  1d array or 2d array
+            The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is
+            used to pad the array
+    X:      1d array 
+            X = reading_position * D / Q * beta
+    beta:   float
+            height over width
+    Zgrid:  integer, defaults 1
+            Number of Z pixel if Cinit is unidimentional
+    muEoD:  float, default 0
+            mobility times transverse electric field divided by diffusion constant
+    fullGrid: bool , false
+            Should return full grid?
+    zpos:   float, default None
+            Z position of the profile. None for mean
+    viscosity: float
+            viscosity
+    kT:     float
+            kT
+    Zmirror: Bool, default True
+            Should the Z mirror be used to bet basis functions
+    dxfactor: float, default 1
+            Factor to change dx size if the step size seems too big (Useless?)
+    yboundary: 'Neumann' or 'Dirichlet'
+            constant derivative or value
+
+    Returns
+    -------
+    profilespos: 3d array
+        The list of profiles for the 12 positions at the required radii
+    """
+    if np.any(X < 0) or not np.all(np.isfinite(X)):
+        raise RuntimeError("The time varible is incorrect")
+
     # Functions to access F
 
     def getF(Fdir, NSteps):
@@ -91,8 +183,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
             Fdir[NSteps] = np.dot(Fdir[NSteps // 2], Fdir[NSteps // 2])
         return Fdir[NSteps]
 
-    def initF(Zgrid, Ygrid, Wz, Wy, muEoD, Zmirror, dxfactor, yboundary):
-        key = (Zgrid, Ygrid, Wz, Wy, muEoD, Zmirror, dxfactor, yboundary)
+    def initF(Zgrid, Ygrid, beta, mu_prime_E, Zmirror, dxfactor, yboundary):
+        key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, dxfactor, yboundary)
         if not hasattr(getprofiles, 'dirFList'):
             getprofiles.dirFList = {}
         # Create dictionnary if doesn't exist
@@ -100,14 +192,15 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
             return getprofiles.dirFList[key]
         else:
             Fdir = {}
-            Fdir[1], dxtdoQ = stepMatrix(Zgrid, Ygrid, Wz, Wy, muEoD=muEoD,
+            Fdir[1], dxtdoQ = stepMatrix(Zgrid, Ygrid, beta, 
+                                         mu_prime_E=mu_prime_E,
                                          Zmirror=Zmirror, dxfactor=dxfactor,
                                          yboundary=yboundary)
             getprofiles.dirFList[key] = (Fdir, dxtdoQ)
             return Fdir, dxtdoQ
 
     # Prepare input and Initialize arrays
-    readingpos = np.asarray(readingpos)
+    X = np.asarray(X)
 
     ZgridEffective = Zgrid
     if Zmirror:
@@ -123,25 +216,16 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
             raise RuntimeError("Cinit Z dim and Zgrid not aligned.")
 
     Ygrid = Cinit.shape[1]
-    NRs = len(Radii)
-    Nrp = len(readingpos)
-    profilespos = np.tile(np.ravel(Cinit), (NRs * Nrp, 1))
+    NX = len(X)
+    profilespos = np.tile(np.ravel(Cinit), (NX, 1))
 
     # get step matrix
-    Fdir, dxtDoQ = initF(Zgrid, Ygrid, Wz, Wy, muEoD,
+    Fdir, dx = initF(Zgrid, Ygrid, beta, mu_prime_E,
                          Zmirror, dxfactor, yboundary)
 
     # Get Nsteps for each radius and position
-    Nsteps = np.empty((NRs * Nrp, ), dtype=int)
-    for i, v in enumerate(Radii):
-        if stepMuE:
-            dx = np.abs(dxtDoQ * Q * muEoD / v)
-        else:
-            D = kT / (6 * np.pi * viscosity * v)
-            dx = dxtDoQ / D * Q
-        Nsteps[Nrp * i:Nrp * (i + 1)] = np.asarray(readingpos / dx, dtype=int)
+    Nsteps = np.asarray(np.round(X / dx), dtype=int)
 
-#    print('{} steps, {}X{}'.format(Nsteps.max(), Zgrid, Ygrid))
     # transform Nsteps to binary array
     pow2 = 1 << np.arange(int(np.floor(np.log2(Nsteps.max()) + 1)))
     pow2 = pow2[:, None]
@@ -168,11 +252,11 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
             prev = act
 
     # reshape correctly
-    profilespos.shape = (NRs, Nrp, ZgridEffective, Ygrid)
+    profilespos.shape = (NX, ZgridEffective, Ygrid)
 
     if Zmirror:
         profilespos = np.concatenate(
-            (profilespos, profilespos[:, :, -1 - Zgrid % 2::-1, :]), 2)
+            (profilespos, profilespos[... , -1 - Zgrid % 2::-1, :]), -2)
         Cinit = np.concatenate((Cinit, Cinit[-1 - Zgrid % 2::-1, :]), 0)
 
     # If full grid, stop here
@@ -180,18 +264,18 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
         return profilespos
 
     if zpos is not None:
-        idx = int(np.floor(Zgrid * zpos / Wz))
+        idx = int(np.floor(Zgrid * zpos / beta))
         # Border position
         if idx == Zgrid:
             idx = Zgrid - 1
         # Take central profile
         idx = int((Zgrid - 1) / 2)
-        profilespos = profilespos[:, :, idx, :]
+        profilespos = profilespos[... , idx, :]
     else:
         # Take sum
         profilespos = np.sum(profilespos, -2)
-
-    return profilespos
+        
+    return profilespos, dx
 
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
@@ -288,7 +372,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
 #@profile
 
 
-def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
+def poiseuille(Zgrid, Ygrid, Q, Wy, beta, yinterface=False, zinterface=False):
     """
     Compute the poiseuille flow profile
 
@@ -298,12 +382,37 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
         Number of Z pixel
     Ygrid:  integer
         Number of Y pixel
-    Wz: float
-        Channel height [m]
-    Wy: float
-        Channel width [m]
-    Q:  float
-        The flux in the channel in [ul/h]
+    beta:  float
+        height over width
+    get_interface: Bool, defaults False
+        Also returns poisuille flow between pixels
+    Returns
+    -------
+    V: 2d array
+        The poiseuille flow
+    if get_interface is True:
+    Viy: 2d array
+        The poiseuille flow between y pixels
+    Viz: 2d array
+        The poiseuille flow between z pixels
+    """
+
+    V = poiseuille_unitless(Zgrid, Ygrid, beta, yinterface, zinterface)
+    Q = Q / (3600 * 1e9)  # transorm in m^3/s
+    return V * Q / (Wy**2 * beta)
+
+def poiseuille_unitless(Zgrid, Ygrid, beta, yinterface=False, zinterface=False):
+    """
+    Compute the poiseuille flow profile
+
+    Parameters
+    ----------
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    beta:  float
+        height over width
     get_interface: Bool, defaults False
         Also returns poisuille flow between pixels
     Returns
@@ -330,39 +439,15 @@ def poiseuille(Zgrid, Ygrid, Wz, Wy, Q, yinterface=False, zinterface=False):
 
     nz = np.arange(1, 100, 2)[None, None, :, None]
     ny = np.arange(1, 100, 2)[None, None, None, :]
-    V = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2)) *
+
+    V = np.sum(1 / (nz * ny * (nz**2 + ny**2 * beta**2)) *
                (np.sin(nz * np.pi * i / Zgrid) *
                 np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
-    Q /= 3600 * 1e9  # transorm in m^3/s
-    # Normalise
-    normfactor = Q / (np.mean(V) * Wy * Wz)
-    V *= normfactor
 
-    return V
-
-#    # Y interface
-#    i = np.arange(Zgrid)[:, None, None, None] + .5
-#
-#    Viy = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
-#                    * (np.sin(nz * np.pi * i / Zgrid)
-#                    * np.sin(ny * np.pi * (j) / Ygrid)), axis=(2, 3))
-#
-#    Viy *= normfactor
-#
-#    # Z interface
-#
-#    j = np.arange(Ygrid)[None, :, None, None] + .5
-#    Viz = np.sum(1 / (nz * ny * (nz**2 / Wz**2 + ny**2 / Wy**2))
-#                    * (np.sin(nz * np.pi * i / Zgrid)
-#                    * np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
-#
-#    Viz *= normfactor
-#    return V, Viy, Viz
-
-#@profile
+    return V / np.mean(V)
 
 
-def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
+def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
                method='Trapezoid', dxfactor=1, Zmirror=False,
                yboundary='Neumann'):
     """
@@ -404,53 +489,54 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
 
     realZgrid = Zgrid
     # Get Poiseille flow
-    poiseuille_over_Q = poiseuille(realZgrid, Ygrid, Wz, Wy, 1)
+    poiseuille_prime = poiseuille_unitless(realZgrid, Ygrid, beta)
     if outV is not None:
-        outV[:] = poiseuille_over_Q
+        outV[:] = poiseuille_prime
 
     # Get steps
-    dy = Wy / Ygrid
-    dz = Wz / realZgrid
+    dy = 1 / Ygrid
+    dz = beta / realZgrid
 
     # If the Z is a mirror, make adjustments
     Zodd = False
     if Zmirror:
         Zodd = Zgrid % 2 == 1
         Zgrid = (Zgrid + 1) // 2
-        poiseuille_over_Q = poiseuille_over_Q[:Zgrid, :]
+        poiseuille_prime = poiseuille_prime[:Zgrid, :]
 
     # flatten poiseuille_over_Q
-    poiseuille_over_Q = np.ravel(poiseuille_over_Q)
+    poiseuille_prime = np.ravel(poiseuille_prime)
 
     # get dx
     # The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    dxtDoQ = np.min((dy, dz))**2 * poiseuille_over_Q.min() / 2
-    if muEoD != 0:
-        dxtDoQ2 = poiseuille_over_Q.min() / np.abs(muEoD)**2
-        dxtDoQ = np.min([dxtDoQ, dxtDoQ2])
-    dxtDoQ *= dxfactor
+    dx = np.min((dy, dz))**2 * poiseuille_prime.min() / 2
+    if mu_prime_E != 0:
+        #TODO: What is that?
+        dx2 = poiseuille_prime.min() / np.abs(mu_prime_E)**2
+        dx = np.min([dx, dx2])
+    dx *= dxfactor
 
     # Get the dF matrix
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
-    Cyy = (1 / poiseuille_over_Q)[:, np.newaxis] * \
+    Cyy = (1 / poiseuille_prime)[:, np.newaxis] * \
         ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
     if Zgrid > 1:
         qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
-        Czz = (1 / poiseuille_over_Q)[:, np.newaxis] * \
+        Czz = (1 / poiseuille_prime)[:, np.newaxis] * \
             ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
     else:
         Czz = 0
-    if muEoD == 0:
+    if mu_prime_E == 0:
         Cy = 0
     else:
-        ViyoQ = poiseuille(realZgrid, Ygrid, Wz, Wy, 1, yinterface=True)
+        ViyoQ = poiseuille_unitless(realZgrid, Ygrid, beta, yinterface=True)
         if Zmirror:
             ViyoQ = ViyoQ[:Zgrid, :]
 #        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
-        Cy = getCy(muEoD, dxtDoQ, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
+        Cy = getCy(mu_prime_E, dx, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
 
-    dF = dxtDoQ * (Cyy + Czz - muEoD * Cy)
+    dF = dx * (Cyy + Czz - mu_prime_E * Cy)
 
     # Get F
     I = np.eye(Ygrid * Zgrid, dtype=float)
@@ -470,7 +556,7 @@ def stepMatrix(Zgrid, Ygrid, Wz, Wy, *, muEoD=0, outV=None,
     # The above dx should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
-    return F, dxtDoQ
+    return F, dx
 
 
 def getQy(Zgrid, Ygrid, boundary='Neumann'):
@@ -574,7 +660,7 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
     return q
 
 
-def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary='Neumann'):
+def getCy5(mu_prime_E, dx, V, Zgrid, Ygrid, dy, boundary='Neumann'):
     """Get Cy using the 5 point stencil technique
 
     Parameters
@@ -609,7 +695,7 @@ def getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary='Neumann'):
     return Cy
 
 
-def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
+def getCy(mu_prime_E, dx, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
     """Get Cy using the flux conserving Fromm technique
 
     Parameters
@@ -651,7 +737,7 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
         sigdy[i] = (q[i + 1] - q[i - 1]) / 2
 
     # Get nu
-    nu = muEoD * dxtD
+    nu = mu_prime_E * dx
 
     # We want to represent the following equation as a matrix
     """\frac{1}{\Delta y}\left[
@@ -665,7 +751,7 @@ def getCy(muEoD, dxtD, Viy, Zgrid, Ygrid, dy, boundary='Neumann'):
     \right)\right) \right]
     """
 
-    neg = muEoD < 0
+    neg = mu_prime_E < 0
 
     Cy = (iVym * q[-1 + neg] - iVyp * q[0 + neg]
           + (.5 - neg) * ((iVym * sigdy[-1 + neg] - iVyp * sigdy[0 + neg])

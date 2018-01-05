@@ -62,4 +62,7 @@ json_infos['Background had good features'] = True
 # If LSE/ signal over noise > 1, ignore
 json_infos['Remove bad fits'] = False
 
+# Set to 0<x<1 to reduce fitting error from step size.
+json_infos['dx factor'] = 1
+
 settings.generate_json(datapath, json_infos)

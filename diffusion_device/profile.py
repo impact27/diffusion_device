@@ -110,6 +110,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     Zgrid = settings["KEY_STG_ZGRID"]
     nspecies = settings["KEY_STG_NSPECIES"]
     imslice = settings["KEY_STG_SLICE"]
+    dxfactor = settings["KEY_STG_DXFACTOR"]
 
     pslice = ignore_slice(ignore, pixel_size)
 
@@ -155,7 +156,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                         Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
                         zpos=zpos, temperature=temperature,
-                        viscosity=viscosity)
+                        viscosity=viscosity, dxfactor=dxfactor)
 
     if norm_profiles:
         profiles_scales = scale_factor(profilesfit, pslice)
@@ -181,7 +182,8 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                 Wz=channel_height, Zgrid=Zgrid,
                 readingpos=readingposfit,
                 zpos=zpos, temperature=temperature,
-                viscosity=viscosity)[0]
+                viscosity=viscosity,
+                dxfactor=dxfactor)[0]
 
             if initmode != 'synthetic':
                 fits[0] = init
