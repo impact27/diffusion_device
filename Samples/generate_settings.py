@@ -65,4 +65,7 @@ json_infos['Remove bad fits'] = False
 # Set to 0<x<1 to reduce fitting error from step size.
 json_infos['dx factor'] = 1
 
+# If all else fails, subtract 1% from the bottom
+json_infos['subtract 1 percentile'] = False
+
 settings.generate_json(datapath, json_infos)

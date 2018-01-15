@@ -114,8 +114,6 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
         Rp = readingpos[1] 
     error = (dx / Rp * Q / (beta * D))
     infos['Fit error'] = error
-    if np.any(error> 1e-2):
-        raise RuntimeError("The relative error is larger than 1%")
 
     return profilespos
 
@@ -261,7 +259,7 @@ def get_unitless_profiles(Cinit, X, beta,
 
     # If full grid, stop here
     if fullGrid:
-        return profilespos
+        return profilespos, dx
 
     if zpos is not None:
         idx = int(np.floor(Zgrid * zpos / beta))

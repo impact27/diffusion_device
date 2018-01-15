@@ -184,4 +184,9 @@ settings.add_info("KEY_STG_DXFACTOR", "dx factor", float,
                   required=False,
                   default=1,
                   explanation="Set to 0<x<1 to reduce fitting error from step size.")
+settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
+                  required=False,
+                  default=False,
+                  explanation="If all else fails, subtract 1% from the bottom")
+
 

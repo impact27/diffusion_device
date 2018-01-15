@@ -111,10 +111,14 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     nspecies = settings["KEY_STG_NSPECIES"]
     imslice = settings["KEY_STG_SLICE"]
     dxfactor = settings["KEY_STG_DXFACTOR"]
+    subtract_one_perct = settings["KEY_STG_SUB1PCT"]
 
     pslice = ignore_slice(ignore, pixel_size)
 
     profiles = np.asarray(profiles)
+    
+    if subtract_one_perct:
+        profiles -= np.percentile(profiles, 1, -1)[..., None]
     
     infos["Signal over noise"] = (np.mean(profiles[..., pslice]) 
                                     / infos["Profiles noise std"])
@@ -137,11 +141,12 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         readingposfit = readingpos
 
     if initmode == 'synthetic':
-        init = synthetic_init(profiles[0], pslice)
+        init = synthetic_init(profilesfit[0], pslice)
     else:
+        init_pos_number = fit_position_number[0]
         fit_position_number = fit_position_number[1:]
         # treat init profile
-        init = init_process(profiles[0], initmode, pslice)
+        init = init_process(profilesfit[0], initmode, pslice)
         # First reading pos is initial profile
         readingposfit = readingposfit[1:] - readingposfit[0]
         profilesfit = profilesfit[1:]
@@ -156,7 +161,11 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                         Wy=channel_width, Wz=channel_height,
                         Zgrid=Zgrid, readingpos=readingposfit,
                         zpos=zpos, temperature=temperature,
-                        viscosity=viscosity, dxfactor=dxfactor)
+                        viscosity=viscosity, dxfactor=dxfactor, infos=infos)
+    
+    if subtract_one_perct:
+        Basis -= np.percentile(Basis, 1, -1)[..., None]
+    
 
     if norm_profiles:
         profiles_scales = scale_factor(profilesfit, pslice)
@@ -183,11 +192,17 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                 readingpos=readingposfit,
                 zpos=zpos, temperature=temperature,
                 viscosity=viscosity,
-                dxfactor=dxfactor)[0]
+                dxfactor=dxfactor, infos=infos)[0]
+            
+            if np.any(infos['Fit error']> 1e-2):
+                raise RuntimeError("The relative error is larger than 1%")
 
             if initmode != 'synthetic':
-                fits[0] = init
+                fits[init_pos_number] = init
 
+            if subtract_one_perct:
+                fits -= np.percentile(fits, 1, -1)[..., None]
+                
             if norm_profiles:
                 profiles_scales = scale_factor(profiles, pslice)
                 # Normalise basis in the same way as profiles
@@ -205,7 +220,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         fits[fit_position_number] = np.sum(
             spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
         if initmode != 'synthetic':
-            fits[0] = init
+            fits[init_pos_number] = init
         r = (test_radii, spectrum)
 
         # 2n-1 free parameter
