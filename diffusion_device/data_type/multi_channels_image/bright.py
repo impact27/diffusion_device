@@ -103,7 +103,8 @@ def straight_image_infos(image, number_profiles, chwidth,  wallwidth):
     
     #Sort and check number
     maxs = sorted(maxs)
-    assert len(maxs) == number_profiles
+    if len(maxs) != number_profiles:
+        raise RuntimeError("Can't get image infos")
      
     #Get distances
     dist = np.abs(np.diff(maxs))
@@ -126,85 +127,6 @@ def straight_image_infos(image, number_profiles, chwidth,  wallwidth):
 #    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
     
     return centers, pixel_size
-
-#    from matplotlib.pyplot import figure, show, plot, imshow, title
-#    plot(profiles); plot(Hfiltered); plot(maxs, np.zeros(len(maxs)), 'x'); show()
-    
-#    assert number_profiles >= 3
-#    width_pixels = np.shape(image)[1] // 10
-#
-#    profiles = np.nanmean(image - np.nanmedian(image), 0)
-#    profiles -= np.nanmin(profiles)
-#    # Find max positions
-#    fprof = gfilter(profiles, 3)
-#    maxs = np.where(maximum_filter1d(fprof, width_pixels) == fprof)[0]
-#    # If filter reduces int by 50%, probably a wall
-#    maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
-#    # Remove sides
-#    maxs = maxs[np.logical_and(maxs > 15, maxs < len(fprof) - 15)]
-#    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
-##    from matplotlib.pyplot import figure, show, plot, imshow, title
-##    figure()
-##    plot(fprof)
-##    figure()
-##    plot(np.diff(fprof, 2))
-##    figure()
-##    plot(np.diff(fprof, 2)/(np.nanmean(fprof)*chwidth/(chwidth+wallwidth)))
-##    plot(maxs, np.zeros(number_profiles), 'x')
-##    title(np.diff(fprof, 2)[maxs]/ (np.nanmean(fprof)*chwidth/(chwidth+wallwidth)))
-##    plot(maximum_filter1d(fprof, 100))
-##    for m in maxs:
-##        plot([m, m], [0, np.nanmax(fprof)])
-#
-#    if len(maxs) < number_profiles:
-#        raise RuntimeError("Can't get image infos")
-#
-#    
-#
-#    
-#    
-#    maxs = np.asarray(maxs, dtype=float)
-#    
-#    for i, amax in enumerate(maxs):
-#        amax = int(amax)
-#        y = np.log(profiles[amax - 10:amax + 10])
-#        x = np.arange(len(y))
-#        coeff = np.polyfit(x[np.isfinite(y)], y[np.isfinite(y)], 2)
-#        maxs[i] = -coeff[1] / (2 * coeff[0]) - 10 + amax
-#
-#    maxs = np.sort(maxs)
-#
-#    if maxs[0] < 0 or maxs[-1] > len(profiles):
-#        raise RuntimeError("Can't get image infos")
-#
-#    if fprof[int(maxs[0])] > fprof[int(maxs[-1])]:
-#        # Deduce relevant parameters
-#        w = (maxs[2] - maxs[0]) / 2
-#        a = w / 2 + (maxs[0] - maxs[1]) / 2
-#        origin = maxs[0] - a
-#
-#    else:
-#        # Deduce relevant parameters
-#        w = (maxs[-1] - maxs[-3]) / 2
-#        a = w / 2 + (maxs[-2] - maxs[-1]) / 2
-#        origin = maxs[-1] + a - 3 * w
-#
-#    if not w > 0:
-#        raise RuntimeError('Something went wrong while analysing the images')
-#    # if position 4 is remotely correct, return infos
-#    if (np.any(np.isnan((a, w, origin)))  # got nans
-#            # Right side not in
-#            or origin - a + (number_profiles - .8) * w > len(profiles)
-#            or origin + a - .2 * w < 0):  # left side not in
-#        raise RuntimeError("Can't get image infos")
-#        
-#        
-#    centers = origin + np.arange(number_profiles) * w
-#    pixel_size = (chwidth + wallwidth) / w
-#    
-#    
-#    return centers, pixel_size
-
 
 def flat_image(image, chwidth, wallwidth, number_profiles, *,
                frac=.6, infosOut=None, subtract=False):
