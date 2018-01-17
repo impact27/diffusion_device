@@ -220,7 +220,7 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
     return data
 
 
-def bg_angle(im, bg, Nprofs, infoDict=None, goodFeatures=True):
+def bg_angle(im, bg, Nprofs, chwidth, wallwidth, infoDict=None, goodFeatures=True):
     """
     get the angle by remove_curve_background
 
@@ -250,7 +250,7 @@ def bg_angle(im, bg, Nprofs, infoDict=None, goodFeatures=True):
         tmpout = remove_curve_background_alt(im, bg, infoDict=infoDict)
 
     if infoDict is not None:
-        infoDict['BrightInfos'] = bright.image_infos(tmpout, Nprofs)
+        infoDict['BrightInfos'] = bright.image_infos(tmpout, Nprofs, chwidth,  wallwidth)
     return dp.image_angle(tmpout)
 
 
@@ -286,10 +286,10 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
         im,
         bg,
         Nprofs,
+        chwidth, wallwidth,
         infoDict=infoDict,
         goodFeatures=goodFeatures)
-    approxwidth = infoDict['BrightInfos']['width']
-    approxpixsize = (chwidth + wallwidth) / approxwidth
+    approxpixsize = infoDict['BrightInfos']['pixel_size']
     # Get the mask
     maskbg = channels_mask(bg,
                            chwidth / approxpixsize,  # to pix

@@ -224,8 +224,13 @@ def size_profiles(profiles, metadata, settings, infos):
                     infos_i = {
                         "Pixel size": infos["Pixel size"][i],
                         "Profiles noise std": infos["Profiles noise std"][i]}
+                if len(np.shape(metadata["KEY_MD_Q"])) > 0:
+                    metadata_i = metadata.copy()
+                    metadata_i["KEY_MD_Q"] = metadata_i["KEY_MD_Q"][i]
+                else:
+                    metadata_i = metadata
                 r, fit = single.size_profiles(
-                    profs, metadata, settings, infos_i)
+                    profs, metadata_i, settings, infos_i)
                 shape_r = np.shape(r)
                 error = infos_i["Reduced least square"]
                 r_error = infos_i["Radius error std"]

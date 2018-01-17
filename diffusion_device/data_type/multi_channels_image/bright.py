@@ -31,7 +31,7 @@ from ..images_files import rotate_image
 from ... import profile as dp
 
 
-def image_infos(image, number_profiles):
+def image_infos(image, number_profiles, chwidth,  wallwidth):
     """
     Get the image angle, channel width, proteind offset, and origin
 
@@ -52,17 +52,17 @@ def image_infos(image, number_profiles):
     angle = dp.image_angle(image)
     image = rotate_image(image, -angle)
     # Get channels infos
-    w, a, origin = straight_image_infos(image, number_profiles)
+    centers, pixel_size = straight_image_infos(
+           image, number_profiles, chwidth,  wallwidth)
 
     retdict = {
         'angle': angle,
-        'origin': origin,
-        'width': w,
-        'offset': a}
+        'centers': centers,
+        'pixel_size': pixel_size}
     return retdict
 
 
-def straight_image_infos(image, number_profiles):
+def straight_image_infos(image, number_profiles, chwidth,  wallwidth):
     """
     Get the channel width, proteind offset, and origin from a straight image
 
@@ -83,65 +83,127 @@ def straight_image_infos(image, number_profiles):
         Position of the first channel center
 
     """
-    assert number_profiles >= 3
-    width_pixels = np.shape(image)[1] // 10
-
+    #Get profile
     profiles = np.nanmean(image - np.nanmedian(image), 0)
-
-    # Find max positions
+    profiles -= np.nanmin(profiles)
+    profiles[np.isnan(profiles)] = 0
+    
+    #Filter heavely and get position of the centers as a first approx.
+    filter_width = np.shape(image)[1]/((number_profiles*2+1)*3)
+    Hfiltered = gfilter(profiles, filter_width)
+    maxs = np.where(maximum_filter1d(Hfiltered, int(filter_width)) == Hfiltered)[0]
+    
+    #Filter lightly and get 2nd derivative
     fprof = gfilter(profiles, 3)
-    maxs = np.where(maximum_filter1d(fprof, width_pixels) == fprof)[0]
     # If filter reduces int by 50%, probably a wall
     maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
     # Remove sides
-    maxs = maxs[np.logical_and(maxs > 15, maxs < len(fprof) - 15)]
+    maxs = maxs[np.logical_and(maxs > 3/2*filter_width, maxs < len(fprof) - 3/2*filter_width)]
     maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
-#    from matplotlib.pyplot import figure, show, plot, imshow
-#    figure()
-#    plot(fprof)
-#    plot(maximum_filter1d(fprof, 100))
-#    for m in maxs:
-#        plot([m, m], [0, np.nanmax(fprof)])
+    
+    #Sort and check number
+    maxs = sorted(maxs)
+    assert len(maxs) == number_profiles
+     
+    #Get distances
+    dist = np.abs(np.diff(maxs))
+    dist_even = np.mean(dist[::2])
+    dist_odd = np.mean(dist[1::2])
+    meandist = 1/2*(dist_even + dist_odd)
+    
+    #Correct for any off balance
+    centers = np.asarray(maxs, float)
+    centers[::2] += (dist_even - meandist) /2
+    centers[1::2] += (dist_odd - meandist) /2
+    
+    #Get evenly spaced centers
+    start = np.mean(centers - np.arange(number_profiles)*meandist)
+    centers = start + np.arange(number_profiles)*meandist
+    
+    pixel_size = np.abs((chwidth+wallwidth) / meandist)
+    
+#    from matplotlib.pyplot import figure, show, plot, imshow, title
+#    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
+    
+    return centers, pixel_size
 
-    if len(maxs) < number_profiles:
-        raise RuntimeError("Can't get image infos")
-
-    profiles -= np.nanmin(profiles)
-
-    maxs = np.asarray(maxs, dtype=float)
-    for i, amax in enumerate(maxs):
-        amax = int(amax)
-        y = np.log(profiles[amax - 10:amax + 10])
-        x = np.arange(len(y))
-        coeff = np.polyfit(x[np.isfinite(y)], y[np.isfinite(y)], 2)
-        maxs[i] = -coeff[1] / (2 * coeff[0]) - 10 + amax
-
-    maxs = np.sort(maxs)
-
-    if maxs[0] < 0 or maxs[-1] > len(profiles):
-        raise RuntimeError("Can't get image infos")
-
-    if fprof[int(maxs[0])] > fprof[int(maxs[-1])]:
-        # Deduce relevant parameters
-        w = (maxs[2] - maxs[0]) / 2
-        a = w / 2 + (maxs[0] - maxs[1]) / 2
-        origin = maxs[0] - a
-
-    else:
-        # Deduce relevant parameters
-        w = (maxs[-1] - maxs[-3]) / 2
-        a = w / 2 + (maxs[-2] - maxs[-1]) / 2
-        origin = maxs[-1] + a - 3 * w
-
-    if not w > 0:
-        raise RuntimeError('Something went wrong while analysing the images')
-    # if position 4 is remotely correct, return infos
-    if (np.any(np.isnan((a, w, origin)))  # got nans
-            # Right side not in
-            or origin - a + (number_profiles - .8) * w > len(profiles)
-            or origin + a - .2 * w < 0):  # left side not in
-        raise RuntimeError("Can't get image infos")
-    return w, a, origin
+#    from matplotlib.pyplot import figure, show, plot, imshow, title
+#    plot(profiles); plot(Hfiltered); plot(maxs, np.zeros(len(maxs)), 'x'); show()
+    
+#    assert number_profiles >= 3
+#    width_pixels = np.shape(image)[1] // 10
+#
+#    profiles = np.nanmean(image - np.nanmedian(image), 0)
+#    profiles -= np.nanmin(profiles)
+#    # Find max positions
+#    fprof = gfilter(profiles, 3)
+#    maxs = np.where(maximum_filter1d(fprof, width_pixels) == fprof)[0]
+#    # If filter reduces int by 50%, probably a wall
+#    maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
+#    # Remove sides
+#    maxs = maxs[np.logical_and(maxs > 15, maxs < len(fprof) - 15)]
+#    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
+##    from matplotlib.pyplot import figure, show, plot, imshow, title
+##    figure()
+##    plot(fprof)
+##    figure()
+##    plot(np.diff(fprof, 2))
+##    figure()
+##    plot(np.diff(fprof, 2)/(np.nanmean(fprof)*chwidth/(chwidth+wallwidth)))
+##    plot(maxs, np.zeros(number_profiles), 'x')
+##    title(np.diff(fprof, 2)[maxs]/ (np.nanmean(fprof)*chwidth/(chwidth+wallwidth)))
+##    plot(maximum_filter1d(fprof, 100))
+##    for m in maxs:
+##        plot([m, m], [0, np.nanmax(fprof)])
+#
+#    if len(maxs) < number_profiles:
+#        raise RuntimeError("Can't get image infos")
+#
+#    
+#
+#    
+#    
+#    maxs = np.asarray(maxs, dtype=float)
+#    
+#    for i, amax in enumerate(maxs):
+#        amax = int(amax)
+#        y = np.log(profiles[amax - 10:amax + 10])
+#        x = np.arange(len(y))
+#        coeff = np.polyfit(x[np.isfinite(y)], y[np.isfinite(y)], 2)
+#        maxs[i] = -coeff[1] / (2 * coeff[0]) - 10 + amax
+#
+#    maxs = np.sort(maxs)
+#
+#    if maxs[0] < 0 or maxs[-1] > len(profiles):
+#        raise RuntimeError("Can't get image infos")
+#
+#    if fprof[int(maxs[0])] > fprof[int(maxs[-1])]:
+#        # Deduce relevant parameters
+#        w = (maxs[2] - maxs[0]) / 2
+#        a = w / 2 + (maxs[0] - maxs[1]) / 2
+#        origin = maxs[0] - a
+#
+#    else:
+#        # Deduce relevant parameters
+#        w = (maxs[-1] - maxs[-3]) / 2
+#        a = w / 2 + (maxs[-2] - maxs[-1]) / 2
+#        origin = maxs[-1] + a - 3 * w
+#
+#    if not w > 0:
+#        raise RuntimeError('Something went wrong while analysing the images')
+#    # if position 4 is remotely correct, return infos
+#    if (np.any(np.isnan((a, w, origin)))  # got nans
+#            # Right side not in
+#            or origin - a + (number_profiles - .8) * w > len(profiles)
+#            or origin + a - .2 * w < 0):  # left side not in
+#        raise RuntimeError("Can't get image infos")
+#        
+#        
+#    centers = origin + np.arange(number_profiles) * w
+#    pixel_size = (chwidth + wallwidth) / w
+#    
+#    
+#    return centers, pixel_size
 
 
 def flat_image(image, chwidth, wallwidth, number_profiles, *,
@@ -178,21 +240,21 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
     angle = dp.image_angle(rep_image - np.median(rep_image))
     rep_image = rotate_image(rep_image, -angle)
     # Get channels infos
-    w, a, origin = straight_image_infos(
-        rep_image, number_profiles=number_profiles)
+    centers, pixel_size = straight_image_infos(
+        rep_image, number_profiles, chwidth,  wallwidth)
     # get mask
     mask = np.ones(np.shape(rep_image)[-1])
     for i in range(number_profiles):
-        amin = origin + i * w - frac * w * chwidth / (chwidth + wallwidth)
-        amax = origin + i * w + frac * w * chwidth / (chwidth + wallwidth)
+        amin = centers[i] - frac * chwidth / pixel_size
+        amax = centers[i] + frac * chwidth / pixel_size
 
         if amin < 0:
-            amin = origin + i * w - .5 * w * chwidth / (chwidth + wallwidth)
+            amin = centers[i] - .5 * chwidth / pixel_size
             if amin < 0:
                 amin = 0
 
         if amax > len(mask):
-            amax = origin + i * w + .5 * w * chwidth / (chwidth + wallwidth)
+            amax = centers[i] + .5 * chwidth / pixel_size
             if amax > len(mask):
                 amax = len(mask)
 
@@ -210,7 +272,7 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
         image = image - fitted_image
 
     if infosOut is not None:
-        infosOut['infos'] = (w, a, origin)
+        infosOut['infos'] = (centers, pixel_size)
     return image
 
 
@@ -249,11 +311,10 @@ def extract_data(image, number_profiles, chwidth,
     rep_image = rotate_image(rep_image, -angle)
 
     if not flatten:
-        infos['infos'] = straight_image_infos(rep_image, number_profiles)
+        infos['infos'] = straight_image_infos(
+                rep_image, number_profiles, chwidth,  wallwidth)
 
-    w, a, origin = infos['infos']
-    centers = origin + np.arange(number_profiles) * w
-    pixel_size = (chwidth + wallwidth) / w
+    centers, pixel_size = infos['infos']
     return image, centers, pixel_size
 
 

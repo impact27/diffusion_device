@@ -10,6 +10,7 @@ import os
 from glob import glob
 import numpy as np
 import warnings
+from natsort import natsorted
 
 from .myJSONEncoder import myJSONEncoder, floatstr
 
@@ -217,7 +218,7 @@ class ListGenerator():
                 pathprefix = datapath
 
             absdatapath = os.path.join(pathprefix, value)
-            value = sorted(glob(absdatapath))
+            value = natsorted(glob(absdatapath))
             if value == []:
                 raise RuntimeError("Can't find {}".format(absdatapath))
             value = [os.path.relpath(path, pathprefix) for path in value]

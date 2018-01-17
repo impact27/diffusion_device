@@ -134,7 +134,7 @@ class TestImage(TestCase):
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 4e-9)
-        self.assertLess(radius, 4.5e-9)
+        self.assertLess(radius, 4.6e-9)
         
     def test_electrophoresis(self):
         basisfn = os.path.join(folder,
