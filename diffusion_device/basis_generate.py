@@ -75,28 +75,12 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     """
-    kT = Boltzmann_constant * temperature
-    Radii = np.array(Radii)
-    if stepMuE:
-        if muEoD == 0:
-            raise RuntimeError("Can't calculate for 0 qE")
-    else:
-        if np.any(Radii <= 0):
-            raise RuntimeError("Can't work with negative radii!")
-
-    # Prepare input and Initialize arrays
-    readingpos = np.asarray(readingpos)
-
-    mu_prime_E = muEoD * Wy
-    beta = Wz / Wy
-    Q = Q / (3600 * 1e9)  # transorm in m^3/s
     
-    if stepMuE:
-        D = Radii / muEoD
-    else:
-        D = kT / (6 * np.pi * viscosity * Radii)
-            
-    X = readingpos[np.newaxis] * D[..., np.newaxis] / Q * beta
+    D = get_D(Radii, viscosity, temperature, muEoD, stepMuE,
+              Boltzmann_constant)
+    X, beta, mu_prime_E = get_unitless_parameters(Q, D, readingpos, Wy, Wz,
+                                                  muEoD)
+   
     Xshape = np.shape(X)
     X = np.ravel(X)
     
@@ -109,13 +93,46 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     profilespos.shape = (*Xshape, *profilespos.shape[1:])
     
     #Get the fit error from rounding
-    Rp = np.min(readingpos)
-    if Rp == 0:
-        Rp = readingpos[1] 
-    error = (dx / Rp * Q / (beta * D))
+    idx = np.argmin(readingpos)
+    if readingpos[idx] == 0:
+        idx = 1 
+    error = dx / X[idx]
     infos['Fit error'] = error
 
     return profilespos
+
+
+def get_D(Radii, viscosity, temperature, muEoD=0, stepMuE=False, 
+          Boltzmann_constant=1.38e-23):
+    """
+    """
+    Radii = np.array(Radii)        
+    kT = Boltzmann_constant * temperature
+    
+    if stepMuE:
+        if muEoD == 0:
+            raise RuntimeError("Can't calculate for 0 qE")
+        D = Radii / muEoD
+    else:
+        if np.any(Radii <= 0):
+            raise RuntimeError("Can't work with negative radii!")
+        D = kT / (6 * np.pi * viscosity * Radii)
+        
+    return D
+    
+def get_unitless_parameters(Q, D, readingpos, Wy, Wz, muEoD=0):
+    """
+    """
+    # Prepare input and Initialize arrays
+    readingpos = np.asarray(readingpos)
+
+    mu_prime_E = muEoD * Wy
+    beta = Wz / Wy
+    Q = Q / (3600 * 1e9)  # transorm in m^3/s
+            
+    X = readingpos[np.newaxis] * D[..., np.newaxis] / Q * beta
+
+    return X, beta, mu_prime_E
 
 """
 The PDE is:
@@ -171,6 +188,10 @@ def get_unitless_profiles(Cinit, X, beta,
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     """
+#    from matplotlib.pyplot import figure, hist, plot, show
+#    figure()
+#    hist(np.log(X), 100)
+    
     if np.any(X < 0) or not np.all(np.isfinite(X)):
         raise RuntimeError("The time varible is incorrect")
 
@@ -183,18 +204,18 @@ def get_unitless_profiles(Cinit, X, beta,
 
     def initF(Zgrid, Ygrid, beta, mu_prime_E, Zmirror, dxfactor, yboundary):
         key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, dxfactor, yboundary)
-        if not hasattr(getprofiles, 'dirFList'):
-            getprofiles.dirFList = {}
+        if not hasattr(get_unitless_profiles, 'dirFList'):
+            get_unitless_profiles.dirFList = {}
         # Create dictionnary if doesn't exist
-        if key in getprofiles.dirFList:
-            return getprofiles.dirFList[key]
+        if key in get_unitless_profiles.dirFList:
+            return get_unitless_profiles.dirFList[key]
         else:
             Fdir = {}
             Fdir[1], dxtdoQ = stepMatrix(Zgrid, Ygrid, beta, 
                                          mu_prime_E=mu_prime_E,
                                          Zmirror=Zmirror, dxfactor=dxfactor,
                                          yboundary=yboundary)
-            getprofiles.dirFList[key] = (Fdir, dxtdoQ)
+            get_unitless_profiles.dirFList[key] = (Fdir, dxtdoQ)
             return Fdir, dxtdoQ
 
     # Prepare input and Initialize arrays

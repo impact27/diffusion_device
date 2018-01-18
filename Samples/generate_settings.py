@@ -68,4 +68,7 @@ json_infos['dx factor'] = 1
 # If all else fails, subtract 1% from the bottom
 json_infos['subtract 1 percentile'] = False
 
+# Try to guess if the reading positions are incorrect
+json_infos['Try to guess offset'] = False
+
 settings.generate_json(datapath, json_infos)

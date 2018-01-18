@@ -58,7 +58,113 @@ def ignore_slice(ignore, pixel_size):
         pslice = slice(ignore, -ignore)
     return pslice
 
+def get_test_radii(settings):
+    """Get test radii"""
+    if settings["KEY_STG_RLOG"]:
+        rmin, rmax, Nr = settings["KEY_STG_R"]
+        test_radii = np.exp(np.linspace(np.log(rmin), np.log(rmax), Nr))
+    else:
+        if settings["KEY_STG_R"] is not None:
+            test_radii = np.linspace(*settings["KEY_STG_R"])
+        else:
+            test_radii = np.arange(*settings["KEY_STG_R_STEP"])
+            
+    if len(test_radii) == 0:
+        raise RuntimeError("The test radius are incorrectly specified.")
+    
+    return test_radii
 
+def get_reading_position(metadata, settings, nprofiles):
+    """get_reading_position"""
+    readingpos = np.asarray(metadata["KEY_MD_RPOS"])
+    imslice = settings["KEY_STG_SLICE"]
+    if len(readingpos) != nprofiles:
+        raise RuntimeError(
+            "Number of profiles and reading positions mismatching.")
+    if imslice is not None:
+        shift = np.resize([1, -1], len(readingpos)) * imslice[0]
+        readingpos = readingpos + shift
+        
+    return readingpos
+    
+def get_profiles_arg_dir(metadata, settings):
+    """get_profiles_arg_dir"""
+    return {
+            'Q': metadata["KEY_MD_Q"],
+            'Wz': metadata["KEY_MD_WZ"],
+            'Wy': metadata["KEY_MD_WY"],
+            'temperature': metadata["KEY_MD_T"],
+            'viscosity': metadata["KEY_MD_ETA"],
+            'Zgrid': settings["KEY_STG_ZGRID"],
+            'dxfactor': settings["KEY_STG_DXFACTOR"]}
+    
+def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
+    """get_fit_data"""
+    fit_index = settings["KEY_STG_FITPOS"]
+    if fit_index is not None:
+        fit_index = np.sort(fit_index)        
+    else:
+        fit_index = np.arange(len(profiles))
+        
+    fit_profiles = profiles[fit_index]
+    fit_readingpos = readingpos[fit_index]
+
+    initmode = settings["KEY_STG_POS0FILTER"]
+    if initmode == 'synthetic':
+        fit_init = synthetic_init(fit_profiles[0], pslice)
+    else:
+        fit_init_index = fit_index[0]
+        fit_index = fit_index[1:]
+        # treat init profile
+        fit_init = init_process(fit_profiles[0], initmode, pslice)
+        
+        fits[fit_init_index] = fit_init
+        # First reading pos is initial profile
+        fit_readingpos = fit_readingpos[1:] - fit_readingpos[0]
+        fit_profiles = fit_profiles[1:]
+
+    # Check if init is large enough
+    threshold = 3 * infos["Profiles noise std"]
+    if np.mean(fit_init[pslice]) < threshold:
+        raise RuntimeError("signal to noise too low")
+        
+    return fit_init, fit_profiles, fit_readingpos, fit_index
+
+def normalise_profiles(profiles, settings, pslice, normalise=None):
+    """process_profiles"""
+    subtract_one_perct = settings["KEY_STG_SUB1PCT"]
+    norm_profiles = settings["KEY_STG_NORMALISE"]
+    
+    if subtract_one_perct:
+        profiles -= np.percentile(profiles, 1, -1)[..., None]
+    
+    if norm_profiles and normalise is not None:
+        profiles_scales = scale_factor(normalise, pslice)
+        # Normalise basis in the same way as profiles
+        basis_scales = scale_factor(profiles, pslice)
+        if len(np.shape(profiles_scales))<len(np.shape(basis_scales)):
+            profiles_scales = profiles_scales[np.newaxis, :]
+        profiles *= profiles_scales / basis_scales
+        
+    return profiles
+    
+def get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
+                  infos, settings):
+
+    infos["Signal over noise"] = (np.mean(profiles[..., pslice]) 
+                                    / infos["Profiles noise std"])
+    slicesize = np.sum(np.ones_like(fit_profiles)[..., pslice])
+    nu = slicesize - Mfreepar
+    reduced_least_square = ((np.nansum(np.square(profiles[..., pslice]
+                                                 - fits[..., pslice]))
+                             / infos["Profiles noise std"]**2)
+                            / nu)
+    infos["Reduced least square"] = np.sqrt(reduced_least_square)
+    
+    ratio = infos["Reduced least square"] / infos["Signal over noise"]
+    if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
+        raise RuntimeError("Least square error too large")
+    
 def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """Size the profiles
 
@@ -83,162 +189,71 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     else:
         Rs, spectrum, the radii and corresponding spectrum
     """
-
-    pixel_size = infos["Pixel size"]
     # load variables
-    readingpos = np.asarray(metadata["KEY_MD_RPOS"])
-    flow_rate = metadata["KEY_MD_Q"]
-    channel_height = metadata["KEY_MD_WZ"]
-    channel_width = metadata["KEY_MD_WY"]
-    temperature = metadata["KEY_MD_T"]
-    viscosity = metadata["KEY_MD_ETA"]
-
-    fit_position_number = settings["KEY_STG_FITPOS"]
-    ignore = settings["KEY_STG_IGNORE"]
-    norm_profiles = settings["KEY_STG_NORMALISE"]
-    initmode = settings["KEY_STG_POS0FILTER"]
-    if settings["KEY_STG_RLOG"]:
-        rmin, rmax, Nr = settings["KEY_STG_R"]
-        test_radii = np.exp(np.linspace(np.log(rmin), np.log(rmax), Nr))
-    else:
-        if settings["KEY_STG_R"] is not None:
-            test_radii = np.linspace(*settings["KEY_STG_R"])
-        else:
-            test_radii = np.arange(*settings["KEY_STG_R_STEP"])
-    if len(test_radii) == 0:
-        raise RuntimeError("The test radius are incorrectly specified.")
-    Zgrid = settings["KEY_STG_ZGRID"]
     nspecies = settings["KEY_STG_NSPECIES"]
-    imslice = settings["KEY_STG_SLICE"]
-    dxfactor = settings["KEY_STG_DXFACTOR"]
-    subtract_one_perct = settings["KEY_STG_SUB1PCT"]
-
-    pslice = ignore_slice(ignore, pixel_size)
+    
+    test_radii = get_test_radii(settings)
+    pslice = ignore_slice(settings["KEY_STG_IGNORE"], infos["Pixel size"])
+    readingpos = get_reading_position(metadata, settings, len(profiles))
+    profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
 
     profiles = np.asarray(profiles)
+    fits = np.zeros_like(profiles) * np.nan
     
-    if subtract_one_perct:
-        profiles -= np.percentile(profiles, 1, -1)[..., None]
+    profiles = normalise_profiles(profiles, settings, pslice, normalise=None)
     
-    infos["Signal over noise"] = (np.mean(profiles[..., pslice]) 
-                                    / infos["Profiles noise std"])
+    fit_init, fit_profiles, fit_readingpos, fit_index = get_fit_data(
+            settings, profiles, readingpos, pslice, infos, fits)
 
-    readingpos = np.asarray(readingpos)
-    if len(readingpos) != len(profiles):
-        raise RuntimeError(
-            "Number of profiles and reading positions mismatching.")
-    if imslice is not None:
-        shift = np.resize([1, -1], len(readingpos)) * imslice[0]
-        readingpos = readingpos + shift
-
-    if fit_position_number is not None:
-        fit_position_number = np.sort(fit_position_number)
-        profilesfit = profiles[fit_position_number]
-        readingposfit = readingpos[fit_position_number]
-    else:
-        fit_position_number = np.arange(len(profiles))
-        profilesfit = profiles
-        readingposfit = readingpos
-
-    if initmode == 'synthetic':
-        init = synthetic_init(profilesfit[0], pslice)
-    else:
-        init_pos_number = fit_position_number[0]
-        fit_position_number = fit_position_number[1:]
-        # treat init profile
-        init = init_process(profilesfit[0], initmode, pslice)
-        # First reading pos is initial profile
-        readingposfit = readingposfit[1:] - readingposfit[0]
-        profilesfit = profilesfit[1:]
-
-    # Check if init is large enough
-    threshold = 3 * infos["Profiles noise std"]
-    if np.mean(init[pslice]) < threshold:
-        raise RuntimeError("signal to noise too low")
 
     # Get basis function
-    Basis = getprofiles(init, flow_rate, test_radii,
-                        Wy=channel_width, Wz=channel_height,
-                        Zgrid=Zgrid, readingpos=readingposfit,
-                        zpos=zpos, temperature=temperature,
-                        viscosity=viscosity, dxfactor=dxfactor, infos=infos)
+    Basis = getprofiles(fit_init, Radii=test_radii,
+                        readingpos=fit_readingpos,
+                        zpos=zpos, infos=infos,
+                        **profiles_arg_dir)
     
-    if subtract_one_perct:
-        Basis -= np.percentile(Basis, 1, -1)[..., None]
+    Basis = normalise_profiles(Basis, settings, pslice, normalise=fit_profiles)
+
+    # Get best fit
+    r = fit_radius(fit_profiles, Basis, test_radii, pslice, nspecies=nspecies,
+                       infos=infos)
     
-
-    if norm_profiles:
-        profiles_scales = scale_factor(profilesfit, pslice)
-        # Normalise basis in the same way as profiles
-        basis_scales = scale_factor(Basis, pslice)
-        Basis *= profiles_scales[np.newaxis, :] / basis_scales
-
-    fits = np.zeros_like(profiles) * np.nan
     if nspecies == 1:
-        # Get best fit
-        r = fit_radius(
-            profilesfit,
-            Basis,
-            test_radii,
-            pslice,
-            nspecies=1,
-            infos=infos)
-
+        
         # fill data if needed
         if not np.isnan(r):
-            fits[fit_position_number] = getprofiles(
-                init, Q=flow_rate, Radii=[r], Wy=channel_width,
-                Wz=channel_height, Zgrid=Zgrid,
-                readingpos=readingposfit,
-                zpos=zpos, temperature=temperature,
-                viscosity=viscosity,
-                dxfactor=dxfactor, infos=infos)[0]
+            fits[fit_index] = getprofiles(
+                fit_init, Radii=[r], readingpos=fit_readingpos,
+                zpos=zpos, infos=infos, **profiles_arg_dir)[0]
             
             if np.any(infos['Fit error']> 1e-2):
                 raise RuntimeError("The relative error is larger than 1%")
-
-            if initmode != 'synthetic':
-                fits[init_pos_number] = init
-
-            if subtract_one_perct:
-                fits -= np.percentile(fits, 1, -1)[..., None]
                 
-            if norm_profiles:
-                profiles_scales = scale_factor(profiles, pslice)
-                # Normalise basis in the same way as profiles
-                fits_scale = scale_factor(fits, pslice)
-                fits *= profiles_scales / fits_scale
+            fits = normalise_profiles(fits, settings, pslice, normalise=profiles)
 
         # One free parameter
         Mfreepar = 1
 
     else:
-        spectrum = fit_radius(profilesfit, Basis, test_radii, pslice,
-                              nspecies=nspecies, infos=infos)
+        spectrum = r
 
         # fill data if needed
-        fits[fit_position_number] = np.sum(
+        fits[fit_index] = np.sum(
             spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
-        if initmode != 'synthetic':
-            fits[init_pos_number] = init
+            
         r = (test_radii, spectrum)
 
         # 2n-1 free parameter
         Mfreepar = 2 * nspecies - 1
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
-
-    slicesize = np.sum(np.ones_like(profilesfit)[..., pslice])
-    nu = slicesize - Mfreepar
-    reduced_least_square = ((np.nansum(np.square(profiles[..., pslice]
-                                                 - fits[..., pslice]))
-                             / infos["Profiles noise std"]**2)
-                            / nu)
-    infos["Reduced least square"] = np.sqrt(reduced_least_square)
+            
+            
+    get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
+                  infos, settings)
     
-    ratio = infos["Reduced least square"] / infos["Signal over noise"]
-    if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
-        raise RuntimeError("Least square error too large")
+    if settings["KEY_STG_GETOFFSET"]:
+        get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies)
     
     return r, fits
 
@@ -263,7 +278,57 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #    plt.plot(np.ravel(a[bestidx, ..., np.newaxis]*Basis[bestidx]
 #                + b[bestidx, ..., np.newaxis]))
 
-
+def get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies):
+            
+        from .basis_generate import get_unitless_parameters, get_unitless_profiles, get_D
+        readingpos -= readingpos[0]
+        D = get_D([r], metadata["KEY_MD_ETA"], metadata["KEY_MD_T"])
+        X, beta, mu_prime_E = get_unitless_parameters(
+                metadata["KEY_MD_Q"], D, readingpos,
+                metadata["KEY_MD_WY"], metadata["KEY_MD_WZ"])
+        X = np.squeeze(X)
+        Xtest = np.linspace(0, 2*np.max(X), 100)
+    
+        ul_basis, dx = get_unitless_profiles(fit_init, Xtest, beta, Zgrid=21)
+        
+        best_X = np.zeros(len(readingpos))
+        sigma = np.zeros(len(readingpos))
+        Q = metadata["KEY_MD_Q"]/3600e9
+        for i, (prof, rp) in enumerate(zip(profiles, readingpos)):
+            try:
+                info_i = {"Profiles noise std":1}
+                best_X[i] = fit_radius(prof, ul_basis, Xtest, pslice, nspecies=nspecies, infos = info_i)
+                sigma[i] = info_i["Radius error std"]
+            except:
+                sigma[i] = 1
+                print('nope')
+                
+        x = np.arange(len(readingpos))
+        def fun(x, offset, D):
+            assert np.all(x == np.arange(len(readingpos)))
+            Rp = readingpos.copy()
+            Rp[::2] += offset
+            Rp[1::2] -= offset
+            Rp -= Rp[0]
+            return Rp*D/Q*beta
+        
+        from scipy.optimize import curve_fit
+        
+        res = curve_fit(fun, x, best_X, p0=[0, D], sigma=sigma)
+        
+        print('offset [mm] = ', res[0][0]*1e3, res[0][1]/D)
+        
+        if not hasattr(get_offset, 'idx'):
+            get_offset.idx = 0
+        else:
+            get_offset.idx += 1
+        from matplotlib.pyplot import figure, plot, show
+        figure(0)
+        plot([get_offset.idx], [res[0][0]*1e3], 'bx')
+        figure(1)
+        plot([get_offset.idx], [res[0][1]/D], 'bx')
+        
+    
 def synthetic_init(prof0, pslice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
@@ -297,8 +362,8 @@ def get_matrices(profiles, Basis, profslice):
         psquare = sum(profiles*profile)
     """
     Nb = len(Basis)
-    flatbasis = np.reshape(Basis[:, :, profslice], (Nb, -1))
-    flatprofs = np.ravel(profiles[:, profslice])
+    flatbasis = np.reshape(Basis[..., profslice], (Nb, -1))
+    flatprofs = np.ravel(profiles[..., profslice])
 
     psquare = np.sum(flatprofs * flatprofs)
     b = np.sum(flatbasis * flatprofs[np.newaxis], -1)

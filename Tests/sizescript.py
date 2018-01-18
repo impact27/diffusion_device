@@ -21,7 +21,7 @@ outpath = 'output'
 # Settings file location
 settingsfn = '../diffusion_device/tests/test_data/settings.json'
 #settingsfn = '../diffusion_device/tests/test_data/settings_poly_all.json'
-
+#%%
 metadatafn = '../diffusion_device/tests/test_data/UVim300ulph_Metadata.json'
 process_data.full_fit(settingsfn, metadatafn, outpath)
 #%%
@@ -37,7 +37,7 @@ process_data.full_fit(settingsfn, metadatafn, outpath)
 metadatafn = '../diffusion_device/tests/test_data/327.68ul-h-50um device_Metadata.json'
 process_data.full_fit(settingsfn, metadatafn, outpath)
 #%%
-metadatafn = '../diffusion_device/tests/test_data//M4-5_metadata.json'
+metadatafn = '../diffusion_device/tests/test_data/M4-5_metadata.json'
 process_data.full_fit(settingsfn, metadatafn, outpath)
 #%%
 metadatafn = '../diffusion_device/tests/test_data/stack_Metadata.json'

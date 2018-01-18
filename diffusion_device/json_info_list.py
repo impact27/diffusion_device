@@ -239,7 +239,7 @@ class ListGenerator():
         if os.path.isfile(filename):
             return os.path.splitext(filename)[0] + '_' + self.name + '.json'
         else:
-            return os.path.splitext(filename)[0] + self.name + '.json'
+            return os.path.join(os.path.splitext(filename)[0], self.name + '.json')
 
     def _required(self, file, info, filename):
         if info.description not in file:

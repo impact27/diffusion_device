@@ -188,5 +188,9 @@ settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
                   required=False,
                   default=False,
                   explanation="If all else fails, subtract 1% from the bottom")
+settings.add_info("KEY_STG_GETOFFSET", "Try to guess offset", bool,
+                  required=False,
+                  default=False,
+                  explanation="Try to guess if the reading positions are incorrect")
 
 
