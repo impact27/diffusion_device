@@ -391,7 +391,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
 #@profile
 
 
-def poiseuille(Zgrid, Ygrid, Q, Wy, beta, yinterface=False, zinterface=False):
+def poiseuille(*, Zgrid, Ygrid, Q, Wy, beta, yinterface=False, zinterface=False):
     """
     Compute the poiseuille flow profile
 
