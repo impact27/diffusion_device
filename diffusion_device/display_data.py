@@ -76,8 +76,8 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     plot(X, dp.get_fax(profiles), 'C0', label="Profiles")
     if fits is not None:
         plot(X, dp.get_fax(fits), 'C1', label="Fits")
-        plt.fill_between(X, dp.get_fax(fits) - signal_noise,
-                         dp.get_fax(fits) + signal_noise, color="C1", alpha=0.5)
+        plt.fill_between(X, dp.get_fax(fits - signal_noise),
+                         dp.get_fax(fits + signal_noise), color="C1", alpha=0.5)
 
     plt.xlabel('Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
@@ -219,8 +219,8 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                          yerr=radius_error[overexposed] * 3e9, fmt='x',
                  label='overexposed data')
             plt.legend()
-        if settings["KEY_STG_RLOG"]:
-            plt.yscale("log")
+#        if settings["KEY_STG_RLOG"]:
+#            plt.yscale("log")
 
     if outpath is not None:
         plt.savefig(outpath + '_R_fig.pdf')

@@ -237,7 +237,7 @@ def size_profiles(profiles, metadata, settings, infos):
                 signal_over_noise[i] = infos_i["Signal over noise"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
-                    print(sys.exc_info())
+                    print(sys.exc_info()[1])
                 else:
                     raise
         fits.append(fit)

@@ -30,7 +30,7 @@ import numpy as np
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
                 Zgrid=1, muEoD=0, *, fullGrid=False, zpos=None,
                 Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
-                dxfactor=1, yboundary='Neumann', infos={}):
+                step_factor=1, yboundary='Neumann', infos={}):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -65,7 +65,7 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
         Should the Z mirror be used to bet basis functions
     stepMuE: Bool, default False
         Radii is in fact muEs
-    dxfactor: float, default 1
+    step_factor: float, default 1
         Factor to change dx size if the step size seems too big (Useless?)
     yboundary: 'Neumann' or 'Dirichlet'
         constant derivative or value
@@ -78,25 +78,25 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     
     D = get_D(Radii, viscosity, temperature, muEoD, stepMuE,
               Boltzmann_constant)
-    X, beta, mu_prime_E = get_unitless_parameters(Q, D, readingpos, Wy, Wz,
+    phi, beta, mu_prime_E = get_unitless_parameters(Q, D, readingpos, Wy, Wz,
                                                   muEoD)
    
-    Xshape = np.shape(X)
-    X = np.ravel(X)
+    phishape = np.shape(phi)
+    phi = np.ravel(phi)
     
-    profilespos, dx = get_unitless_profiles(
-            Cinit, X, beta, Zgrid=Zgrid,
+    profilespos, phi, dphi = get_unitless_profiles(
+            Cinit, phi, beta, Zgrid=Zgrid,
             mu_prime_E=mu_prime_E, fullGrid=fullGrid, zpos=zpos,
-            Zmirror=Zmirror, dxfactor=dxfactor, yboundary=yboundary)
+            Zmirror=Zmirror, step_factor=step_factor, yboundary=yboundary)
 
     # reshape correctly
-    profilespos.shape = (*Xshape, *profilespos.shape[1:])
+    profilespos.shape = (*phishape, *profilespos.shape[1:])
     
     #Get the fit error from rounding
     idx = np.argmin(readingpos)
     if readingpos[idx] == 0:
         idx = 1 
-    error = dx / X[idx]
+    error = dphi / phi[idx]
     infos['Fit error'] = error
 
     return profilespos
@@ -130,9 +130,9 @@ def get_unitless_parameters(Q, D, readingpos, Wy, Wz, muEoD=0):
     beta = Wz / Wy
     Q = Q / (3600 * 1e9)  # transorm in m^3/s
             
-    X = readingpos[np.newaxis] * D[..., np.newaxis] / Q * beta
+    phi = readingpos[np.newaxis] * D[..., np.newaxis] / Q * beta
 
-    return X, beta, mu_prime_E
+    return phi, beta, mu_prime_E
 
 """
 The PDE is:
@@ -150,9 +150,10 @@ The unitless equation is:
     V' dx'C = (dy'^2D + dz'^2C) - mu'E dy'C
 
 """
-def get_unitless_profiles(Cinit, X, beta,
+def get_unitless_profiles(Cinit, phi, beta,
                 Zgrid=1, mu_prime_E=0, *, fullGrid=False, zpos=None,
-                Zmirror=True, dxfactor=1, yboundary='Neumann'):
+                Zmirror=True, step_factor=1, yboundary='Neumann',
+                step_matrix_dictionnary=None):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -160,8 +161,9 @@ def get_unitless_profiles(Cinit, X, beta,
     Cinit:  1d array or 2d array
             The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is
             used to pad the array
-    X:      1d array 
-            X = reading_position * D / Q * beta
+    phi:    1d array 
+            Use approximately
+            phi = reading_position * D / Q * beta
     beta:   float
             height over width
     Zgrid:  integer, defaults 1
@@ -178,10 +180,12 @@ def get_unitless_profiles(Cinit, X, beta,
             kT
     Zmirror: Bool, default True
             Should the Z mirror be used to bet basis functions
-    dxfactor: float, default 1
+    step_factor: float, default 1
             Factor to change dx size if the step size seems too big (Useless?)
     yboundary: 'Neumann' or 'Dirichlet'
             constant derivative or value
+    step_matrix_dictionnary: dict
+            If not None, use instead of internal one
 
     Returns
     -------
@@ -190,36 +194,43 @@ def get_unitless_profiles(Cinit, X, beta,
     """
 #    from matplotlib.pyplot import figure, hist, plot, show
 #    figure()
-#    hist(np.log(X), 100)
+#    hist(np.log(phi), 100)
+    #Clean input
+    phi = np.asarray(phi)
+    Cinit = np.asarray(Cinit)
     
-    if np.any(X < 0) or not np.all(np.isfinite(X)):
+    if np.any(phi < 0) or not np.all(np.isfinite(phi)):
         raise RuntimeError("The time varible is incorrect")
 
     # Functions to access F
+    
+    if step_matrix_dictionnary is None:
+        if not hasattr(get_unitless_profiles, 'dirFList'):
+            get_unitless_profiles.dirFList = {}
+        step_matrix_dictionnary = get_unitless_profiles.dirFList
 
     def getF(Fdir, NSteps):
         if NSteps not in Fdir:
             Fdir[NSteps] = np.dot(Fdir[NSteps // 2], Fdir[NSteps // 2])
         return Fdir[NSteps]
 
-    def initF(Zgrid, Ygrid, beta, mu_prime_E, Zmirror, dxfactor, yboundary):
-        key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, dxfactor, yboundary)
-        if not hasattr(get_unitless_profiles, 'dirFList'):
-            get_unitless_profiles.dirFList = {}
+    def initF(Zgrid, Ygrid, beta, mu_prime_E, Zmirror, step_factor, yboundary):
+        key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, step_factor, yboundary)
         # Create dictionnary if doesn't exist
-        if key in get_unitless_profiles.dirFList:
-            return get_unitless_profiles.dirFList[key]
+        if key in step_matrix_dictionnary:
+            return step_matrix_dictionnary[key]
         else:
             Fdir = {}
-            Fdir[1], dxtdoQ = stepMatrix(Zgrid, Ygrid, beta, 
-                                         mu_prime_E=mu_prime_E,
-                                         Zmirror=Zmirror, dxfactor=dxfactor,
-                                         yboundary=yboundary)
-            get_unitless_profiles.dirFList[key] = (Fdir, dxtdoQ)
-            return Fdir, dxtdoQ
+            Fdir[1], dphi = stepMatrix(
+                    Zgrid, Ygrid, beta, 
+                    mu_prime_E=mu_prime_E,
+                    Zmirror=Zmirror, step_factor=step_factor,
+                    yboundary=yboundary)
+            step_matrix_dictionnary[key] = (Fdir, dphi)
+            return Fdir, dphi
 
     # Prepare input and Initialize arrays
-    X = np.asarray(X)
+    phi = np.asarray(phi)
 
     ZgridEffective = Zgrid
     if Zmirror:
@@ -235,15 +246,16 @@ def get_unitless_profiles(Cinit, X, beta,
             raise RuntimeError("Cinit Z dim and Zgrid not aligned.")
 
     Ygrid = Cinit.shape[1]
-    NX = len(X)
-    profilespos = np.tile(np.ravel(Cinit), (NX, 1))
+    Nphi = len(phi)
+    profilespos = np.tile(np.ravel(Cinit), (Nphi, 1))
 
     # get step matrix
-    Fdir, dx = initF(Zgrid, Ygrid, beta, mu_prime_E,
-                         Zmirror, dxfactor, yboundary)
+    Fdir, dphi = initF(Zgrid, Ygrid, beta, mu_prime_E,
+                         Zmirror, step_factor, yboundary)
 
     # Get Nsteps for each radius and position
-    Nsteps = np.asarray(np.round(X / dx), dtype=int)
+    Nsteps = np.asarray(np.round(phi / dphi), dtype=int)
+    phi = dphi * Nsteps
 
     # transform Nsteps to binary array
     pow2 = 1 << np.arange(int(np.floor(np.log2(Nsteps.max()) + 1)))
@@ -271,7 +283,7 @@ def get_unitless_profiles(Cinit, X, beta,
             prev = act
 
     # reshape correctly
-    profilespos.shape = (NX, ZgridEffective, Ygrid)
+    profilespos.shape = (Nphi, ZgridEffective, Ygrid)
 
     if Zmirror:
         profilespos = np.concatenate(
@@ -280,7 +292,7 @@ def get_unitless_profiles(Cinit, X, beta,
 
     # If full grid, stop here
     if fullGrid:
-        return profilespos, dx
+        return profilespos, phi, dphi
 
     if zpos is not None:
         idx = int(np.floor(Zgrid * zpos / beta))
@@ -294,14 +306,14 @@ def get_unitless_profiles(Cinit, X, beta,
         # Take sum
         profilespos = np.sum(profilespos, -2)
         
-    return profilespos, dx
+    return profilespos, phi, dphi
 
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                        Wz, viscosity, temperature, Zgrid=1, *,
                        fullGrid=False, zpos=None,
                        boltzmann=1.38e-23,
-                       Zmirror=True, dxfactor=1,
+                       Zmirror=True, step_factor=1,
                        yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
 
@@ -334,7 +346,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
         kT
     Zmirror: Bool, default True
         Should the Z mirror be used to bet basis functions
-    dxfactor: float, default 1
+    step_factor: float, default 1
         Factor to change dx size if the step size seems too big (Useless?)
     yboundary: 'Neumann' or 'Dirichlet'
         constant derivative or value
@@ -369,7 +381,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                                  Zmirror=Zmirror,
                                  zpos=zpos,
                                  stepMuE=True,
-                                 dxfactor=dxfactor,
+                                 step_factor=step_factor,
                                  yboundary=yboundary)
         return rets
 
@@ -467,7 +479,7 @@ def poiseuille_unitless(Zgrid, Ygrid, beta, yinterface=False, zinterface=False):
 
 
 def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
-               method='Trapezoid', dxfactor=1, Zmirror=False,
+               method='Trapezoid', step_factor=1, Zmirror=False,
                yboundary='Neumann'):
     """
     Compute the step matrix and corresponding position step
@@ -491,7 +503,7 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
         'Trapezoid': Mixed integration
          'Explicit': explicit integration
          'Implicit': implicit integration
-    dxfactor: float, default 1
+    step_factor: float, default 1
         Factor to change the value of dx
     Zmirror: bool, default False
         should we use a mirror for Z?
@@ -529,12 +541,12 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
     # get dx
     # The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    dx = np.min((dy, dz))**2 * poiseuille_prime.min() / 2
+    dphi = np.min((dy, dz))**2 * poiseuille_prime.min() / 2
     if mu_prime_E != 0:
         #TODO: What is that?
-        dx2 = poiseuille_prime.min() / np.abs(mu_prime_E)**2
-        dx = np.min([dx, dx2])
-    dx *= dxfactor
+        dphi2 = poiseuille_prime.min() / np.abs(mu_prime_E)**2
+        dphi = np.min([dphi, dphi2])
+    dphi *= step_factor
 
     # Get the dF matrix
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
@@ -553,9 +565,9 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
         if Zmirror:
             ViyoQ = ViyoQ[:Zgrid, :]
 #        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
-        Cy = getCy(mu_prime_E, dx, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
+        Cy = getCy(mu_prime_E, dphi, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
 
-    dF = dx * (Cyy + Czz - mu_prime_E * Cy)
+    dF = dphi * (Cyy + Czz - mu_prime_E * Cy)
 
     # Get F
     I = np.eye(Ygrid * Zgrid, dtype=float)
@@ -572,10 +584,10 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
         raise RuntimeError("Unknown integration Method: {}".format(method))
 
     # The maximal eigenvalue should be <= 1! otherwhise no stability
-    # The above dx should put it to 1
+    # The above dphi should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
-    return F, dx
+    return F, dphi
 
 
 def getQy(Zgrid, Ygrid, boundary='Neumann'):

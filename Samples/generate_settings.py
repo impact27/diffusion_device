@@ -30,9 +30,6 @@ json_infos['Number of z slices'] = 11
 # Method to process first profile. Leave 'none' for now.
 json_infos['First Position Filter'] = 'none'
 
-# Normalise the profiles?
-json_infos['Normalise the profiles?'] = True
-
 # Option to only analyse a slice of the image
 json_infos['Slice [m] (center(±), width(+))'] = None
 
@@ -64,11 +61,5 @@ json_infos['Remove bad fits'] = False
 
 # Set to 0<x<1 to reduce fitting error from step size.
 json_infos['dx factor'] = 1
-
-# If all else fails, subtract 1% from the bottom
-json_infos['subtract 1 percentile'] = False
-
-# Try to guess if the reading positions are incorrect
-json_infos['Try to guess offset'] = False
 
 settings.generate_json(datapath, json_infos)

@@ -105,7 +105,9 @@ def get_profiles(data, metadata, settings, infos):
     channel_width_px = int(metadata["KEY_MD_WY"] / infos["Pixel size"])
     profiles = scans_to_profiles(data, channel_width_px)
     # Guess measurment noise from savgol filter
-    noise = np.std(profiles - savgol_filter(profiles, 31, 5))
+    fit = savgol_filter(profiles, 17, 5)
+    noise = profiles - fit
+    noise = np.std(noise/fit) * np.median(profiles)
     infos["Profiles noise std"] = noise
     return profiles
 

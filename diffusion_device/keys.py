@@ -144,10 +144,10 @@ settings.add_info("KEY_STG_POS0FILTER", "First Position Filter", str,
                   required=False,
                   default='none',
                   explanation="Method to process first profile. Leave 'none' for now.")
-settings.add_info("KEY_STG_NORMALISE", "Normalise the profiles?", bool,
-                  required=False,
-                  default=True,
-                  )
+#settings.add_info("KEY_STG_NORMALISE", "Normalise the profiles?", bool,
+#                  required=False,
+#                  default=True,
+#                  )
 settings.add_info("KEY_STG_SLICE", "Slice [m] (center(±), width(+))", float,
                   required=False,
                   explanation="Option to only analyse a slice of the image")
@@ -184,13 +184,13 @@ settings.add_info("KEY_STG_DXFACTOR", "dx factor", float,
                   required=False,
                   default=1,
                   explanation="Set to 0<x<1 to reduce fitting error from step size.")
-settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
-                  required=False,
-                  default=False,
-                  explanation="If all else fails, subtract 1% from the bottom")
-settings.add_info("KEY_STG_GETOFFSET", "Try to guess offset", bool,
-                  required=False,
-                  default=False,
-                  explanation="Try to guess if the reading positions are incorrect")
+#settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
+#                  required=False,
+#                  default=False,
+#                  explanation="If all else fails, subtract 1% from the bottom")
+#settings.add_info("KEY_STG_GETOFFSET", "Try to guess offset", bool,
+#                  required=False,
+#                  default=False,
+#                  explanation="Try to guess if the reading positions are incorrect")
 
 

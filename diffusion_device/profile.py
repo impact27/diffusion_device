@@ -37,13 +37,13 @@ def scale_factor(profiles, pslice):
     """Normalise a list of profiles
     """
     # if profile is mainly negative, error
-    if np.any(np.sum((profiles * (profiles > 0))[..., pslice], 1) <
-              5 * -np.sum((profiles * (profiles < 0))[..., pslice], 1)):
+    if np.any(np.sum((profiles * (profiles > 0))[..., pslice], -1) <
+              5 * -np.sum((profiles * (profiles < 0))[..., pslice], -1)):
         warnings.warn("Negative profile", RuntimeWarning)
 
     norm_factor = np.sum(profiles[..., pslice], -1)[..., np.newaxis]
-    if np.any(norm_factor <= 0):
-        raise RuntimeError("Can't normalise profiles")
+#    if np.any(norm_factor <= 0):
+#        raise RuntimeError("Can't normalise profiles")
 
     return norm_factor
 
@@ -96,7 +96,7 @@ def get_profiles_arg_dir(metadata, settings):
             'temperature': metadata["KEY_MD_T"],
             'viscosity': metadata["KEY_MD_ETA"],
             'Zgrid': settings["KEY_STG_ZGRID"],
-            'dxfactor': settings["KEY_STG_DXFACTOR"]}
+            'step_factor': settings["KEY_STG_DXFACTOR"]}
     
 def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
     """get_fit_data"""
@@ -124,40 +124,31 @@ def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
         fit_profiles = fit_profiles[1:]
 
     # Check if init is large enough
-    threshold = 3 * infos["Profiles noise std"]
+    threshold = 3 * np.median(infos["Profiles noise std"])
     if np.mean(fit_init[pslice]) < threshold:
         raise RuntimeError("signal to noise too low")
         
     return fit_init, fit_profiles, fit_readingpos, fit_index
 
-def normalise_profiles(profiles, settings, pslice, normalise=None):
-    """process_profiles"""
-    subtract_one_perct = settings["KEY_STG_SUB1PCT"]
-    norm_profiles = settings["KEY_STG_NORMALISE"]
-    
-    if subtract_one_perct:
-        profiles -= np.percentile(profiles, 1, -1)[..., None]
-    
-    if norm_profiles and normalise is not None:
-        profiles_scales = scale_factor(normalise, pslice)
-        # Normalise basis in the same way as profiles
-        basis_scales = scale_factor(profiles, pslice)
-        if len(np.shape(profiles_scales))<len(np.shape(basis_scales)):
-            profiles_scales = profiles_scales[np.newaxis, :]
-        profiles *= profiles_scales / basis_scales
-        
-    return profiles
+def normalise_basis(basis, profiles, pslice):
+    """Normalise basis in the same way as profiles"""
+    profiles_scales = scale_factor(profiles, pslice)
+    basis_scales = scale_factor(basis, pslice)
+    if len(np.shape(profiles_scales))<len(np.shape(basis_scales)):
+        profiles_scales = profiles_scales[np.newaxis, :]
+    basis *= profiles_scales / basis_scales
+    return basis
     
 def get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
                   infos, settings):
 
-    infos["Signal over noise"] = (np.mean(profiles[..., pslice]) 
-                                    / infos["Profiles noise std"])
+    infos["Signal over noise"] = np.mean(
+            (profiles / infos["Profiles noise std"])[..., pslice])
     slicesize = np.sum(np.ones_like(fit_profiles)[..., pslice])
     nu = slicesize - Mfreepar
-    reduced_least_square = ((np.nansum(np.square(profiles[..., pslice]
-                                                 - fits[..., pslice]))
-                             / infos["Profiles noise std"]**2)
+    reduced_least_square = ((np.nansum(np.square(
+            (profiles[..., pslice] - fits[..., pslice])
+            / infos["Profiles noise std"])))
                             / nu)
     infos["Reduced least square"] = np.sqrt(reduced_least_square)
     
@@ -200,8 +191,6 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     profiles = np.asarray(profiles)
     fits = np.zeros_like(profiles) * np.nan
     
-    profiles = normalise_profiles(profiles, settings, pslice, normalise=None)
-    
     fit_init, fit_profiles, fit_readingpos, fit_index = get_fit_data(
             settings, profiles, readingpos, pslice, infos, fits)
 
@@ -211,15 +200,25 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                         readingpos=fit_readingpos,
                         zpos=zpos, infos=infos,
                         **profiles_arg_dir)
-    
-    Basis = normalise_profiles(Basis, settings, pslice, normalise=fit_profiles)
 
     # Get best fit
-    r = fit_radius(fit_profiles, Basis, test_radii, pslice, nspecies=nspecies,
-                       infos=infos)
+    spectrum, radii_noise = fit_all(fit_profiles, Basis, test_radii, 
+                                    profslice=pslice, nspecies=nspecies,
+                                    prof_noise=infos["Profiles noise std"])
+    
+    infos["Radius error std"] = radii_noise
     
     if nspecies == 1:
-        
+        # Get resulting r
+        r = np.sum(spectrum * test_radii)
+        if r < np.min(test_radii):
+            raise RuntimeError(
+                    'The test radius are too big! ({} < {})'.format(
+                            r, np.min(test_radii)))
+        if r > np.max(test_radii):
+            raise RuntimeError(
+                    'The test radius are too small! ({} > {})'.format(
+                            r, np.max(test_radii)))
         # fill data if needed
         if not np.isnan(r):
             fits[fit_index] = getprofiles(
@@ -228,14 +227,11 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
             
             if np.any(infos['Fit error']> 1e-2):
                 raise RuntimeError("The relative error is larger than 1%")
-                
-            fits = normalise_profiles(fits, settings, pslice, normalise=profiles)
 
         # One free parameter
         Mfreepar = 1
 
     else:
-        spectrum = r
 
         # fill data if needed
         fits[fit_index] = np.sum(
@@ -248,12 +244,14 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
             
+    fits = normalise_basis(fits, profiles, pslice)
+            
             
     get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
                   infos, settings)
     
-    if settings["KEY_STG_GETOFFSET"]:
-        get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies)
+#    if settings["KEY_STG_GETOFFSET"]:
+#        get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies)
     
     return r, fits
 
@@ -278,55 +276,55 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #    plt.plot(np.ravel(a[bestidx, ..., np.newaxis]*Basis[bestidx]
 #                + b[bestidx, ..., np.newaxis]))
 
-def get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies):
-            
-        from .basis_generate import get_unitless_parameters, get_unitless_profiles, get_D
-        readingpos -= readingpos[0]
-        D = get_D([r], metadata["KEY_MD_ETA"], metadata["KEY_MD_T"])
-        X, beta, mu_prime_E = get_unitless_parameters(
-                metadata["KEY_MD_Q"], D, readingpos,
-                metadata["KEY_MD_WY"], metadata["KEY_MD_WZ"])
-        X = np.squeeze(X)
-        Xtest = np.linspace(0, 2*np.max(X), 100)
-    
-        ul_basis, dx = get_unitless_profiles(fit_init, Xtest, beta, Zgrid=21)
-        
-        best_X = np.zeros(len(readingpos))
-        sigma = np.zeros(len(readingpos))
-        Q = metadata["KEY_MD_Q"]/3600e9
-        for i, (prof, rp) in enumerate(zip(profiles, readingpos)):
-            try:
-                info_i = {"Profiles noise std":1}
-                best_X[i] = fit_radius(prof, ul_basis, Xtest, pslice, nspecies=nspecies, infos = info_i)
-                sigma[i] = info_i["Radius error std"]
-            except:
-                sigma[i] = 1
-                print('nope')
-                
-        x = np.arange(len(readingpos))
-        def fun(x, offset, D):
-            assert np.all(x == np.arange(len(readingpos)))
-            Rp = readingpos.copy()
-            Rp[::2] += offset
-            Rp[1::2] -= offset
-            Rp -= Rp[0]
-            return Rp*D/Q*beta
-        
-        from scipy.optimize import curve_fit
-        
-        res = curve_fit(fun, x, best_X, p0=[0, D], sigma=sigma)
-        
-        print('offset [mm] = ', res[0][0]*1e3, res[0][1]/D)
-        
-        if not hasattr(get_offset, 'idx'):
-            get_offset.idx = 0
-        else:
-            get_offset.idx += 1
-        from matplotlib.pyplot import figure, plot, show
-        figure(0)
-        plot([get_offset.idx], [res[0][0]*1e3], 'bx')
-        figure(1)
-        plot([get_offset.idx], [res[0][1]/D], 'bx')
+#def get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies):
+#            
+#        from .basis_generate import get_unitless_parameters, get_unitless_profiles, get_D
+#        readingpos -= readingpos[0]
+#        D = get_D([r], metadata["KEY_MD_ETA"], metadata["KEY_MD_T"])
+#        X, beta, mu_prime_E = get_unitless_parameters(
+#                metadata["KEY_MD_Q"], D, readingpos,
+#                metadata["KEY_MD_WY"], metadata["KEY_MD_WZ"])
+#        X = np.squeeze(X)
+#        Xtest = np.linspace(0, 2*np.max(X), 100)
+#    
+#        ul_basis, Xtest, dx = get_unitless_profiles(fit_init, Xtest, beta, Zgrid=21)
+#        
+#        best_X = np.zeros(len(readingpos))
+#        sigma = np.zeros(len(readingpos))
+#        Q = metadata["KEY_MD_Q"]/3600e9
+#        for i, (prof, rp) in enumerate(zip(profiles, readingpos)):
+#            try:
+#                info_i = {"Profiles noise std":1}
+#                best_X[i] = fit_all(prof, ul_basis, Xtest, pslice, nspecies=nspecies, infos = info_i)
+#                sigma[i] = info_i["Radius error std"]
+#            except:
+#                sigma[i] = 1
+#                print('nope')
+#                
+#        x = np.arange(len(readingpos))
+#        def fun(x, offset, D):
+#            assert np.all(x == np.arange(len(readingpos)))
+#            Rp = readingpos.copy()
+#            Rp[::2] += offset
+#            Rp[1::2] -= offset
+#            Rp -= Rp[0]
+#            return Rp*D/Q*beta
+#        
+#        from scipy.optimize import curve_fit
+#        
+#        res = curve_fit(fun, x, best_X, p0=[0, D], sigma=sigma)
+#        
+#        print('offset [mm] = ', res[0][0]*1e3, res[0][1]/D)
+#        
+#        if not hasattr(get_offset, 'idx'):
+#            get_offset.idx = 0
+#        else:
+#            get_offset.idx += 1
+#        from matplotlib.pyplot import figure, plot, show
+#        figure(0)
+#        plot([get_offset.idx], [res[0][0]*1e3], 'bx')
+#        figure(1)
+#        plot([get_offset.idx], [res[0][1]/D], 'bx')
         
     
 def synthetic_init(prof0, pslice):
@@ -378,8 +376,8 @@ def get_matrices(profiles, Basis, profslice):
     return M, b, psquare
 
 
-def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
-               infos=None):
+def fit_all(profiles, Basis, phi, *, profslice=slice(None), nspecies=1,
+               prof_noise=1):
     """Find the best monodisperse radius
 
      Parameters
@@ -388,8 +386,8 @@ def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
         List of profiles to fit
     Basis: 3d array
         List of basis to fit. The first dimention must correspond to Rs
-    Rs: 1d float
-        The test radii [m]
+    phi: 1d float
+        The test parameters
     ignore: int, default 0
         Ignore on the sides [px]
     nspecies: int
@@ -404,23 +402,28 @@ def fit_radius(profiles, Basis, Rs=None, profslice=slice(None), nspecies=1,
         Radii: [m]
             The best radius fit
     """
+    if np.shape(np.unique(phi)) != np.shape(phi):
+        raise RuntimeError('duplicated phi')
+    
+    #Normalize the basis to fit profiles
+    Basis = normalise_basis(Basis, profiles, profslice)
 
     M, b, psquare = get_matrices(profiles, Basis, profslice)
 
-    if nspecies == 1 and Rs is not None:
-        return fit_monodisperse_radius(M, b, psquare, Rs, infos)
+    if nspecies == 1 and phi is not None:
+        return fit_monodisperse(M, b, psquare, phi, prof_noise)
 
     elif nspecies > 0:
-        return fit_N_radius(M, b, psquare, nspecies, Rs, infos)
+        return fit_N(M, b, psquare, nspecies, phi, prof_noise)
 
     elif nspecies == 0:
-        return fit_polydisperse_radius(M, b, psquare, Rs, infos)
+        return fit_polydisperse(M, b, psquare, phi, prof_noise)
 
     else:
         raise RuntimeError('Number of species negative!')
 
 
-def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
+def fit_monodisperse(M, b, psquare, phi, prof_noise=1):
     """Find the best monodisperse radius
 
     Parameters
@@ -431,6 +434,8 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
         bi = sum(profile*basisi)
     psquare: float
         psquare = sum(profiles*profile)
+    phi:
+        MUST BE SORTED
     Rs: 1d float
         The test radii [m]
 
@@ -441,15 +446,47 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
     """
     # get best residu
     res = psquare + np.diag(M) - 2 * b
+    spectrum = np.zeros(len(b))
+    
+#    argmin = np.argsort(res)[:5]
+#    
+#    fit = np.polyfit(phi[argmin], res[argmin], 2)
+#    best_phi = -fit[1]/(2*fit[0])
+#    
+#    arg_left = np.argmax(1/(best_phi - phi))
+#    arg_right = np.argmin(1/(best_phi - phi))
+#    
+#    
+#    coeff = (best_phi - phi[arg_left])/(phi[arg_right] - phi[arg_left])
+    
+    
 
     i, j = np.argsort(res)[:2]
 
     # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
-    c = (b[i] - b[j] - M[i, j] + M[j, j]) / \
+    coeff = (b[i] - b[j] - M[i, j] + M[j, j]) / \
         (M[i, i] + M[j, j] - M[i, j] - M[j, i])
+    arg_left, arg_right = i, j  
+    
+#    if coeff < 0.0001 or coeff > 0.9999:
+#        if np.argmin(res) != 0 and np.argmin(res) != len(b)-1:
+#            from matplotlib.pyplot import figure, plot, show
+#            figure()
+#            i = np.argmin(res)
+#            myslice = slice(i-2, i+3)
+#            plot(phi[myslice], res[myslice], 'x-')
+#            plot(np.linspace(3.5e-10, 5e-10, 100), np.poly1d(fit)(np.linspace(3.5e-10, 5e-10, 100)), '-')
+##           pass
+    best_phi = coeff * phi[arg_left] + (1-coeff) * phi[arg_right]
+    if np.argmin(res) == 0:
+        raise RuntimeError(f'Phi too large {best_phi}')
+    if np.argmin(res) == len(b)-1:
+        raise RuntimeError(f'Phi too small {best_phi}')
 
-    # Get resulting r
-    r = c * (Rs[i] - Rs[j]) + Rs[j]
+    
+    spectrum[arg_left] = coeff
+    spectrum[arg_right] = 1 - coeff
+    
 
     '''
     from matplotlib.pyplot import figure, plot, title
@@ -457,19 +494,14 @@ def fit_monodisperse_radius(M, b, psquare, Rs, infos=None):
     plot(Rs, res)
     #'''
 
-    if r < np.min(Rs):
-        raise RuntimeError('The test radius are too big! ({} < {})'.format(r, np.min(Rs)))
-    if r > np.max(Rs):
-        raise RuntimeError('The test radius are too small! ({} > {})'.format(r, np.max(Rs)))
+    
+    #sqrt(dR**2/np.sum((b1-b2)**2)*sigma
+    phi_error = (prof_noise
+                 * np.sqrt((phi[arg_left] - phi[arg_right])**2
+                       / (M[arg_left, arg_left] + M[arg_right, arg_right]
+                       - M[arg_left, arg_right] - M[arg_right, arg_left])))
 
-    if infos is not None:
-
-        error = (infos["Profiles noise std"]
-                 * np.sqrt((Rs[i] - Rs[j])**2
-                           / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-        infos["Radius error std"] = error
-
-    return r
+    return spectrum, phi_error
 
 
 def fun(C, M, b, psquare):
@@ -573,7 +605,7 @@ def get_constraints(Nb):
     return constr
 
 
-def fit_N_radius(M, b, psquare, nspecies, Rs, infos):
+def fit_N(M, b, psquare, nspecies, phi, prof_noise=1):
     """Find the best N-disperse radius
 
     Parameters
@@ -615,22 +647,20 @@ def fit_N_radius(M, b, psquare, nspecies, Rs, infos):
     spectrum = np.zeros(NRs)
     spectrum[idx] = C[bestidx]
     
-    if infos is not None:
-        infos["Radius error std"] = np.zeros(nspecies)
-        
-        for rn, i in enumerate(idx):
-            j = i+1
-            if j == NRs:
-                j = NRs-2
-            error = (infos["Profiles noise std"]
-                     * np.sqrt((Rs[i] - Rs[j])**2
-                               / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-            infos["Radius error std"][rn] = error
+    radius_error = np.zeros(nspecies)
+    
+    for rn, i in enumerate(idx):
+        j = i+1
+        if j == NRs:
+            j = NRs-2
+        error = (prof_noise
+                 * np.sqrt((phi[i] - phi[j])**2
+                           / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
+        radius_error[rn] = error
 
-    return spectrum
+    return spectrum, radius_error
 
-
-def fit_polydisperse_radius(M, b, psquare, Rs, infos):
+def fit_polydisperse(M, b, psquare, phi, prof_noise=1):
     """Find the best N-disperse radius
 
     Parameters
@@ -662,19 +692,18 @@ def fit_polydisperse_radius(M, b, psquare, Rs, infos):
                                          'jac': jac2,
                                          })
     spectrum = np.abs(res.x)
+
+    radius_error = np.zeros(Nb)
     
-    if infos is not None:
-        infos["Radius error std"] = np.zeros(Nb)
-        
-        for i in range(1, Nb):
-            j = i-1
-            error = (infos["Profiles noise std"]
-                     * np.sqrt((Rs[i] - Rs[j])**2
-                               / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-            infos["Radius error std"][i] = error
-        infos["Radius error std"][0] = infos["Radius error std"][1] 
+    for i in range(1, Nb):
+        j = i-1
+        error = (prof_noise
+                 * np.sqrt((phi[i] - phi[j])**2
+                           / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
+        radius_error[i] = error
+    radius_error[0] = radius_error[1] 
             
-    return spectrum
+    return spectrum, radius_error
 
 
 def center(prof, subtract_mean=False):
