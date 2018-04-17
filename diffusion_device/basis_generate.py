@@ -28,9 +28,9 @@ import numpy as np
 
 
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
-                Zgrid=1, muEoD=0, *, fullGrid=False, zpos=None,
+                Zgrid=None, muEoD=0, *, fullGrid=False, zpos=None,
                 Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
-                step_factor=1, yboundary='Neumann', infos={}):
+                step_factor=None, yboundary='Neumann', infos={}):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -150,9 +150,41 @@ The unitless equation is:
     V' dx'C = (dy'^2D + dz'^2C) - mu'E dy'C
 
 """
+def step_matrix_from_dic(
+        step_matrix_dictionnary, Zgrid, Ygrid, beta, 
+        mu_prime_E, Zmirror, yboundary, step_factor=None, dphi_max=None):
+    """
+    Get a step matrix from a dictionary and populate the dictionnary for 
+    Faster access
+    """
+    poiseuille_prime = None
+    
+    #Get value for step_factor
+    if step_factor is None:
+        poiseuille_prime = poiseuille_unitless(Zgrid, Ygrid, beta)
+        dphi, step_factor = get_dphi(Zgrid, Ygrid, beta, 
+             mu_prime_E=mu_prime_E, dphi_max=dphi_max, 
+             poiseuille_prime=poiseuille_prime)
+        
+    #Get key to identify matrix uniquely
+    key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, yboundary, step_factor)
+    
+    # Create dictionnary if doesn't exist
+    if key in step_matrix_dictionnary:
+        return step_matrix_dictionnary[key]
+    else:
+        Fdir = {}
+        Fdir[1], dphi = stepMatrix(
+                Zgrid, Ygrid, beta, 
+                mu_prime_E=mu_prime_E,
+                Zmirror=Zmirror, step_factor=step_factor,
+                yboundary=yboundary, poiseuille_prime=poiseuille_prime)
+        step_matrix_dictionnary[key] = (Fdir, dphi)
+        return Fdir, dphi
+        
 def get_unitless_profiles(Cinit, phi, beta,
-                Zgrid=1, mu_prime_E=0, *, fullGrid=False, zpos=None,
-                Zmirror=True, step_factor=1, yboundary='Neumann',
+                Zgrid=None, mu_prime_E=0, *, fullGrid=False, zpos=None,
+                Zmirror=True, step_factor=None, yboundary='Neumann',
                 step_matrix_dictionnary=None):
     """Returns the theorical profiles for the input variables
 
@@ -181,7 +213,7 @@ def get_unitless_profiles(Cinit, phi, beta,
     Zmirror: Bool, default True
             Should the Z mirror be used to bet basis functions
     step_factor: float, default 1
-            Factor to change dx size if the step size seems too big (Useless?)
+            Factor to change dx size if the step size seems too big
     yboundary: 'Neumann' or 'Dirichlet'
             constant derivative or value
     step_matrix_dictionnary: dict
@@ -209,34 +241,23 @@ def get_unitless_profiles(Cinit, phi, beta,
             get_unitless_profiles.dirFList = {}
         step_matrix_dictionnary = get_unitless_profiles.dirFList
 
+        
     def getF(Fdir, NSteps):
         if NSteps not in Fdir:
             Fdir[NSteps] = np.dot(Fdir[NSteps // 2], Fdir[NSteps // 2])
         return Fdir[NSteps]
 
-    def initF(Zgrid, Ygrid, beta, mu_prime_E, Zmirror, step_factor, yboundary):
-        key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, step_factor, yboundary)
-        # Create dictionnary if doesn't exist
-        if key in step_matrix_dictionnary:
-            return step_matrix_dictionnary[key]
-        else:
-            Fdir = {}
-            Fdir[1], dphi = stepMatrix(
-                    Zgrid, Ygrid, beta, 
-                    mu_prime_E=mu_prime_E,
-                    Zmirror=Zmirror, step_factor=step_factor,
-                    yboundary=yboundary)
-            step_matrix_dictionnary[key] = (Fdir, dphi)
-            return Fdir, dphi
-
-    # Prepare input and Initialize arrays
-    phi = np.asarray(phi)
-
+    #Zgrid    
+    if Zgrid is None:
+        if Zmirror or len(Cinit.shape) < 2:
+            raise RuntimeError('No Zgrid specified')
+        Zgrid = np.shape(Cinit)[1]
+        
     ZgridEffective = Zgrid
     if Zmirror:
         ZgridEffective = (Zgrid + 1) // 2
-
-    Cinit = np.array(Cinit, dtype=float)
+        
+    #Cinit
     if len(Cinit.shape) < 2:
         Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
         if zpos is None:
@@ -249,9 +270,17 @@ def get_unitless_profiles(Cinit, phi, beta,
     Nphi = len(phi)
     profilespos = np.tile(np.ravel(Cinit), (Nphi, 1))
 
+    # get maximum acceptable dphi
+    dphi_max = None
+    if step_factor is None and len(phi) > 1:
+        dphi_max = np.min(np.abs(np.diff(phi)))/2
+        if not dphi_max > 0:
+            raise RuntimeError('dphi too small!')
+            
     # get step matrix
-    Fdir, dphi = initF(Zgrid, Ygrid, beta, mu_prime_E,
-                         Zmirror, step_factor, yboundary)
+    Fdir, dphi = step_matrix_from_dic(
+        step_matrix_dictionnary, Zgrid, Ygrid, beta, 
+        mu_prime_E, Zmirror, yboundary, step_factor, dphi_max)
 
     # Get Nsteps for each radius and position
     Nsteps = np.asarray(np.round(phi / dphi), dtype=int)
@@ -310,10 +339,10 @@ def get_unitless_profiles(Cinit, phi, beta,
 
 
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
-                       Wz, viscosity, temperature, Zgrid=1, *,
+                       Wz, viscosity, temperature, Zgrid=None, *,
                        fullGrid=False, zpos=None,
                        boltzmann=1.38e-23,
-                       Zmirror=True, step_factor=1,
+                       Zmirror=True, step_factor=None,
                        yboundary='Neumann'):
     """Returns the theorical profiles for the input variables
 
@@ -477,10 +506,71 @@ def poiseuille_unitless(Zgrid, Ygrid, beta, yinterface=False, zinterface=False):
 
     return V / np.mean(V)
 
+def get_dphi(Zgrid, Ygrid, beta, *, 
+             mu_prime_E=0, step_factor=None, dphi_max=None, 
+             poiseuille_prime=None):
+    """
+    Get dphi for step matrix
+
+    Parameters
+    ----------
+    Zgrid:  integer
+        Number of Z pixel
+    Ygrid:  integer
+        Number of Y pixel
+    beta: float
+        aspect ratio
+    mu_prime_E: float, default 0
+        In case of electrophoresis, q*E/k/T = muE/D[m^-1]
+    step_factor: float <1
+        Factor to change the value of dx
+        if None, adjusted to dphi_max
+    dphi_max: float
+        Maximum acceptable dphi. If both step_factor and dphi_max are None,
+        1 is used
+    poiseuille_prime:
+        The poseuille flow to avoid recomputing
+
+
+    Returns
+    -------
+    dphi: float
+        The step
+    step_factor: float
+        The factor applied
+    """
+    
+    if poiseuille_prime is None:
+        poiseuille_prime = poiseuille_unitless(Zgrid, Ygrid, beta)
+
+    # Get steps
+    dy = 1 / Ygrid
+    dz = beta / Zgrid
+    
+    # get dx
+    # The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
+    # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
+    dphi = np.min((dy, dz))**2 * poiseuille_prime.min() / 2
+    if mu_prime_E != 0:
+        dphi2 = poiseuille_prime.min() / np.abs(mu_prime_E)**2
+        dphi = np.min([dphi, dphi2])
+
+    if step_factor is None:
+        if dphi_max is None:
+            step_factor = 1
+        else:
+            step_factor = np.exp(np.floor(np.log(dphi_max/dphi)))
+    
+    if step_factor > 1:
+        step_factor = 1
+        
+    dphi *= step_factor
+    
+    return dphi, step_factor
 
 def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
-               method='Trapezoid', step_factor=1, Zmirror=False,
-               yboundary='Neumann'):
+               method='Trapezoid', step_factor=None, dphi_max=None,
+               Zmirror=False, yboundary='Neumann', poiseuille_prime=None):
     """
     Compute the step matrix and corresponding position step
 
@@ -503,8 +593,11 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
         'Trapezoid': Mixed integration
          'Explicit': explicit integration
          'Implicit': implicit integration
-    step_factor: float, default 1
-        Factor to change the value of dx
+    step_factor: float
+        Factor to change the value of dx if None, adjusted to dphi_max
+    dphi_max: float
+        Maximum acceptable dphi. If both step_factor and dphi_max are None,
+        1 is used
     Zmirror: bool, default False
         should we use a mirror for Z?
     yboundary: 'Neumann' or 'Dirichlet'
@@ -516,17 +609,26 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
         The step matrix (independent on Q)
     dxtD: float
         The position step multiplied by the diffusion coefficient
+    step_factor: float
+        Returned if step_factor is None
     """
 
     realZgrid = Zgrid
     # Get Poiseille flow
-    poiseuille_prime = poiseuille_unitless(realZgrid, Ygrid, beta)
+    if poiseuille_prime is None:
+        poiseuille_prime = poiseuille_unitless(Zgrid, Ygrid, beta)
+        
     if outV is not None:
         outV[:] = poiseuille_prime
 
     # Get steps
     dy = 1 / Ygrid
     dz = beta / realZgrid
+    
+    dphi, step_factor = get_dphi(
+            realZgrid, Ygrid, beta, 
+            mu_prime_E=mu_prime_E, step_factor=step_factor, 
+            dphi_max=dphi_max, poiseuille_prime=poiseuille_prime)
 
     # If the Z is a mirror, make adjustments
     Zodd = False
@@ -538,26 +640,18 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
     # flatten poiseuille_over_Q
     poiseuille_prime = np.ravel(poiseuille_prime)
 
-    # get dx
-    # The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
-    # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
-    dphi = np.min((dy, dz))**2 * poiseuille_prime.min() / 2
-    if mu_prime_E != 0:
-        #TODO: What is that?
-        dphi2 = poiseuille_prime.min() / np.abs(mu_prime_E)**2
-        dphi = np.min([dphi, dphi2])
-    dphi *= step_factor
-
     # Get the dF matrix
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
     Cyy = (1 / poiseuille_prime)[:, np.newaxis] * \
         ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
+        
     if Zgrid > 1:
         qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
         Czz = (1 / poiseuille_prime)[:, np.newaxis] * \
             ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
     else:
         Czz = 0
+        
     if mu_prime_E == 0:
         Cy = 0
     else:
@@ -587,8 +681,8 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
     # The above dphi should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
+        
     return F, dphi
-
 
 def getQy(Zgrid, Ygrid, boundary='Neumann'):
     """Get matrices to access neibours in y with correct boundary conditions
