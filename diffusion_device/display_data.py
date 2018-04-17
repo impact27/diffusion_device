@@ -131,7 +131,8 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             f.write("Reduced least square: {:f}\n".format(lse).encode())
             f.write("Apparent pixel size: {:f} um\n".format(pixel_size *
                                                             1e6).encode())
-            f.write("Signal over noise: {:f}\n".format(signal_over_noise).encode())
+            f.write("Signal over noise: {:f}\n".format(
+                signal_over_noise).encode())
             if len(np.shape(radius)) > 0:
                 f.write("radius:\n".encode())
                 np.savetxt(f, radius[0])
@@ -217,7 +218,7 @@ def plot_and_save_stack(radius, profiles, fits, infos,
         if np.any(overexposed):
             plt.errorbar(x[overexposed], radius[overexposed] * 1e9,
                          yerr=radius_error[overexposed] * 3e9, fmt='x',
-                 label='overexposed data')
+                         label='overexposed data')
             plt.legend()
 #        if settings["KEY_STG_RLOG"]:
 #            plt.yscale("log")
@@ -234,14 +235,14 @@ def plot_and_save_stack(radius, profiles, fits, infos,
         plt.legend()
     if outpath is not None:
         plt.savefig(outpath + '_LSE_fig.pdf')
-        
+
     figure()
-    plt.semilogy(x[valid], (LSE/signal_over_noise)[valid],
+    plt.semilogy(x[valid], (LSE / signal_over_noise)[valid],
                  'x', label='regular')
     plt.xlabel('Frame number')
     plt.ylabel('Normalised reduced least square')
     if np.any(overexposed):
-        plt.semilogy(x[overexposed], (LSE/signal_over_noise)[overexposed],
+        plt.semilogy(x[overexposed], (LSE / signal_over_noise)[overexposed],
                      'x', label='overexposed')
         plt.legend()
     if outpath is not None:
@@ -276,7 +277,7 @@ def plot_and_save_stack(radius, profiles, fits, infos,
             np.savetxt(f, pixel_size[np.newaxis])
             f.write('Signal over noise:\n'.encode())
             np.savetxt(f, signal_over_noise[np.newaxis])
-            
+
             if len(np.shape(radius)) == 3:
                 f.write(f'Radii [nm]:\n'.encode())
                 np.savetxt(f, Rs[np.newaxis])
@@ -337,7 +338,7 @@ def prepare_output(outpath, settingsfn, metadatafn):
     """
     base_name = None
     if outpath is not None:
-        settings_name = os.path.splitext(os.path.basename(settingsfn))[0] 
+        settings_name = os.path.splitext(os.path.basename(settingsfn))[0]
         metadata_name = os.path.splitext(os.path.basename(metadatafn))[0]
         if re.match("metadata$", metadata_name, re.IGNORECASE):
             metadata_name = os.path.basename(os.path.dirname(metadatafn))
@@ -351,8 +352,13 @@ def prepare_output(outpath, settingsfn, metadatafn):
 
         if not os.path.exists(newoutpath):
             os.makedirs(newoutpath)
-        shutil.copy(settingsfn, os.path.join(newoutpath , settings_name + '.json'))
-            
+        shutil.copy(
+            settingsfn,
+            os.path.join(
+                newoutpath,
+                settings_name +
+                '.json'))
+
         base_name = os.path.join(
             newoutpath,
             metadata_name)

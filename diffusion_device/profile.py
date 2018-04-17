@@ -58,6 +58,7 @@ def ignore_slice(ignore, pixel_size):
         pslice = slice(ignore, -ignore)
     return pslice
 
+
 def get_test_radii(settings):
     """Get test radii"""
     if settings["KEY_STG_RLOG"]:
@@ -68,11 +69,12 @@ def get_test_radii(settings):
             test_radii = np.linspace(*settings["KEY_STG_R"])
         else:
             test_radii = np.arange(*settings["KEY_STG_R_STEP"])
-            
+
     if len(test_radii) == 0:
         raise RuntimeError("The test radius are incorrectly specified.")
-    
+
     return test_radii
+
 
 def get_reading_position(metadata, settings, nprofiles):
     """get_reading_position"""
@@ -84,28 +86,30 @@ def get_reading_position(metadata, settings, nprofiles):
     if imslice is not None:
         shift = np.resize([1, -1], len(readingpos)) * imslice[0]
         readingpos = readingpos + shift
-        
+
     return readingpos
-    
+
+
 def get_profiles_arg_dir(metadata, settings):
     """get_profiles_arg_dir"""
     return {
-            'Q': metadata["KEY_MD_Q"],
-            'Wz': metadata["KEY_MD_WZ"],
-            'Wy': metadata["KEY_MD_WY"],
-            'temperature': metadata["KEY_MD_T"],
-            'viscosity': metadata["KEY_MD_ETA"],
-            'Zgrid': settings["KEY_STG_ZGRID"],
-            'step_factor': settings["KEY_STG_DXFACTOR"]}
-    
+        'Q': metadata["KEY_MD_Q"],
+        'Wz': metadata["KEY_MD_WZ"],
+        'Wy': metadata["KEY_MD_WY"],
+        'temperature': metadata["KEY_MD_T"],
+        'viscosity': metadata["KEY_MD_ETA"],
+        'Zgrid': settings["KEY_STG_ZGRID"],
+        'step_factor': settings["KEY_STG_DXFACTOR"]}
+
+
 def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
     """get_fit_data"""
     fit_index = settings["KEY_STG_FITPOS"]
     if fit_index is not None:
-        fit_index = np.sort(fit_index)        
+        fit_index = np.sort(fit_index)
     else:
         fit_index = np.arange(len(profiles))
-        
+
     fit_profiles = profiles[fit_index]
     fit_readingpos = readingpos[fit_index]
 
@@ -117,7 +121,7 @@ def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
         fit_index = fit_index[1:]
         # treat init profile
         fit_init = init_process(fit_profiles[0], initmode, pslice)
-        
+
         fits[fit_init_index] = fit_init
         # First reading pos is initial profile
         fit_readingpos = fit_readingpos[1:] - fit_readingpos[0]
@@ -127,35 +131,38 @@ def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
     threshold = 3 * np.median(infos["Profiles noise std"])
     if np.mean(fit_init[pslice]) < threshold:
         raise RuntimeError("signal to noise too low")
-        
+
     return fit_init, fit_profiles, fit_readingpos, fit_index
+
 
 def normalise_basis(basis, profiles, pslice):
     """Normalise basis in the same way as profiles"""
     profiles_scales = scale_factor(profiles, pslice)
     basis_scales = scale_factor(basis, pslice)
-    if len(np.shape(profiles_scales))<len(np.shape(basis_scales)):
+    if len(np.shape(profiles_scales)) < len(np.shape(basis_scales)):
         profiles_scales = profiles_scales[np.newaxis, :]
     basis *= profiles_scales / basis_scales
     return basis
-    
+
+
 def get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
                   infos, settings):
 
     infos["Signal over noise"] = np.mean(
-            (profiles / infos["Profiles noise std"])[..., pslice])
+        (profiles / infos["Profiles noise std"])[..., pslice])
     slicesize = np.sum(np.ones_like(fit_profiles)[..., pslice])
     nu = slicesize - Mfreepar
     reduced_least_square = ((np.nansum(np.square(
-            (profiles[..., pslice] - fits[..., pslice])
-            / infos["Profiles noise std"])))
-                            / nu)
+        (profiles[..., pslice] - fits[..., pslice])
+        / infos["Profiles noise std"])))
+        / nu)
     infos["Reduced least square"] = np.sqrt(reduced_least_square)
-    
+
     ratio = infos["Reduced least square"] / infos["Signal over noise"]
     if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
         raise RuntimeError("Least square error too large")
-    
+
+
 def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """Size the profiles
 
@@ -182,7 +189,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """
     # load variables
     nspecies = settings["KEY_STG_NSPECIES"]
-    
+
     test_radii = get_test_radii(settings)
     pslice = ignore_slice(settings["KEY_STG_IGNORE"], infos["Pixel size"])
     readingpos = get_reading_position(metadata, settings, len(profiles))
@@ -190,10 +197,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
     profiles = np.asarray(profiles)
     fits = np.zeros_like(profiles) * np.nan
-    
-    fit_init, fit_profiles, fit_readingpos, fit_index = get_fit_data(
-            settings, profiles, readingpos, pslice, infos, fits)
 
+    fit_init, fit_profiles, fit_readingpos, fit_index = get_fit_data(
+        settings, profiles, readingpos, pslice, infos, fits)
 
     # Get basis function
     Basis = getprofiles(fit_init, Radii=test_radii,
@@ -202,30 +208,30 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                         **profiles_arg_dir)
 
     # Get best fit
-    fit = fit_all(fit_profiles, Basis, test_radii, 
-                                    profslice=pslice, nspecies=nspecies,
-                                    prof_noise=infos["Profiles noise std"])
-    
+    fit = fit_all(fit_profiles, Basis, test_radii,
+                  profslice=pslice, nspecies=nspecies,
+                  prof_noise=infos["Profiles noise std"])
+
     infos["Radius error std"] = fit.dx
-    
+
     if nspecies == 1:
         # Get resulting r
         r = fit.x
         if r < np.min(test_radii):
             raise RuntimeError(
-                    'The test radius are too big! ({} < {})'.format(
-                            r, np.min(test_radii)))
+                'The test radius are too big! ({} < {})'.format(
+                    r, np.min(test_radii)))
         if r > np.max(test_radii):
             raise RuntimeError(
-                    'The test radius are too small! ({} > {})'.format(
-                            r, np.max(test_radii)))
+                'The test radius are too small! ({} > {})'.format(
+                    r, np.max(test_radii)))
         # fill data if needed
         if not np.isnan(r):
             fits[fit_index] = getprofiles(
                 fit_init, Radii=[r], readingpos=fit_readingpos,
                 zpos=zpos, infos=infos, **profiles_arg_dir)[0]
-            
-            if np.any(infos['Fit error']> 1e-2):
+
+            if np.any(infos['Fit error'] > 1e-2):
                 raise RuntimeError("The relative error is larger than 1%")
 
         # One free parameter
@@ -236,29 +242,27 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         # fill data if needed
         fits[fit_index] = np.sum(
             fit.basis_spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
-            
+
         r = (fit.x, fit.x_distribution)
 
         # 2n-1 free parameter
         Mfreepar = 2 * nspecies - 1
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
-            
+
     fits = normalise_basis(fits, profiles, pslice)
-            
-            
+
     get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
                   infos, settings)
-    
+
 #    if settings["KEY_STG_GETOFFSET"]:
 #        get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies)
-    
+
     return r, fits
 
 
-
-#def get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies):
-#            
+# def get_offset(readingpos, metadata, r, fit_init, profiles, pslice, nspecies):
+#
 #        from .basis_generate import get_unitless_parameters, get_unitless_profiles, get_D
 #        readingpos -= readingpos[0]
 #        D = get_D([r], metadata["KEY_MD_ETA"], metadata["KEY_MD_T"])
@@ -267,9 +271,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #                metadata["KEY_MD_WY"], metadata["KEY_MD_WZ"])
 #        X = np.squeeze(X)
 #        Xtest = np.linspace(0, 2*np.max(X), 100)
-#    
+#
 #        ul_basis, Xtest, dx = get_unitless_profiles(fit_init, Xtest, beta, Zgrid=21)
-#        
+#
 #        best_X = np.zeros(len(readingpos))
 #        sigma = np.zeros(len(readingpos))
 #        Q = metadata["KEY_MD_Q"]/3600e9
@@ -281,7 +285,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #            except:
 #                sigma[i] = 1
 #                print('nope')
-#                
+#
 #        x = np.arange(len(readingpos))
 #        def fun(x, offset, D):
 #            assert np.all(x == np.arange(len(readingpos)))
@@ -290,13 +294,13 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #            Rp[1::2] -= offset
 #            Rp -= Rp[0]
 #            return Rp*D/Q*beta
-#        
+#
 #        from scipy.optimize import curve_fit
-#        
+#
 #        res = curve_fit(fun, x, best_X, p0=[0, D], sigma=sigma)
-#        
+#
 #        print('offset [mm] = ', res[0][0]*1e3, res[0][1]/D)
-#        
+#
 #        if not hasattr(get_offset, 'idx'):
 #            get_offset.idx = 0
 #        else:
@@ -306,8 +310,8 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 #        plot([get_offset.idx], [res[0][0]*1e3], 'bx')
 #        figure(1)
 #        plot([get_offset.idx], [res[0][1]/D], 'bx')
-        
-    
+
+
 def synthetic_init(prof0, pslice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
@@ -351,7 +355,7 @@ def get_matrices(profiles, Basis, profslice):
 
 
 def fit_all(profiles, Basis, phi, *, profslice=slice(None), nspecies=1,
-               prof_noise=1):
+            prof_noise=1):
     """Find the best monodisperse radius
 
      Parameters
@@ -378,16 +382,16 @@ def fit_all(profiles, Basis, phi, *, profslice=slice(None), nspecies=1,
     """
     if np.shape(np.unique(phi)) != np.shape(phi):
         raise RuntimeError('duplicated phi')
-    
-    #Normalize the basis to fit profiles
+
+    # Normalize the basis to fit profiles
     Basis = normalise_basis(Basis, profiles, profslice)
 
     M, b, psquare = get_matrices(profiles, Basis, profslice)
 
     if nspecies == 1 and phi is not None:
         return fit_monodisperse(M, b, psquare, phi, prof_noise)
-    
-    elif nspecies ==2:
+
+    elif nspecies == 2:
         return fit_2(M, b, psquare, phi, prof_noise)
 
     elif nspecies > 0:
@@ -399,6 +403,7 @@ def fit_all(profiles, Basis, phi, *, profslice=slice(None), nspecies=1,
     else:
         raise RuntimeError('Number of species negative!')
 
+
 class FitResult():
     def __init__(self, x, dx, *, x_distribution, basis_spectrum, residual,
                  success=True, status=0):
@@ -409,8 +414,8 @@ class FitResult():
         self.residual = residual
         self.success = success
         self.status = status
-        
-        
+
+
 def fit_monodisperse(M, b, psquare, phi, prof_noise=1):
     """Find the best monodisperse radius
 
@@ -437,62 +442,63 @@ def fit_monodisperse(M, b, psquare, phi, prof_noise=1):
     spectrum = np.zeros(len(b))
 
     arg_left, arg_right = np.argsort(res)[:2]
-    
+
     if np.abs(arg_left - arg_right) != 1:
         raise RuntimeError("Non - consecutive minimum")
 
     Bl_minus_Br_square = (M[arg_left, arg_left] + M[arg_right, arg_right]
-                       - M[arg_left, arg_right] - M[arg_right, arg_left])
-    
-    #If no diff
+                          - M[arg_left, arg_right] - M[arg_right, arg_left])
+
+    # If no diff
     if Bl_minus_Br_square == 0:
         raise RuntimeError("No Gradient in Basis")
-    
+
     # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
     coeff_basis = (
-        (b[arg_left] - b[arg_right] 
-        + M[arg_right, arg_right] - M[arg_left, arg_right]) 
+        (b[arg_left] - b[arg_right]
+         + M[arg_right, arg_right] - M[arg_left, arg_right])
         / Bl_minus_Br_square)
-    
+
     spectrum[arg_left] = 1 - coeff_basis
     spectrum[arg_right] = coeff_basis
-    
-    best_phi = np.exp(coeff_basis * np.log(phi[arg_left]) 
-                      + (1-coeff_basis) * np.log(phi[arg_right]))
-    
+
+    best_phi = np.exp(coeff_basis * np.log(phi[arg_left])
+                      + (1 - coeff_basis) * np.log(phi[arg_right]))
+
 #    best_phi = coeff_basis * phi[arg_left] + (1-coeff_basis) * phi[arg_right]
-    
+
     if np.argmin(res) == 0:
         raise RuntimeError(f'Phi too large {best_phi}')
-    if np.argmin(res) == len(b)-1:
+    if np.argmin(res) == len(b) - 1:
         raise RuntimeError(f'Phi too small {best_phi}')
-    
-    #sqrt(dR**2/np.sum((b1-b2)**2)*sigma
+
+    # sqrt(dR**2/np.sum((b1-b2)**2)*sigma
     phi_error = (prof_noise
                  * np.sqrt((phi[arg_left] - phi[arg_right])**2
-                       / Bl_minus_Br_square))
-    #Get residual
+                           / Bl_minus_Br_square))
+    # Get residual
     # B = (1-c) B_0 + c B_1
     BB = ((1 - coeff_basis)**2 * M[arg_left, arg_left]
-        + 2 * coeff_basis * (1 - coeff_basis) * M[arg_left, arg_right]
-        + coeff_basis**2 * M[arg_right, arg_right])
-    
+          + 2 * coeff_basis * (1 - coeff_basis) * M[arg_left, arg_right]
+          + coeff_basis**2 * M[arg_right, arg_right])
+
     By = (1 - coeff_basis) * b[arg_left] + coeff_basis * b[arg_right]
-    
+
     residual = BB - 2 * By + psquare
-    result = FitResult(best_phi, phi_error, x_distribution=1, 
+    result = FitResult(best_phi, phi_error, x_distribution=1,
                        basis_spectrum=spectrum, residual=residual)
 
     return result
+
 
 def fun_interp_2(C, M, b, psquare, idx):
     nspecies = 2
     C_phi = [1 - C[0], C[0]]
     C_interp = C[1:]
-    
+
     BB = np.zeros((nspecies, nspecies))
     By = np.zeros(nspecies)
-    
+
     for i in range(nspecies):
         for j in range(nspecies):
             BB[i, j] = (
@@ -501,23 +507,24 @@ def fun_interp_2(C, M, b, psquare, idx):
                 + C_interp[j] * (1 - C_interp[i]) * M[idx[j, 1], idx[i, 0]]
                 + C_interp[i] * C_interp[j] * M[idx[j, 1], idx[i, 1]])
         By[i] = (1 - C_interp[i]) * b[idx[i, 0]] + C_interp[i] * b[idx[i, 1]]
-        
-    FitFit = (C_phi[0]**2 * BB[0, 0] 
-                + 2 * C_phi[1] * C_phi[0] * BB[0, 1] 
-                + C_phi[1]**2 * BB[1, 1])
+
+    FitFit = (C_phi[0]**2 * BB[0, 0]
+              + 2 * C_phi[1] * C_phi[0] * BB[0, 1]
+              + C_phi[1]**2 * BB[1, 1])
     Fity = C_phi[0] * By[0] + C_phi[1] * By[1]
-    
+
     residual = FitFit - 2 * Fity + psquare
     return residual
+
 
 def jac_interp_2(C, M, b, psquare, idx):
     nspecies = 2
     C_phi = [1 - C[0], C[0]]
     C_interp = C[1:]
-    
+
     BB = np.zeros((nspecies, nspecies))
     By = np.zeros(nspecies)
-    
+
     for i in range(nspecies):
         for j in range(nspecies):
             BB[i, j] = (
@@ -526,32 +533,32 @@ def jac_interp_2(C, M, b, psquare, idx):
                 + C_interp[j] * (1 - C_interp[i]) * M[idx[j, 1], idx[i, 0]]
                 + C_interp[i] * C_interp[j] * M[idx[j, 1], idx[i, 1]])
         By[i] = (1 - C_interp[i]) * b[idx[i, 0]] + C_interp[i] * b[idx[i, 1]]
-        
+
     FitB = np.zeros(nspecies)
     for i in range(nspecies):
         FitB[i] = C_phi[0] * BB[0, i] + C_phi[1] * BB[1, i]
-        
 
     BBk = np.zeros((nspecies, nspecies, 2))
     for i in range(nspecies):
         for j in range(nspecies):
             for k in range(2):
                 BBk[i, j, k] = ((1 - C_interp[i]) * M[idx[i, 0], idx[j, k]]
-                                    + C_interp[i] * M[idx[i, 1], idx[j, k]])
+                                + C_interp[i] * M[idx[i, 1], idx[j, k]])
     FitBk = np.zeros((nspecies, 2))
     for i in range(nspecies):
         for k in range(2):
             FitBk[i, k] = C_phi[0] * BBk[0, i, k] + C_phi[1] * BBk[1, i, k]
-            
+
     dinterp = np.zeros(nspecies)
     for i in range(nspecies):
-        dinterp[i] = 2 * C_phi[i] * (FitBk[i, 1] - FitBk[i, 0] 
-                                    + b[idx[i, 0]] - b[idx[i, 1]])
-        
+        dinterp[i] = 2 * C_phi[i] * (FitBk[i, 1] - FitBk[i, 0]
+                                     + b[idx[i, 0]] - b[idx[i, 1]])
+
     d0 = 2 * (FitB[1] - FitB[0] + By[0] - By[1])
-    
+
     return np.array([d0, *dinterp])
-    
+
+
 def fit_2(M, b, psquare, phi, prof_noise=1):
     """Find the best monodisperse radius
 
@@ -583,7 +590,7 @@ def fit_2(M, b, psquare, phi, prof_noise=1):
         fact_1 = (M[idx1, idx2] - M[idx1, idx1] + b[idx1] - b[idx2])
         fact_2 = (M[idx2, idx2] - 2 * M[idx1, idx2] + M[idx1, idx1])
         fact_3 = (M[idx1, idx1] - 2 * b[idx1] + psquare)
-        
+
         if fact_2 == 0:
             fraction[i] = 0
         else:
@@ -592,19 +599,20 @@ def fit_2(M, b, psquare, phi, prof_noise=1):
             fraction[i] = 1
         elif fraction[i] < 0:
             fraction[i] = 0
-        residual[i] = fraction[i]**2 * fact_2 + 2 * fraction[i] * fact_1 + fact_3
+        residual[i] = fraction[i]**2 * fact_2 + \
+            2 * fraction[i] * fact_1 + fact_3
 
     bestidx = np.argmin(residual)
     idx = indices[bestidx]
     frac = fraction[bestidx]
-    
+
     phi_error = np.zeros(2)
     spectrum = np.zeros(len(b))
-    
+
     for rn, i in enumerate(idx):
-        j = i+1
+        j = i + 1
         if j == Nb:
-            j = Nb-2
+            j = Nb - 2
         Bl_minus_Br_square = (M[i, i] + M[j, j] - M[i, j] - M[j, i])
         if Bl_minus_Br_square == 0:
             raise RuntimeError("No Gradient in Basis")
@@ -612,43 +620,41 @@ def fit_2(M, b, psquare, phi, prof_noise=1):
                  * np.sqrt((phi[i] - phi[j])**2
                            / Bl_minus_Br_square))
         phi_error[rn] = error
-        
-    
+
     if not np.all(np.diff(idx) > 4):
         prop_phi = np.asarray([1 - frac, frac])
-        warnings.warn(f"Can't fit polydisperse: Basis not fine enough {np.diff(idx)}")
+        warnings.warn(
+            f"Can't fit polydisperse: Basis not fine enough {np.diff(idx)}")
         spectrum[idx] = prop_phi
-        
+
         fit = FitResult(phi[idx], phi_error, x_distribution=prop_phi,
-                    basis_spectrum=spectrum, residual=np.min(residual),
-                    success=False, status=1)
+                        basis_spectrum=spectrum, residual=np.min(residual),
+                        success=False, status=1)
         return fit
-    
-    
+
     C0 = [frac, 0, 0]
     idx_min = np.zeros((2, 2), int)
     idx_min[:, 0] = idx
-    idx_min[:, 1] = idx_min[:, 0]+1
+    idx_min[:, 1] = idx_min[:, 0] + 1
     if idx_min[1, 1] >= Nb:
         idx_min[1, :] -= 1
-    
-    
+
     min_res = minimize(fun_interp_2, C0, args=(M, b, psquare, idx_min),
-                       jac=jac_interp_2, 
-                       method='BFGS',  options={'gtol': 1e-13, 'norm':2})
-#                        method = 'Nelder-Mead', options = {'xatol': 1e-16,  'fatol': 1e-16})
+                       jac=jac_interp_2,
+                       method='BFGS', options={'gtol': 1e-13, 'norm': 2})
+# method = 'Nelder-Mead', options = {'xatol': 1e-16,  'fatol': 1e-16})
     frac = min_res.x[0]
     c = np.asarray(min_res.x[1:])
-    
+
     phi_res = (1 - c) * phi[idx_min[:, 0]] + c * phi[idx_min[:, 1]]
     prop_phi = np.asarray([1 - frac, frac])
-    
-    
-    spectrum[idx_min] = np.array([1-c, c]) * prop_phi[np.newaxis]
+
+    spectrum[idx_min] = np.array([1 - c, c]) * prop_phi[np.newaxis]
     fit = FitResult(phi_res, phi_error, x_distribution=prop_phi,
                     basis_spectrum=spectrum, residual=min_res.fun,
                     success=True, status=0)
     return fit
+
 
 def fun(C, M, b, psquare):
     """Residus of the fitting
@@ -792,22 +798,23 @@ def fit_N(M, b, psquare, nspecies, phi, prof_noise=1):
     idx = indices[bestidx]
     spectrum = np.zeros(NRs)
     spectrum[idx] = C[bestidx]
-    
+
     radius_error = np.zeros(nspecies)
-    
+
     for rn, i in enumerate(idx):
-        j = i+1
+        j = i + 1
         if j == NRs:
-            j = NRs-2
+            j = NRs - 2
         error = (prof_noise
                  * np.sqrt((phi[i] - phi[j])**2
                            / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
         radius_error[rn] = error
-        
+
     fit = FitResult(phi[idx], radius_error, x_distribution=C[bestidx],
                     basis_spectrum=spectrum, residual=np.min(res))
 
     return fit
+
 
 def fit_polydisperse(M, b, psquare, phi, prof_noise=1):
     """Find the best N-disperse radius
@@ -843,15 +850,15 @@ def fit_polydisperse(M, b, psquare, phi, prof_noise=1):
     spectrum = np.abs(res.x)
 
     radius_error = np.zeros(Nb)
-    
+
     for i in range(1, Nb):
-        j = i-1
+        j = i - 1
         error = (prof_noise
                  * np.sqrt((phi[i] - phi[j])**2
                            / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
         radius_error[i] = error
-    radius_error[0] = radius_error[1] 
-            
+    radius_error[0] = radius_error[1]
+
     fit = FitResult(phi, radius_error, x_distribution=spectrum,
                     basis_spectrum=spectrum, residual=res.fun)
     return fit

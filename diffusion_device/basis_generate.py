@@ -75,40 +75,40 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     profilespos: 3d array
         The list of profiles for the 12 positions at the required radii
     """
-    
+
     D = get_D(Radii, viscosity, temperature, muEoD, stepMuE,
               Boltzmann_constant)
     phi, beta, mu_prime_E = get_unitless_parameters(Q, D, readingpos, Wy, Wz,
-                                                  muEoD)
-   
+                                                    muEoD)
+
     phishape = np.shape(phi)
     phi = np.ravel(phi)
-    
+
     profilespos, phi, dphi = get_unitless_profiles(
-            Cinit, phi, beta, Zgrid=Zgrid,
-            mu_prime_E=mu_prime_E, fullGrid=fullGrid, zpos=zpos,
-            Zmirror=Zmirror, step_factor=step_factor, yboundary=yboundary)
+        Cinit, phi, beta, Zgrid=Zgrid,
+        mu_prime_E=mu_prime_E, fullGrid=fullGrid, zpos=zpos,
+        Zmirror=Zmirror, step_factor=step_factor, yboundary=yboundary)
 
     # reshape correctly
     profilespos.shape = (*phishape, *profilespos.shape[1:])
-    
-    #Get the fit error from rounding
+
+    # Get the fit error from rounding
     idx = np.argmin(readingpos)
     if readingpos[idx] == 0:
-        idx = 1 
+        idx = 1
     error = dphi / phi[idx]
     infos['Fit error'] = error
 
     return profilespos
 
 
-def get_D(Radii, viscosity, temperature, muEoD=0, stepMuE=False, 
+def get_D(Radii, viscosity, temperature, muEoD=0, stepMuE=False,
           Boltzmann_constant=1.38e-23):
     """
     """
-    Radii = np.array(Radii)        
+    Radii = np.array(Radii)
     kT = Boltzmann_constant * temperature
-    
+
     if stepMuE:
         if muEoD == 0:
             raise RuntimeError("Can't calculate for 0 qE")
@@ -117,9 +117,10 @@ def get_D(Radii, viscosity, temperature, muEoD=0, stepMuE=False,
         if np.any(Radii <= 0):
             raise RuntimeError("Can't work with negative radii!")
         D = kT / (6 * np.pi * viscosity * Radii)
-        
+
     return D
-    
+
+
 def get_unitless_parameters(Q, D, readingpos, Wy, Wz, muEoD=0):
     """
     """
@@ -129,10 +130,11 @@ def get_unitless_parameters(Q, D, readingpos, Wy, Wz, muEoD=0):
     mu_prime_E = muEoD * Wy
     beta = Wz / Wy
     Q = Q / (3600 * 1e9)  # transorm in m^3/s
-            
+
     phi = readingpos[np.newaxis] * D[..., np.newaxis] / Q * beta
 
     return phi, beta, mu_prime_E
+
 
 """
 The PDE is:
@@ -150,42 +152,45 @@ The unitless equation is:
     V' dx'C = (dy'^2D + dz'^2C) - mu'E dy'C
 
 """
+
+
 def step_matrix_from_dic(
-        step_matrix_dictionnary, Zgrid, Ygrid, beta, 
+        step_matrix_dictionnary, Zgrid, Ygrid, beta,
         mu_prime_E, Zmirror, yboundary, step_factor=None, dphi_max=None):
     """
-    Get a step matrix from a dictionary and populate the dictionnary for 
+    Get a step matrix from a dictionary and populate the dictionnary for
     Faster access
     """
     poiseuille_prime = None
-    
-    #Get value for step_factor
+
+    # Get value for step_factor
     if step_factor is None:
         poiseuille_prime = poiseuille_unitless(Zgrid, Ygrid, beta)
-        dphi, step_factor = get_dphi(Zgrid, Ygrid, beta, 
-             mu_prime_E=mu_prime_E, dphi_max=dphi_max, 
-             poiseuille_prime=poiseuille_prime)
-        
-    #Get key to identify matrix uniquely
+        dphi, step_factor = get_dphi(Zgrid, Ygrid, beta,
+                                     mu_prime_E=mu_prime_E, dphi_max=dphi_max,
+                                     poiseuille_prime=poiseuille_prime)
+
+    # Get key to identify matrix uniquely
     key = (Zgrid, Ygrid, beta, mu_prime_E, Zmirror, yboundary, step_factor)
-    
+
     # Create dictionnary if doesn't exist
     if key in step_matrix_dictionnary:
         return step_matrix_dictionnary[key]
     else:
         Fdir = {}
         Fdir[1], dphi = stepMatrix(
-                Zgrid, Ygrid, beta, 
-                mu_prime_E=mu_prime_E,
-                Zmirror=Zmirror, step_factor=step_factor,
-                yboundary=yboundary, poiseuille_prime=poiseuille_prime)
+            Zgrid, Ygrid, beta,
+            mu_prime_E=mu_prime_E,
+            Zmirror=Zmirror, step_factor=step_factor,
+            yboundary=yboundary, poiseuille_prime=poiseuille_prime)
         step_matrix_dictionnary[key] = (Fdir, dphi)
         return Fdir, dphi
-        
+
+
 def get_unitless_profiles(Cinit, phi, beta,
-                Zgrid=None, mu_prime_E=0, *, fullGrid=False, zpos=None,
-                Zmirror=True, step_factor=None, yboundary='Neumann',
-                step_matrix_dictionnary=None):
+                          Zgrid=None, mu_prime_E=0, *, fullGrid=False, zpos=None,
+                          Zmirror=True, step_factor=None, yboundary='Neumann',
+                          step_matrix_dictionnary=None):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -193,7 +198,7 @@ def get_unitless_profiles(Cinit, phi, beta,
     Cinit:  1d array or 2d array
             The initial profile. If 1D (shape (x, ) not (x, 1)) Zgrid is
             used to pad the array
-    phi:    1d array 
+    phi:    1d array
             Use approximately
             phi = reading_position * D / Q * beta
     beta:   float
@@ -227,37 +232,36 @@ def get_unitless_profiles(Cinit, phi, beta,
 #    from matplotlib.pyplot import figure, hist, plot, show
 #    figure()
 #    hist(np.log(phi), 100)
-    #Clean input
+    # Clean input
     phi = np.asarray(phi)
     Cinit = np.asarray(Cinit)
-    
+
     if np.any(phi < 0) or not np.all(np.isfinite(phi)):
         raise RuntimeError("The time varible is incorrect")
 
     # Functions to access F
-    
+
     if step_matrix_dictionnary is None:
         if not hasattr(get_unitless_profiles, 'dirFList'):
             get_unitless_profiles.dirFList = {}
         step_matrix_dictionnary = get_unitless_profiles.dirFList
 
-        
     def getF(Fdir, NSteps):
         if NSteps not in Fdir:
             Fdir[NSteps] = np.dot(Fdir[NSteps // 2], Fdir[NSteps // 2])
         return Fdir[NSteps]
 
-    #Zgrid    
+    # Zgrid
     if Zgrid is None:
         if Zmirror or len(Cinit.shape) < 2:
             raise RuntimeError('No Zgrid specified')
         Zgrid = np.shape(Cinit)[1]
-        
+
     ZgridEffective = Zgrid
     if Zmirror:
         ZgridEffective = (Zgrid + 1) // 2
-        
-    #Cinit
+
+    # Cinit
     if len(Cinit.shape) < 2:
         Cinit = np.tile(Cinit[np.newaxis, :], (ZgridEffective, 1))
         if zpos is None:
@@ -273,13 +277,13 @@ def get_unitless_profiles(Cinit, phi, beta,
     # get maximum acceptable dphi
     dphi_max = None
     if step_factor is None and len(phi) > 1:
-        dphi_max = np.min(np.abs(np.diff(phi)))/2
+        dphi_max = np.min(np.abs(np.diff(phi))) / 2
         if not dphi_max > 0:
             raise RuntimeError('dphi too small!')
-            
+
     # get step matrix
     Fdir, dphi = step_matrix_from_dic(
-        step_matrix_dictionnary, Zgrid, Ygrid, beta, 
+        step_matrix_dictionnary, Zgrid, Ygrid, beta,
         mu_prime_E, Zmirror, yboundary, step_factor, dphi_max)
 
     # Get Nsteps for each radius and position
@@ -316,7 +320,7 @@ def get_unitless_profiles(Cinit, phi, beta,
 
     if Zmirror:
         profilespos = np.concatenate(
-            (profilespos, profilespos[... , -1 - Zgrid % 2::-1, :]), -2)
+            (profilespos, profilespos[..., -1 - Zgrid % 2::-1, :]), -2)
         Cinit = np.concatenate((Cinit, Cinit[-1 - Zgrid % 2::-1, :]), 0)
 
     # If full grid, stop here
@@ -330,11 +334,11 @@ def get_unitless_profiles(Cinit, phi, beta,
             idx = Zgrid - 1
         # Take central profile
         idx = int((Zgrid - 1) / 2)
-        profilespos = profilespos[... , idx, :]
+        profilespos = profilespos[..., idx, :]
     else:
         # Take sum
         profilespos = np.sum(profilespos, -2)
-        
+
     return profilespos, phi, dphi
 
 
@@ -432,7 +436,8 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
 #@profile
 
 
-def poiseuille(*, Zgrid, Ygrid, Q, Wy, beta, yinterface=False, zinterface=False):
+def poiseuille(*, Zgrid, Ygrid, Q, Wy, beta,
+               yinterface=False, zinterface=False):
     """
     Compute the poiseuille flow profile
 
@@ -461,7 +466,9 @@ def poiseuille(*, Zgrid, Ygrid, Q, Wy, beta, yinterface=False, zinterface=False)
     Q = Q / (3600 * 1e9)  # transorm in m^3/s
     return V * Q / (Wy**2 * beta)
 
-def poiseuille_unitless(Zgrid, Ygrid, beta, yinterface=False, zinterface=False):
+
+def poiseuille_unitless(
+        Zgrid, Ygrid, beta, yinterface=False, zinterface=False):
     """
     Compute the poiseuille flow profile
 
@@ -506,8 +513,9 @@ def poiseuille_unitless(Zgrid, Ygrid, beta, yinterface=False, zinterface=False):
 
     return V / np.mean(V)
 
-def get_dphi(Zgrid, Ygrid, beta, *, 
-             mu_prime_E=0, step_factor=None, dphi_max=None, 
+
+def get_dphi(Zgrid, Ygrid, beta, *,
+             mu_prime_E=0, step_factor=None, dphi_max=None,
              poiseuille_prime=None):
     """
     Get dphi for step matrix
@@ -539,14 +547,14 @@ def get_dphi(Zgrid, Ygrid, beta, *,
     step_factor: float
         The factor applied
     """
-    
+
     if poiseuille_prime is None:
         poiseuille_prime = poiseuille_unitless(Zgrid, Ygrid, beta)
 
     # Get steps
     dy = 1 / Ygrid
     dz = beta / Zgrid
-    
+
     # get dx
     # The formula gives F=1+dx*D/V*(1/dy^2*dyyC+1/dz^2*dzzC)
     # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
@@ -559,14 +567,15 @@ def get_dphi(Zgrid, Ygrid, beta, *,
         if dphi_max is None:
             step_factor = 1
         else:
-            step_factor = np.exp(np.floor(np.log(dphi_max/dphi)))
-    
+            step_factor = np.exp(np.floor(np.log(dphi_max / dphi)))
+
     if step_factor > 1:
         step_factor = 1
-        
+
     dphi *= step_factor
-    
+
     return dphi, step_factor
+
 
 def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
                method='Trapezoid', step_factor=None, dphi_max=None,
@@ -617,18 +626,18 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
     # Get Poiseille flow
     if poiseuille_prime is None:
         poiseuille_prime = poiseuille_unitless(Zgrid, Ygrid, beta)
-        
+
     if outV is not None:
         outV[:] = poiseuille_prime
 
     # Get steps
     dy = 1 / Ygrid
     dz = beta / realZgrid
-    
+
     dphi, step_factor = get_dphi(
-            realZgrid, Ygrid, beta, 
-            mu_prime_E=mu_prime_E, step_factor=step_factor, 
-            dphi_max=dphi_max, poiseuille_prime=poiseuille_prime)
+        realZgrid, Ygrid, beta,
+        mu_prime_E=mu_prime_E, step_factor=step_factor,
+        dphi_max=dphi_max, poiseuille_prime=poiseuille_prime)
 
     # If the Z is a mirror, make adjustments
     Zodd = False
@@ -644,14 +653,14 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
     qy = getQy(Zgrid, Ygrid, boundary=yboundary)
     Cyy = (1 / poiseuille_prime)[:, np.newaxis] * \
         ((qy[-1] - 2 * qy[0] + qy[1]) / dy**2)
-        
+
     if Zgrid > 1:
         qz = getQz(Zgrid, Ygrid, Zmirror, Zodd)
         Czz = (1 / poiseuille_prime)[:, np.newaxis] * \
             ((qz[-1] - 2 * qz[0] + qz[1]) / dz**2)
     else:
         Czz = 0
-        
+
     if mu_prime_E == 0:
         Cy = 0
     else:
@@ -659,7 +668,14 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
         if Zmirror:
             ViyoQ = ViyoQ[:Zgrid, :]
 #        Cy = getCy5(muEoD, dxtD, V, Zgrid, Ygrid, dy, boundary=yboundary)
-        Cy = getCy(mu_prime_E, dphi, ViyoQ, Zgrid, Ygrid, dy, boundary=yboundary)
+        Cy = getCy(
+            mu_prime_E,
+            dphi,
+            ViyoQ,
+            Zgrid,
+            Ygrid,
+            dy,
+            boundary=yboundary)
 
     dF = dphi * (Cyy + Czz - mu_prime_E * Cy)
 
@@ -681,8 +697,9 @@ def stepMatrix(Zgrid, Ygrid, beta, *, mu_prime_E=0, outV=None,
     # The above dphi should put it to 1
 #    from numpy.linalg import eigvals
 #    assert(np.max(np.abs(eigvals(F)))<=1.)
-        
+
     return F, dphi
+
 
 def getQy(Zgrid, Ygrid, boundary='Neumann'):
     """Get matrices to access neibours in y with correct boundary conditions
@@ -747,7 +764,7 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
         shift = 1
     else:
         shift = 0
-        
+
     def midx(i, j):
         def single(l):
             if l >= Zgrid:
@@ -761,7 +778,7 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
             return L
         I, J = single(i), single(j)
         return I, J
-    
+
     # Create the q matrices
     q = np.zeros((5, Zgrid * Ygrid, Zgrid * Ygrid))
     for i in range(-2, 3):
@@ -770,17 +787,16 @@ def getQz(Zgrid, Ygrid, Zmirror, Zodd):
         if i == -2:
             q[i][midx(1, 0)] = 1
             q[i][midx(0, 1)] = 1
-        
+
         if i == -1:
             q[i][midx(0, 0)] = 1
-            
+
         if i == 1:
             q[i][midx(-1, -1 - shift)] = 1
-            
+
         if i == 2:
             q[i][midx(-2, -1 - shift)] = 1
             q[i][midx(-1, -2 - shift)] = 1
-            
 
     return q
 
