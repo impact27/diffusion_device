@@ -152,8 +152,7 @@ The unitless equation is:
     V' dx'C = (dy'^2D + dz'^2C) - mu'E dy'C
 
 """
-
-
+#@profile
 def step_matrix_from_dic(
         step_matrix_dictionnary, Zgrid, Ygrid, beta,
         mu_prime_E, Zmirror, yboundary, step_factor=None, dphi_max=None):
@@ -186,7 +185,7 @@ def step_matrix_from_dic(
         step_matrix_dictionnary[key] = (Fdir, dphi)
         return Fdir, dphi
 
-
+#@profile
 def get_unitless_profiles(Cinit, phi, beta,
                           Zgrid=None, mu_prime_E=0, *, fullGrid=False, zpos=None,
                           Zmirror=True, step_factor=None, yboundary='Neumann',
@@ -492,6 +491,13 @@ def poiseuille_unitless(
     Viz: 2d array
         The poiseuille flow between z pixels
     """
+    # Check if already calculated
+    key = (Zgrid, Ygrid, beta, yinterface, zinterface)
+    if hasattr(poiseuille_unitless, 'saved_V'):
+        if key in poiseuille_unitless.saved_V.keys():
+            return poiseuille_unitless.saved_V[key]
+    else:
+        poiseuille_unitless.saved_V = {}
 
     # Poiseuille flow
     if yinterface:
@@ -511,7 +517,11 @@ def poiseuille_unitless(
                (np.sin(nz * np.pi * i / Zgrid) *
                 np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
 
-    return V / np.mean(V)
+    V /= np.mean(V)
+    
+    poiseuille_unitless.saved_V[key] = V
+    
+    return V
 
 
 def get_dphi(Zgrid, Ygrid, beta, *,
