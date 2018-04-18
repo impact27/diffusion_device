@@ -142,7 +142,7 @@ def scale_factor(profiles, profile_slice):
 
     return norm_factor
         
-def get_matrices(profiles, Basis, profslice):
+def get_matrices(profiles, Basis, profile_slice):
     """Return matrix representation of sums
 
      Parameters
@@ -165,14 +165,28 @@ def get_matrices(profiles, Basis, profslice):
         psquare = sum(profiles*profile)
     """
     Nb = len(Basis)
-    flatbasis = np.reshape(Basis[..., profslice], (Nb, -1))
-    flatprofs = np.ravel(profiles[..., profslice])
+    flatbasis = np.reshape(Basis[..., profile_slice], (Nb, -1))
+    flatprofs = np.ravel(profiles[..., profile_slice])
 
     psquare = np.sum(flatprofs * flatprofs)
     b = np.sum(flatbasis * flatprofs[np.newaxis], -1)
     M = np.sum(flatbasis[:, np.newaxis] * flatbasis[np.newaxis, :], -1)
     return M, b, psquare
 
+def interpolate_1pos(arg_cent, arg_side, M, b):
+    #np.sum((b1-b2)**2
+    Bl_minus_Br_square = (M[arg_cent, arg_cent] + M[arg_side, arg_side]
+                          - M[arg_cent, arg_side] - M[arg_side, arg_cent])
+     # If no diff
+    if Bl_minus_Br_square == 0:
+        raise RuntimeError("No Gradient in Basis")
+    # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
+    coeff_basis = (
+        (b[arg_side] - b[arg_cent]
+         - M[arg_side, arg_cent] + M[arg_cent, arg_cent])
+        / Bl_minus_Br_square) 
+    return coeff_basis, Bl_minus_Br_square
+            
 def fit_monodisperse(M, b, psquare, phi, prof_noise=1):
     """Find the best monodisperse radius
 
@@ -197,55 +211,50 @@ def fit_monodisperse(M, b, psquare, phi, prof_noise=1):
     # get best residual
     res = psquare + np.diag(M) - 2 * b
     spectrum = np.zeros(len(b))
-
-    arg_left, arg_right = np.argsort(res)[:2]
-
-    if np.abs(arg_left - arg_right) != 1:
-        raise RuntimeError("Non - consecutive minimum")
-
-    Bl_minus_Br_square = (M[arg_left, arg_left] + M[arg_right, arg_right]
-                          - M[arg_left, arg_right] - M[arg_right, arg_left])
-
-    # If no diff
-    if Bl_minus_Br_square == 0:
-        raise RuntimeError("No Gradient in Basis")
-
-    # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
-    coeff_basis = (
-        (b[arg_left] - b[arg_right]
-         + M[arg_right, arg_right] - M[arg_left, arg_right])
-        / Bl_minus_Br_square)
-
-    spectrum[arg_left] = 1 - coeff_basis
-    spectrum[arg_right] = coeff_basis
-
-    best_phi = np.exp(coeff_basis * np.log(phi[arg_left])
-                      + (1 - coeff_basis) * np.log(phi[arg_right]))
-
-#    best_phi = coeff_basis * phi[arg_left] + (1-coeff_basis) * phi[arg_right]
-
-    if np.argmin(res) == 0:
+    
+    arg_cent = np.argmin(res)
+    
+    if arg_cent == 0:
         raise RuntimeError(f'Phi too large {best_phi}')
-    if np.argmin(res) == len(b) - 1:
+    if arg_cent == len(b) - 1:
         raise RuntimeError(f'Phi too small {best_phi}')
+    
+    
+    arg_side = arg_cent + 1
+    coeff_basis, Bl_minus_Br_square = interpolate_1pos(
+            arg_cent, arg_side, M, b)        
+    if coeff_basis < 0:
+        arg_side = arg_cent - 1
+        coeff_basis, Bl_minus_Br_square = interpolate_1pos(
+                arg_cent, arg_side, M, b)
+
+    if np.abs(coeff_basis) > 3:
+        raise RuntimeError("Interpolation failed: out of bounds")
+    
+    spectrum[arg_cent] = 1 - coeff_basis
+    spectrum[arg_side] = coeff_basis
+
+    best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
+                      + coeff_basis * np.log(phi[arg_side]))
+
+#    best_phi = coeff_basis * phi[arg_side] + (1-coeff_basis) * phi[arg_cent]
 
     # sqrt(dR**2/np.sum((b1-b2)**2)*sigma
     phi_error = (prof_noise
-                 * np.sqrt((phi[arg_left] - phi[arg_right])**2
+                 * np.sqrt(np.square(phi[arg_cent] - phi[arg_side])
                            / Bl_minus_Br_square))
     # Get residual
     # B = (1-c) B_0 + c B_1
-    BB = ((1 - coeff_basis)**2 * M[arg_left, arg_left]
-          + 2 * coeff_basis * (1 - coeff_basis) * M[arg_left, arg_right]
-          + coeff_basis**2 * M[arg_right, arg_right])
-
-    By = (1 - coeff_basis) * b[arg_left] + coeff_basis * b[arg_right]
-
+    BB = ((1 - coeff_basis)**2 * M[arg_cent, arg_cent]
+          + 2 * coeff_basis * (1 - coeff_basis) * M[arg_cent, arg_side]
+          + coeff_basis**2 * M[arg_side, arg_side])
+    By = (1 - coeff_basis) * b[arg_cent] + coeff_basis * b[arg_side]
     residual = BB - 2 * By + psquare
-    result = FitResult(best_phi, phi_error, x_distribution=1,
+    
+    fit = FitResult(best_phi, phi_error, x_distribution=1,
                        basis_spectrum=spectrum, residual=residual)
 
-    return result
+    return fit
 
 
 def res_interp_2(C, M, b, psquare, idx):

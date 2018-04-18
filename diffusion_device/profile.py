@@ -76,7 +76,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
     # Get best fit
     fit = fit_all(fit_profiles, Basis, test_radii,
-                  profslice=pslice, nspecies=nspecies,
+                  profile_slice=pslice, nspecies=nspecies,
                   prof_noise=infos["Profiles noise std"])
 
     infos["Radius error std"] = fit.dx
