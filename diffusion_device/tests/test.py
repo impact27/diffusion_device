@@ -43,8 +43,14 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        try:
+            radius, profiles, fits, data, infos = \
+                full_fit(settingsfn, metadatafn, tempdir)
+        except RuntimeError as e:
+            if e.args[0] != "Monodisperse":
+                raise
+            return
+            
         shutil.rmtree(tempdir)
         Rs, spectrum = radius
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)

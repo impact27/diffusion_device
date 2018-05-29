@@ -416,7 +416,8 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
     """
     
     # Normalize the basis to fit profiles
-    Basis_factor, __ = normalise_basis_factor(Basis, profiles, offset=False)
+    Basis_factor, __ = normalise_basis_factor(Basis, profiles, vary_offset=False)
+    Basis_factor = Basis_factor[..., np.newaxis]
     Basis = Basis * Basis_factor
     Basis_factor = Basis_factor[..., 0]
     M, b, psquare = get_matrices(profiles, Basis)

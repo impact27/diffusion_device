@@ -23,9 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
-import C_diffusion
+try:
+    from .compute_profiles_c import compute_profiles
+except ImportError:
+    from .compute_profiles_py import compute_profiles
 
-#@profile
+
 
 
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
@@ -299,7 +302,7 @@ def get_unitless_profiles(Cinit, phi, beta,
     
     NSteps_binary = NSteps_binary.T
     profilespos = np.tile(np.ravel(Cinit), (Nphi, 1))
-    profilespos = compute_profiles_c(NSteps_binary, idx_sorted, profilespos, Fdic)
+    profilespos = compute_profiles(NSteps_binary, idx_sorted, profilespos, Fdic)
 
     # reshape correctly
     profilespos.shape = (Nphi, ZgridEffective, Ygrid)
@@ -328,58 +331,7 @@ def get_unitless_profiles(Cinit, phi, beta,
     return profilespos, phi, dphi
 
 #@profile
-def compute_profiles(NSteps_binary, idx_sorted, profilespos, Fdic):
-    """
-    Do The calculations
-    """
-    Nbinary = np.shape(NSteps_binary)[1]
-    
-    if Nbinary > len(Fdic["Flist"]):
-        Flist = np.zeros((Nbinary, *np.shape(Fdic["Flist"])[1:]))
-        Flist[:len(Fdic["Flist"])] = Fdic["Flist"]
-        for i in range(len(Fdic["Flist"]), Nbinary):
-            Flist[i] = np.dot(Flist[i-1], Flist[i-1])
-        Fdic["Flist"] = Flist
-    
-    Flist = Fdic["Flist"]
-    
-    # for each unit
-    for i in range(Nbinary):
-        F = Flist[i]
-        # save previous number
-        prev = np.zeros(i + 1, dtype=bool)
-        for j in range(np.shape(NSteps_binary)[0]):
-            bs = NSteps_binary[idx_sorted[j], i]
-            act = NSteps_binary[idx_sorted[j], :i + 1]
-            # If we have a one, multiply by the current step function
-            if bs:
-                prof = profilespos[idx_sorted[j], :]
-                # If this is the same as before, no need to recompute
-                if (act == prev).all():
-                    prof[:] = profilespos[idx_sorted[j - 1]]
-                else:
-                    prof[:] = np.dot(F, prof)
-            prev = act
-    return profilespos
 
-#@profile
-def compute_profiles_c(NSteps_binary, idx_sorted, profilespos, Fdic):
-    """
-    Do the calculations slightly slower with C!
-    """
-    Nbinary = np.shape(NSteps_binary)[1]
-    
-    if Nbinary > len(Fdic["Flist"]):
-        Flist = np.zeros((Nbinary, *np.shape(Fdic["Flist"])[1:]))
-        Flist[:len(Fdic["Flist"])] = Fdic["Flist"]
-        for i in range(len(Fdic["Flist"]), Nbinary):
-            Flist[i] = np.dot(Flist[i-1], Flist[i-1])
-        Fdic["Flist"] = Flist
-    
-    Flist = Fdic["Flist"]
-    
-    C_diffusion.compute_profiles(NSteps_binary, idx_sorted, profilespos, Flist)
-    return profilespos
             
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                        Wz, viscosity, temperature, Zgrid=None, *,
