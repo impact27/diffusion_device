@@ -275,9 +275,9 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
     ignore = int(ignore / pixel_size)
 
     if ignore == 0:
-        pslice = slice(None)
+        profile_slice = slice(None)
     else:
-        pslice = slice(ignore, -ignore)
+        profile_slice = slice(ignore, -ignore)
 
     nchannels = len(centers)
     prof_npix = int(np.round(chwidth / pixel_size))
@@ -314,10 +314,10 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
             p = p[::-1]
 
         # If the profile is not too flat
-        testflat = np.max(p[pslice]) > 1.2 * np.mean(p[pslice])
+        testflat = np.max(p[profile_slice]) > 1.2 * np.mean(p[profile_slice])
         if testflat:
             # Align by detecting center
-            prof_center = dp.center(p[pslice]) + ignore
+            prof_center = dp.center(p[profile_slice]) + ignore
             if firstcenter is not None:
                 diff = prof_center - firstcenter
                 if switch:

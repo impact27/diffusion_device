@@ -28,7 +28,7 @@ from scipy.signal import savgol_filter
 
 from .basis_generate import getprofiles
 from . import display_data
-from .profiles_fitting import fit_all, normalise_basis
+from .profiles_fitting import fit_all, normalise_basis, rescale_basis
 
 def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """Size the profiles
@@ -58,7 +58,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     nspecies = settings["KEY_STG_NSPECIES"]
 
     test_radii = get_test_radii(settings)
-    pslice = ignore_slice(settings["KEY_STG_IGNORE"], infos["Pixel size"])
+    profile_slice = ignore_slice(settings["KEY_STG_IGNORE"], infos["Pixel size"])
     readingpos = get_reading_position(metadata, settings, len(profiles))
     profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
 
@@ -66,7 +66,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     fits = np.zeros_like(profiles) * np.nan
 
     fit_init, fit_profiles, fit_readingpos, fit_index = get_fit_data(
-        settings, profiles, readingpos, pslice, infos, fits)
+        settings, profiles, readingpos, profile_slice, infos, fits)
 
     # Get basis function
     Basis = getprofiles(fit_init, Radii=test_radii,
@@ -76,7 +76,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
     # Get best fit
     fit = fit_all(fit_profiles, Basis, test_radii,
-                  profile_slice=pslice, nspecies=nspecies,
+                  profile_slice=profile_slice, nspecies=nspecies,
                   prof_noise=infos["Profiles noise std"])
 
     infos["Radius error std"] = fit.dx
@@ -103,6 +103,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
         # One free parameter
         Mfreepar = 1
+        fits = rescale_basis(profiles, fits)
 
     else:
 
@@ -117,9 +118,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
 
-    fits = normalise_basis(fits, profiles, pslice)
+        fits = normalise_basis(fits, profiles, profile_slice)
 
-    get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
+    get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings)
 
     return r, fits
@@ -129,10 +130,10 @@ def ignore_slice(ignore, pixel_size):
     """
     ignore = int(ignore / pixel_size)
     if ignore == 0:
-        pslice = slice(None)
+        profile_slice = slice(None)
     else:
-        pslice = slice(ignore, -ignore)
-    return pslice
+        profile_slice = slice(ignore, -ignore)
+    return profile_slice
 
 
 def get_test_radii(settings):
@@ -178,7 +179,7 @@ def get_profiles_arg_dir(metadata, settings):
         'step_factor': settings["KEY_STG_DXFACTOR"]}
 
 
-def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
+def get_fit_data(settings, profiles, readingpos, profile_slice, infos, fits):
     """get_fit_data"""
     fit_index = settings["KEY_STG_FITPOS"]
     if fit_index is not None:
@@ -191,12 +192,12 @@ def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
 
     initmode = settings["KEY_STG_POS0FILTER"]
     if initmode == 'synthetic':
-        fit_init = synthetic_init(fit_profiles[0], pslice)
+        fit_init = synthetic_init(fit_profiles[0], profile_slice)
     else:
         fit_init_index = fit_index[0]
         fit_index = fit_index[1:]
         # treat init profile
-        fit_init = init_process(fit_profiles[0], initmode, pslice)
+        fit_init = init_process(fit_profiles[0], initmode, profile_slice)
 
         fits[fit_init_index] = fit_init
         # First reading pos is initial profile
@@ -205,20 +206,20 @@ def get_fit_data(settings, profiles, readingpos, pslice, infos, fits):
 
     # Check if init is large enough
     threshold = 3 * np.median(infos["Profiles noise std"])
-    if np.mean(fit_init[pslice]) < threshold:
+    if np.mean(fit_init[profile_slice]) < threshold:
         raise RuntimeError("signal to noise too low")
 
     return fit_init, fit_profiles, fit_readingpos, fit_index
 
-def get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
+def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings):
 
     infos["Signal over noise"] = np.mean(
-        (profiles / infos["Profiles noise std"])[..., pslice])
-    slicesize = np.sum(np.ones_like(fit_profiles)[..., pslice])
+        (profiles / infos["Profiles noise std"])[..., profile_slice])
+    slicesize = np.sum(np.ones_like(fit_profiles)[..., profile_slice])
     nu = slicesize - Mfreepar
     reduced_least_square = ((np.nansum(np.square(
-        (profiles[..., pslice] - fits[..., pslice])
+        (profiles[..., profile_slice] - fits[..., profile_slice])
         / infos["Profiles noise std"])))
         / nu)
     infos["Reduced least square"] = np.sqrt(reduced_least_square)
@@ -227,13 +228,13 @@ def get_fit_infos(profiles, fit_profiles, fits, pslice, Mfreepar,
     if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
         raise RuntimeError("Least square error too large")
 
-def synthetic_init(prof0, pslice):
+def synthetic_init(prof0, profile_slice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
     init = np.zeros_like(prof0)
     x = np.arange(N) - center(prof0)
     init[np.abs(x) < 1 / 22 * N] = 1
-    init *= np.sum(prof0[pslice], -1) / np.sum(init[pslice], -1)
+    init *= np.sum(prof0[profile_slice], -1) / np.sum(init[profile_slice], -1)
     return init
 
 def center(prof, subtract_mean=False):
@@ -398,7 +399,7 @@ def image_angle(image, maxAngle=np.pi / 7):
     return angle
 
 
-def init_process(profile, mode, ignore_slice):
+def init_process(profile, mode, profile_slice):
     """
     Process the initial profile
 
@@ -415,7 +416,7 @@ def init_process(profile, mode, ignore_slice):
             Remove the tails
         'gfilter':
             Apply a gaussian filter of 2 px std
-    ignore_slice: slice
+    profile_slice: slice
         The number of pixels to ignore on the edges
 
     Returns
@@ -424,8 +425,8 @@ def init_process(profile, mode, ignore_slice):
         the processed profile
 
     """
-    init = np.zeros_like(profile)
-    init[ignore_slice] = profile[ignore_slice]
+    init = np.zeros_like(profile)*np.nan
+    init[profile_slice] = profile[profile_slice]
 
     if mode == 'none':
         return init
