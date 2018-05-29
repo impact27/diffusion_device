@@ -8,7 +8,6 @@ Created on Tue Apr 17 22:39:28 2018
 import numpy as np
 from scipy.optimize import basinhopping, minimize, OptimizeResult
 from itertools import combinations
-import warnings
 
 class FitResult(OptimizeResult):
     """
@@ -33,8 +32,8 @@ class FitResult(OptimizeResult):
         
     """
 
-def fit_all(profiles, Basis, phi, *, profile_slice=slice(None), nspecies=1,
-            prof_noise=1):
+def fit_all(profiles, Basis, phi, *, nspecies=1,
+            prof_noise=1, vary_offset=False):
     """Find the best radius for monodisperse/polydisperse solutions
 
     Parameters
@@ -45,8 +44,6 @@ def fit_all(profiles, Basis, phi, *, profile_slice=slice(None), nspecies=1,
         List of basis to fit
     phi: (M) 1d array of float
         The test parameters
-    profile_slice: slice
-        The slice to consider when fitting (applied on L)
     nspecies: int
         Number of species to fit. 0=all.
     prof_noise: float or 1d array
@@ -63,21 +60,21 @@ def fit_all(profiles, Basis, phi, *, profile_slice=slice(None), nspecies=1,
         raise RuntimeError('duplicated phi')
 
     if nspecies == 1 and phi is not None:
-        return fit_monodisperse(profiles, Basis, profile_slice, phi, prof_noise)
+        return fit_monodisperse(profiles, Basis, phi, prof_noise, vary_offset)
 
     elif nspecies == 2:
-        return fit_2(profiles, Basis, profile_slice, phi, prof_noise)
+        return fit_2(profiles, Basis, phi, prof_noise)
 
     elif nspecies > 0:
-        return fit_N(profiles, Basis, profile_slice, nspecies, phi, prof_noise)
+        return fit_N(profiles, Basis, nspecies, phi, prof_noise)
 
     elif nspecies == 0:
-        return fit_polydisperse(profiles, Basis, profile_slice, phi, prof_noise)
+        return fit_polydisperse(profiles, Basis, phi, prof_noise)
 
     else:
         raise RuntimeError('Number of species negative!')
 
-def normalise_basis_factor(basis, profiles, profile_slice):
+def normalise_basis_factor(Basis, profiles, vary_offset):
     """Normalise basis so they corrrespond to profiles
     
     Parameters
@@ -86,21 +83,30 @@ def normalise_basis_factor(basis, profiles, profile_slice):
         List of basis to normalise
     profiles: (N x L) / (L) 1/2d array of float
         List of reference profiles
-    profile_slice: slice
-        The slice to consider (applied on L)
 
     Returns
     -------
     Basis: (M x N x L) / (M x L) 2/3d array of float
-        the normalised basis
+        the normalised basis factors
     """
-    profiles_scales = scale_factor(profiles, profile_slice)
-    basis_scales = scale_factor(basis, profile_slice)
-    if len(np.shape(profiles_scales)) < len(np.shape(basis_scales)):
-        profiles_scales = profiles_scales[np.newaxis, :]
-    return profiles_scales / basis_scales
+    mean_p = np.mean(profiles, -1)
+    mean_Basis = np.mean(Basis, -1)
+    mean_pBasis = np.mean(Basis * profiles, -1)
+    mean_Bsquare = np.mean(Basis * Basis, -1)
+    
+    if vary_offset:
+        covBp = mean_pBasis - mean_p * mean_Basis
+        varB = mean_Bsquare - mean_Basis * mean_Basis
+        fact_a = covBp / varB
+        fact_a[varB<1e-15] = 0
+        fact_b = mean_p - fact_a * mean_Basis
+        return fact_a, fact_b
+    else:
+        return mean_pBasis / mean_Bsquare, 0
+    
+    
 
-def normalise_basis(basis, profiles, profile_slice=slice(None)):
+def normalise_basis(basis, profiles, vary_offset):
     """Normalise basis so they corrrespond to profiles
     
     Parameters
@@ -109,45 +115,17 @@ def normalise_basis(basis, profiles, profile_slice=slice(None)):
         List of basis to normalise
     profiles: (N x L) / (L) 1/2d array of float
         List of reference profiles
-    profile_slice: slice
-        The slice to consider (applied on L)
 
     Returns
     -------
     Basis: (M x N x L) / (M x L) 2/3d array of float
         the normalised basis
     """
-    return basis * normalise_basis_factor(basis, profiles, profile_slice)
-
-def scale_factor(profiles, profile_slice):
-    """Get the integral of a profile
-    
-    Parameters
-    ----------
-    profiles: (... x L) nd array of float
-        List of profiles
-    profile_slice: slice
-        The slice to consider (applied on L)
-
-    Returns
-    -------
-    norm_factor: (...) n-1d array of float
-        The normalisation factor
-    
-    """
-    # if profile is mainly negative, error
-    if np.any(np.sum((profiles * (profiles > 0))[..., profile_slice], -1) <
-              5 * -np.sum((profiles * (profiles < 0))[..., profile_slice], -1)):
-        warnings.warn("Negative profile", RuntimeWarning)
-
-    norm_factor = np.sum(profiles[..., profile_slice], -1)[..., np.newaxis]
-#    if np.any(norm_factor <= 0):
-#        raise RuntimeError("Can't normalise profiles")
-
-    return norm_factor
+    fact_a, fact_b = normalise_basis_factor(basis, profiles, vary_offset)
+    return basis * fact_a[..., np.newaxis] + np.array(fact_b)[..., np.newaxis]
     
 #@profile    
-def get_matrices(profiles, Basis, profile_slice=slice(None), fullM=True):
+def get_matrices(profiles, Basis, fullM=True):
     """Return matrix representation of sums
 
      Parameters
@@ -170,8 +148,8 @@ def get_matrices(profiles, Basis, profile_slice=slice(None), fullM=True):
         psquare = sum(profiles*profile)
     """
     Nb = len(Basis)
-    flatbasis = np.reshape(Basis[..., profile_slice], (Nb, -1))
-    flatprofs = np.ravel(profiles[..., profile_slice])
+    flatbasis = np.reshape(Basis, (Nb, -1))
+    flatprofs = np.ravel(profiles)
 
     psquare = np.sum(flatprofs * flatprofs)
     b = np.sum(flatbasis * flatprofs[np.newaxis], -1)
@@ -198,27 +176,8 @@ def interpolate_1pos(arg_cent, arg_side, M_diag, M_udiag, b):
          - Mij + M_diag[arg_cent])
         / Bl_minus_Br_square) 
     return coeff_basis, Bl_minus_Br_square
-
-def rescale_basis(profiles, Basis):
-    # return normalise_basis(Basis, profiles)
-    mean_p = np.mean(profiles, -1)
-    mean_Basis = np.mean(Basis, -1)
-    mean_pBasis = np.mean(Basis * profiles, -1)
-    mean_Bsquare = np.mean(Basis * Basis, -1)
-    
-    covBp = mean_pBasis - mean_p * mean_Basis
-    varB = mean_Bsquare - mean_Basis * mean_Basis
-    
-    fact_a = covBp / varB
-    fact_a[varB<1e-15] = 0
-    fact_b = mean_p - fact_a * mean_Basis
-    
-    # return Basis * (mean_pBasis / mean_Bsquare)[..., np.newaxis]
-    
-    Basis = fact_a[..., np.newaxis] * Basis + fact_b[..., np.newaxis]
-    return Basis
             
-def fit_monodisperse(profiles, Basis, profile_slice, phi, prof_noise=1):
+def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     """Find the best monodisperse radius
 
     Parameters
@@ -240,11 +199,7 @@ def fit_monodisperse(profiles, Basis, profile_slice, phi, prof_noise=1):
         The best radius fit
     """
     # Normalize the basis to fit profiles
-    # Basis = normalise_basis(Basis, profiles, profile_slice)
-    profiles = profiles[..., profile_slice]
-    Basis = Basis[..., profile_slice]
-
-    Basis = rescale_basis(profiles, Basis)
+    Basis = normalise_basis(Basis, profiles, vary_offset)
     
     M_diag, M_udiag, b, psquare = get_matrices(
             profiles, Basis, fullM=False)
@@ -438,7 +393,7 @@ def jac_interp_2(index, M, b, psquare):
 #    return np.array([d0, *dinterp])
 
 #@profile
-def fit_2(profiles, Basis, profile_slice, phi, prof_noise=1):
+def fit_2(profiles, Basis, phi, prof_noise=1):
     """Find the best monodisperse radius
 
     Parameters
@@ -461,10 +416,10 @@ def fit_2(profiles, Basis, profile_slice, phi, prof_noise=1):
     """
     
     # Normalize the basis to fit profiles
-    Basis_factor = normalise_basis_factor(Basis, profiles, profile_slice)
+    Basis_factor, __ = normalise_basis_factor(Basis, profiles, offset=False)
     Basis = Basis * Basis_factor
     Basis_factor = Basis_factor[..., 0]
-    M, b, psquare = get_matrices(profiles, Basis, profile_slice)
+    M, b, psquare = get_matrices(profiles, Basis)
     
     Nb = len(b)
     
@@ -716,7 +671,7 @@ def get_constraints(Nb):
     return constr
 
 
-def fit_N(profiles, Basis, profile_slice, nspecies, phi, prof_noise=1):
+def fit_N(profiles, Basis, nspecies, phi, prof_noise=1):
     """Find the best N-disperse radius
 
     Parameters
@@ -736,7 +691,7 @@ def fit_N(profiles, Basis, profile_slice, nspecies, phi, prof_noise=1):
         The best radius fit spectrum
     """
     
-    M, b, psquare = get_matrices(profiles, Basis, profile_slice)
+    M, b, psquare = get_matrices(profiles, Basis)
     
     NRs = len(b)
     indices = np.asarray([i for i in combinations(range(NRs), nspecies)])
@@ -778,7 +733,7 @@ def fit_N(profiles, Basis, profile_slice, nspecies, phi, prof_noise=1):
     return fit
 
 
-def fit_polydisperse(profiles, Basis, profile_slice, phi, prof_noise=1):
+def fit_polydisperse(profiles, Basis, phi, prof_noise=1):
     """Find the best N-disperse radius
 
     Parameters
@@ -796,7 +751,7 @@ def fit_polydisperse(profiles, Basis, profile_slice, phi, prof_noise=1):
         The best fit spectrum
     """
     
-    M, b, psquare = get_matrices(profiles, Basis, profile_slice)
+    M, b, psquare = get_matrices(profiles, Basis)
 
     Nb = len(b)
     C0 = np.zeros(Nb)

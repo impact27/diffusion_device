@@ -62,4 +62,7 @@ json_infos['Remove bad fits'] = False
 # Set to 0<x<1 to reduce fitting error from step size.
 json_infos['dx factor'] = 1
 
+# Can get a better fit if the offset is not the same for all profiles.
+json_infos['Vary offset?'] = False
+
 settings.generate_json(datapath, json_infos)

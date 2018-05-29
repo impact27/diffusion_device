@@ -184,6 +184,10 @@ settings.add_info("KEY_STG_DXFACTOR", "dx factor", float,
                   required=False,
                   default=1,
                   explanation="Set to 0<x<1 to reduce fitting error from step size.")
+settings.add_info("KEY_STG_VARY_OFFSET", "Vary offset?", bool,
+                  required=False,
+                  default=False,
+                  explanation="Can get a better fit if the offset is not the same for all profiles.")
 # settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
 #                  required=False,
 #                  default=False,

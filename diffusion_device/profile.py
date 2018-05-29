@@ -23,12 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
-import warnings
 from scipy.signal import savgol_filter
 
 from .basis_generate import getprofiles
 from . import display_data
-from .profiles_fitting import fit_all, normalise_basis, rescale_basis
+from .profiles_fitting import fit_all, normalise_basis_factor
 
 def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """Size the profiles
@@ -57,6 +56,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     # load variables
     nspecies = settings["KEY_STG_NSPECIES"]
 
+    vary_offset = settings["KEY_STG_VARY_OFFSET"]
     test_radii = get_test_radii(settings)
     profile_slice = ignore_slice(settings["KEY_STG_IGNORE"], infos["Pixel size"])
     readingpos = get_reading_position(metadata, settings, len(profiles))
@@ -73,11 +73,10 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
                         readingpos=fit_readingpos,
                         zpos=zpos, infos=infos,
                         **profiles_arg_dir)
-
+    fit_Basis = Basis[..., profile_slice]
     # Get best fit
-    fit = fit_all(fit_profiles, Basis, test_radii,
-                  profile_slice=profile_slice, nspecies=nspecies,
-                  prof_noise=infos["Profiles noise std"])
+    fit = fit_all(fit_profiles, fit_Basis, test_radii, nspecies=nspecies,
+                  prof_noise=infos["Profiles noise std"], vary_offset=vary_offset)
 
     infos["Radius error std"] = fit.dx
 
@@ -103,7 +102,6 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
         # One free parameter
         Mfreepar = 1
-        fits = rescale_basis(profiles, fits)
 
     else:
 
@@ -118,7 +116,9 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
 
-        fits = normalise_basis(fits, profiles, profile_slice)
+    fact_a, fact_b = normalise_basis_factor(fits[1:, ..., profile_slice], 
+                                            fit_profiles, vary_offset)
+    fits[1:] = fact_a[..., np.newaxis] * fits[1:] + np.array(fact_b)[..., np.newaxis]
 
     get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings)
@@ -209,7 +209,7 @@ def get_fit_data(settings, profiles, readingpos, profile_slice, infos, fits):
     if np.mean(fit_init[profile_slice]) < threshold:
         raise RuntimeError("signal to noise too low")
 
-    return fit_init, fit_profiles, fit_readingpos, fit_index
+    return fit_init, fit_profiles[..., profile_slice], fit_readingpos, fit_index
 
 def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings):
@@ -425,8 +425,15 @@ def init_process(profile, mode, profile_slice):
         the processed profile
 
     """
-    init = np.zeros_like(profile)*np.nan
-    init[profile_slice] = profile[profile_slice]
+    Npix_ignore = profile_slice.start
+    if Npix_ignore > 0:
+        init = np.zeros_like(profile)*np.nan
+        init[profile_slice] = profile[profile_slice]
+        init[:Npix_ignore] = np.mean(profile[Npix_ignore:2*Npix_ignore])
+        init[-Npix_ignore:] = np.mean(profile[-2*Npix_ignore:-Npix_ignore])
+    else:
+        init = np.array(profile)
+    
 
     if mode == 'none':
         return init
