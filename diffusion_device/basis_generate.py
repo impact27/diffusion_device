@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
+import C_diffusion
 
 #@profile
 
@@ -176,14 +177,16 @@ def step_matrix_from_dic(
     if key in step_matrix_dictionnary:
         return step_matrix_dictionnary[key]
     else:
-        Fdir = {}
-        Fdir[1], dphi = stepMatrix(
+        F, dphi = stepMatrix(
             Zgrid, Ygrid, beta,
             mu_prime_E=mu_prime_E,
             Zmirror=Zmirror, step_factor=step_factor,
             yboundary=yboundary, poiseuille_prime=poiseuille_prime)
-        step_matrix_dictionnary[key] = (Fdir, dphi)
-        return Fdir, dphi
+        
+        Flist = F[np.newaxis]
+        Fdic = {"Flist": Flist, 'dphi': dphi}
+        step_matrix_dictionnary[key] = Fdic
+        return Fdic
 
 #@profile
 def get_unitless_profiles(Cinit, phi, beta,
@@ -245,11 +248,6 @@ def get_unitless_profiles(Cinit, phi, beta,
             get_unitless_profiles.dirFList = {}
         step_matrix_dictionnary = get_unitless_profiles.dirFList
 
-    def getF(Fdir, NSteps):
-        if NSteps not in Fdir:
-            Fdir[NSteps] = np.dot(Fdir[NSteps // 2], Fdir[NSteps // 2])
-        return Fdir[NSteps]
-
     # Zgrid
     if Zgrid is None:
         if Zmirror or len(Cinit.shape) < 2:
@@ -271,7 +269,7 @@ def get_unitless_profiles(Cinit, phi, beta,
 
     Ygrid = Cinit.shape[1]
     Nphi = len(phi)
-    profilespos = np.tile(np.ravel(Cinit), (Nphi, 1))
+    
 
     # get maximum acceptable dphi
     dphi_max = None
@@ -281,9 +279,11 @@ def get_unitless_profiles(Cinit, phi, beta,
             raise RuntimeError('dphi too small!')
 
     # get step matrix
-    Fdir, dphi = step_matrix_from_dic(
+    Fdic = step_matrix_from_dic(
         step_matrix_dictionnary, Zgrid, Ygrid, beta,
         mu_prime_E, Zmirror, yboundary, step_factor, dphi_max)
+    
+    dphi = Fdic['dphi']
 
     # Get Nsteps for each radius and position
     Nsteps = np.asarray(np.round(phi / dphi), dtype=int)
@@ -292,27 +292,14 @@ def get_unitless_profiles(Cinit, phi, beta,
     # transform Nsteps to binary array
     pow2 = 1 << np.arange(int(np.floor(np.log2(Nsteps.max()) + 1)))
     pow2 = pow2[:, None]
-    binSteps = np.bitwise_and(Nsteps[None, :], pow2) > 0
+    NSteps_binary = np.bitwise_and(Nsteps[None, :], pow2) > 0
 
     # Sort for less calculations
-    sortedbs = np.lexsort(binSteps[::-1])
-
-    # for each unit
-    for i, bsUnit in enumerate(binSteps):
-        F = getF(Fdir, 2**i)
-        # save previous number
-        prev = np.zeros(i + 1, dtype=bool)
-        for j, bs in enumerate(bsUnit[sortedbs]):  # [sortedbs]
-            prof = profilespos[sortedbs[j], :]
-            act = binSteps[:i + 1, sortedbs[j]]
-            # If we have a one, multiply by the current step function
-            if bs:
-                # If this is the same as before, no need to recompute
-                if (act == prev).all():
-                    prof[:] = profilespos[sortedbs[j - 1]]
-                else:
-                    prof[:] = np.dot(F, prof)
-            prev = act
+    idx_sorted = np.lexsort(NSteps_binary[::-1])
+    
+    NSteps_binary = NSteps_binary.T
+    profilespos = np.tile(np.ravel(Cinit), (Nphi, 1))
+    profilespos = compute_profiles_c(NSteps_binary, idx_sorted, profilespos, Fdic)
 
     # reshape correctly
     profilespos.shape = (Nphi, ZgridEffective, Ygrid)
@@ -340,7 +327,60 @@ def get_unitless_profiles(Cinit, phi, beta,
 
     return profilespos, phi, dphi
 
+#@profile
+def compute_profiles(NSteps_binary, idx_sorted, profilespos, Fdic):
+    """
+    Do The calculations
+    """
+    Nbinary = np.shape(NSteps_binary)[1]
+    
+    if Nbinary > len(Fdic["Flist"]):
+        Flist = np.zeros((Nbinary, *np.shape(Fdic["Flist"])[1:]))
+        Flist[:len(Fdic["Flist"])] = Fdic["Flist"]
+        for i in range(len(Fdic["Flist"]), Nbinary):
+            Flist[i] = np.dot(Flist[i-1], Flist[i-1])
+        Fdic["Flist"] = Flist
+    
+    Flist = Fdic["Flist"]
+    
+    # for each unit
+    for i in range(Nbinary):
+        F = Flist[i]
+        # save previous number
+        prev = np.zeros(i + 1, dtype=bool)
+        for j in range(np.shape(NSteps_binary)[0]):
+            bs = NSteps_binary[idx_sorted[j], i]
+            act = NSteps_binary[idx_sorted[j], :i + 1]
+            # If we have a one, multiply by the current step function
+            if bs:
+                prof = profilespos[idx_sorted[j], :]
+                # If this is the same as before, no need to recompute
+                if (act == prev).all():
+                    prof[:] = profilespos[idx_sorted[j - 1]]
+                else:
+                    prof[:] = np.dot(F, prof)
+            prev = act
+    return profilespos
 
+#@profile
+def compute_profiles_c(NSteps_binary, idx_sorted, profilespos, Fdic):
+    """
+    Do the calculations slightly slower with C!
+    """
+    Nbinary = np.shape(NSteps_binary)[1]
+    
+    if Nbinary > len(Fdic["Flist"]):
+        Flist = np.zeros((Nbinary, *np.shape(Fdic["Flist"])[1:]))
+        Flist[:len(Fdic["Flist"])] = Fdic["Flist"]
+        for i in range(len(Fdic["Flist"]), Nbinary):
+            Flist[i] = np.dot(Flist[i-1], Flist[i-1])
+        Fdic["Flist"] = Flist
+    
+    Flist = Fdic["Flist"]
+    
+    C_diffusion.compute_profiles(NSteps_binary, idx_sorted, profilespos, Flist)
+    return profilespos
+            
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                        Wz, viscosity, temperature, Zgrid=None, *,
                        fullGrid=False, zpos=None,
