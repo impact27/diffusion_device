@@ -426,7 +426,7 @@ def init_process(profile, mode, profile_slice):
 
     """
     Npix_ignore = profile_slice.start
-    if Npix_ignore > 0:
+    if Npix_ignore is not None:
         init = np.zeros_like(profile)*np.nan
         init[profile_slice] = profile[profile_slice]
         init[:Npix_ignore] = np.mean(profile[Npix_ignore:2*Npix_ignore])

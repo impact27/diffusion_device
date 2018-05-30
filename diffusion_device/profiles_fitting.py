@@ -163,6 +163,7 @@ def get_matrices(profiles, Basis, fullM=True):
     
 
 def interpolate_1pos(arg_cent, arg_side, M_diag, M_udiag, b):
+    """Interpolated 1 position to find the best fit"""
     #np.sum((b1-b2)**2
     Mij = M_udiag[np.min([arg_cent, arg_side])]
     Bl_minus_Br_square = (M_diag[arg_cent] + M_diag[arg_side]
@@ -201,22 +202,19 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     # Normalize the basis to fit profiles
     Basis = normalise_basis(Basis, profiles, vary_offset)
     
+    # Get matrices to avoid recalculating 
     M_diag, M_udiag, b, psquare = get_matrices(
             profiles, Basis, fullM=False)
     
-    
     # get best residual
     res = psquare + M_diag - 2 * b
-    spectrum = np.zeros(len(b))
-    
     arg_cent = np.argmin(res)
-    
     if arg_cent == 0:
         raise RuntimeError(f'Phi too large')
     if arg_cent == len(b) - 1:
         raise RuntimeError(f'Phi too small')
     
-    
+    # Get Interpolated best result
     arg_side = arg_cent + 1
     coeff_basis, Bl_minus_Br_square = interpolate_1pos(
             arg_cent, arg_side, M_diag, M_udiag, b)        
@@ -227,15 +225,16 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
 
     if np.abs(coeff_basis) > 3:
         raise RuntimeError("Interpolation failed: out of bounds")
+        
+    best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
+                      + coeff_basis * np.log(phi[arg_side]))
     
+    # Save spectrum for consistent return
+    spectrum = np.zeros(len(b))
     spectrum[arg_cent] = 1 - coeff_basis
     spectrum[arg_side] = coeff_basis
 
-    best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
-                      + coeff_basis * np.log(phi[arg_side]))
-
-#    best_phi = coeff_basis * phi[arg_side] + (1-coeff_basis) * phi[arg_cent]
-
+    # Get error
     # sqrt(dR**2/np.sum((b1-b2)**2)*sigma
     phi_error = (prof_noise
                  * np.sqrt(np.square(phi[arg_cent] - phi[arg_side])
@@ -256,7 +255,7 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     return fit
 
 def get_idx(C_interp, idx):
-    
+    """Separate index into two"""
     idx = np.tile(idx, (2, 1)).T
     idx[:, 0] += np.asarray(np.floor(C_interp), int)
     idx[:, 1] += np.asarray(np.ceil(C_interp), int)
@@ -264,7 +263,7 @@ def get_idx(C_interp, idx):
     return C_interp, idx
 
 def get_matrices_interp(index, M, b):
-    
+    """Get interpolated matrices corresponding to index"""
     interp_coeff = index - np.floor(index)
     index_floor = np.array(np.floor(index), int)
     index_ceil = np.array(np.ceil(index), int)
@@ -276,17 +275,17 @@ def get_matrices_interp(index, M, b):
     i_idx_c = index_ceil[:, np.newaxis]
     j_idx_c = index_ceil[np.newaxis, :]
     
-    
-    BB = ((1 - C_i) * (1 - C_j) * M[i_idx_f, j_idx_f]
-                    + C_i * (1 - C_j) * M[i_idx_c, j_idx_f]
-                    + (1 - C_i) * C_j * M[i_idx_f, j_idx_c]
-                    + C_i * C_j * M[i_idx_c, j_idx_c])
+    BB = ((1 - C_i) * ((1 - C_j) * M[i_idx_f, j_idx_f]
+                           + C_j * M[i_idx_f, j_idx_c])
+              + C_i * ((1 - C_j) * M[i_idx_c, j_idx_f]
+                           + C_j * M[i_idx_c, j_idx_c]))
+
     By = (1 - interp_coeff) * b[index_floor] + interp_coeff * b[index_ceil]
     
     return By, BB
 
 def residual_2_floating(index, M, b, psquare):
-
+    """Compute the residual and ratio for two spicies"""
     By, BB = get_matrices_interp(index, M, b)
     
     # v = y - Bi
@@ -308,13 +307,66 @@ def residual_2_floating(index, M, b, psquare):
     
     return residual, fraction
 
+def get_matrices_interp_N(index, BB, Bp, B):
+    """Get interpolated matrices and vector"""
+    interp_coeff = index - np.floor(index)
+    index_floor = np.array(np.floor(index), int)
+    index_ceil = np.array(np.ceil(index), int)
+    
+    C_i = interp_coeff[:, np.newaxis]
+    C_j = interp_coeff[np.newaxis, :]
+    i_idx_f = index_floor[:, np.newaxis]
+    j_idx_f = index_floor[np.newaxis, :]
+    i_idx_c = index_ceil[:, np.newaxis]
+    j_idx_c = index_ceil[np.newaxis, :]
+    
+    BiBi = ((1 - C_i) * ((1 - C_j) * BB[i_idx_f, j_idx_f]
+                           + C_j * BB[i_idx_f, j_idx_c])
+              + C_i * ((1 - C_j) * BB[i_idx_c, j_idx_f]
+                           + C_j * BB[i_idx_c, j_idx_c]))
+
+    Bip = (1 - interp_coeff) * Bp[index_floor] + interp_coeff * Bp[index_ceil]
+    Bi = (1 - interp_coeff) * B[index_floor] + interp_coeff * B[index_ceil]
+    
+    
+    return BiBi, Bip, Bi
+
+def residual_N_floating(index, BB, Bp, B, p, pp, vary_offset=False):
+    """Compute the residual and ratio for two spicies"""
+    BB, Bp, B = get_matrices_interp_N(index, BB, Bp, B)
+    
+    if not vary_offset:
+        BBm1 = np.linalg.inv(BB)
+        residual = - Bp[:, np.newaxis] @ BBm1 @ Bp[np.newaxis] + pp
+        coeff_a = BBm1 @ Bp
+        return residual, coeff_a
+    
+    Npix = len(B)
+    
+    covBB = BB/Npix - (B[:, np.newaxis]/Npix) @ (B[np.newaxis]/Npix)
+    covBp = Bp/Npix - B/Npix * p/Npix
+    
+    coeff_a = np.linalg.inv(covBB) @ covBp
+    coeff_b = p/Npix - coeff_a @ covBp
+    
+    residual = (coeff_a[:, np.newaxis] @ BB @ coeff_a[np.newaxis]
+                + coeff_b**2 * Npix
+                + pp
+                + 2 * coeff_b * coeff_a @ B
+                - 2 * coeff_a @ Bp
+                - 2 * coeff_b * p)
+
+    return residual, coeff_a, coeff_b
+
 def res_interp_2(index, M, b, psquare):
+    """Compute the residual for two spicies"""
     try:
         return residual_2_floating(index, M, b, psquare)[0]
     except:
         return np.nan
 
 def jac_interp_2(index, M, b, psquare):
+    """Jacobian function of res_interp_2"""
     if np.min(index) < 0 or np.max(index) > len(b) -1:
         return index * np.nan
     nspecies = 2
@@ -345,53 +397,6 @@ def jac_interp_2(index, M, b, psquare):
         
     return np.array(dinterp)
 
-#def res_interp_2(C, M, b, psquare, idx):
-#    C_phi = [1 - C[0], C[0]]
-#    C_interp = C[1:]
-#
-#    By, BB = get_matrices_interp(idx + C_interp, M, b)
-#    
-#    FitFit = (C_phi[0]**2 * BB[0, 0]
-#              + 2 * C_phi[1] * C_phi[0] * BB[0, 1]
-#              + C_phi[1]**2 * BB[1, 1])
-#    Fity = C_phi[0] * By[0] + C_phi[1] * By[1]
-#
-#    residual = FitFit - 2 * Fity + psquare
-#    return residual
-#
-#
-#def jac_interp_2(C, M, b, psquare, idx):
-#    nspecies = 2
-#    C_phi = [1 - C[0], C[0]]
-#    C_interp = C[1:]
-#    
-#    By, BB = get_matrices_interp(idx + C_interp, M, b)
-#    C_interp, idx = get_idx(C_interp, idx)
-#
-#    FitB = np.zeros(nspecies)
-#    for i in range(nspecies):
-#        FitB[i] = C_phi[0] * BB[0, i] + C_phi[1] * BB[1, i]
-#
-#    BBk = np.zeros((nspecies, nspecies, 2))
-#    for i in range(nspecies):
-#        for j in range(nspecies):
-#            for k in range(2):
-#                BBk[i, j, k] = ((1 - C_interp[i]) * M[idx[i, 0], idx[j, k]]
-#                                + C_interp[i] * M[idx[i, 1], idx[j, k]])
-#    FitBk = np.zeros((nspecies, 2))
-#    for i in range(nspecies):
-#        for k in range(2):
-#            FitBk[i, k] = C_phi[0] * BBk[0, i, k] + C_phi[1] * BBk[1, i, k]
-#
-#    dinterp = np.zeros(nspecies)
-#    for i in range(nspecies):
-#        dinterp[i] = 2 * C_phi[i] * (FitBk[i, 1] - FitBk[i, 0]
-#                                     + b[idx[i, 0]] - b[idx[i, 1]])
-#
-#    d0 = 2 * (FitB[1] - FitB[0] + By[0] - By[1])
-#
-#    return np.array([d0, *dinterp])
-
 #@profile
 def fit_2(profiles, Basis, phi, prof_noise=1):
     """Find the best monodisperse radius
@@ -414,12 +419,11 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
     radii: float
         The best radius fit
     """
-    
+
     # Normalize the basis to fit profiles
     Basis_factor = np.mean(profiles, -1)/ np.mean(Basis, -1)
-    Basis_factor = Basis_factor[..., np.newaxis]
-    Basis = Basis * Basis_factor
-    Basis_factor = Basis_factor[..., 0]
+    Basis = Basis * Basis_factor[..., np.newaxis]
+    
     M, b, psquare = get_matrices(profiles, Basis)
     
     Nb = len(b)
@@ -430,6 +434,7 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
     #Use that to limit search space
     res_1 = psquare + M_diag - 2 * b
     argmin_1 = np.argmin(res_1)
+    
     coeff_basis, Bl_minus_Br_square = interpolate_1pos(
             argmin_1, argmin_1+1, np.diag(M), np.diag(M, 1), b)
         
@@ -444,63 +449,33 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
     if XY_arg == 0:
         raise RuntimeError("Monodisperse")
     XY = np.square(XY_arg)
-        
+
     factor = np.square(XY_arg+1)/XY*1.1
-    ratio = np.tan(np.linspace(
-            np.arctan(XY/np.square(argmin_1-1)*factor),
-            np.arctan(np.square(len(b)-argmin_1-1)/XY/factor),
-            101))[:, np.newaxis]
+    ratio = np.tan(
+            np.linspace(
+                np.arctan(XY/np.square(argmin_1-1)*factor),
+                np.arctan(np.square(len(b)-argmin_1-1)/XY/factor),
+                101)
+            )[:, np.newaxis]
     product = np.exp(np.linspace(np.log(XY/factor), 
                                  np.log(XY*factor), 
                                  101))[np.newaxis, :]
     x = np.sqrt(product*ratio)
     y = np.sqrt(product/ratio)
-    
-    
+
     indices = np.asarray([argmin_m - x, y + argmin_m])
-    
+
     valid = np.logical_and(indices > 0, indices < len(b) -1)
     valid = np.logical_and(valid[0], valid[1])
     indices = indices[:, valid]
-        
+
     residual, fraction = residual_2_floating(indices, M, b, psquare)
-    
-    
-    
-    
-    
-#    
-#    sub_M = M[argmin_1:, :argmin_1+1]
-#    
-#    fact_1 = (sub_M 
-#              - (M_diag - b)[argmin_1:, np.newaxis] 
-#              - b[np.newaxis, :argmin_1+1])
-#    fact_2 = (M_diag[np.newaxis, :argmin_1+1] 
-#                - 2 * sub_M 
-#                + M_diag[argmin_1:, np.newaxis])
-#    fact_3 = (M_diag - 2*b)[argmin_1:, np.newaxis] + psquare 
-#    
-#    
-#    
-#    
-#    fraction = np.zeros(np.shape(sub_M))
-#    valid = fact_2 != 0
-#    fraction[valid] = - fact_1[valid]/fact_2[valid]
-#    fraction[fraction > 1] = 1
-#    fraction[fraction < 0] = 0
-#    
-#    # Resibual for each combination
-##    residual = (fraction**2 * fact_2 
-##                    + 2 * fraction * fact_1 
-##                    + fact_3)
-#    
-#    residual = (fraction * fact_1 + fact_3)
-    
+
     # Get best
     idx = np.unravel_index(np.argmin(residual), np.shape(residual))
     frac = fraction[idx]
     index = indices[:, idx]
-    
+
     if np.min(index) == 0 or np.max(index) == Nb-1:
         raise RuntimeError("Fit out of range")
 
@@ -521,36 +496,19 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
                            / Bl_minus_Br_square))
         phi_error[rn] = error
 
-#    # If basis not fine enough, we still have a fit, but success is False
-#    if not np.all(np.diff(idx) > 3):
-#        prop_phi = np.asarray([1 - frac, frac])
-#        spectrum[idx] = prop_phi
-#        fit = FitResult(x=phi[idx], dx=phi_error, x_distribution=prop_phi,
-#                        basis_spectrum=spectrum, residual=np.min(residual),
-#                        success=False, status=1)
-#        return fit
-
-    # Find interpolation for each position
-#    C0 = [frac, 0, 0]
     C0 = index
     min_res = minimize(res_interp_2, C0, args=(M, b, psquare),
                        jac=jac_interp_2,
                        method='BFGS', options={'gtol': 1e-16, 'norm': 2})
-    
+
     index = np.sort(min_res.x)
-    
-    __, frac = residual_2_floating(index, M, b, psquare)
-    
-#    frac = min_res.x[0]
-#    C_interp = np.asarray(min_res.x[1:])
-    
-    
-    
+
+    __, frac = residual_2_floating(index, M, b, psquare)    
+
     # C < 0 mean interpolate to the left
     C_interp, idx_min = get_idx(index-np.floor(index), 
                                 np.asarray(np.floor(index), int))
-    
-    
+
     # Result
     phi_res = np.exp((1 - C_interp) * np.log(phi[idx_min[:, 0]]) 
                      + C_interp * np.log(phi[idx_min[:, 1]]))
@@ -561,7 +519,7 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
     prop_phi = np.asarray([1 - frac, frac])
     spectrum[idx_min] = (np.array([1 - C_interp, C_interp]).T 
                         * prop_phi[:, np.newaxis])
-    
+
     spectrum[idx_min] *= Basis_factor[idx_min]
     prop_phi *= np.ravel((1 - C_interp) * Basis_factor[idx_min[:, 0]]
                           + C_interp * Basis_factor[idx_min[:, 1]])
@@ -569,7 +527,6 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
                     basis_spectrum=spectrum, residual=min_res.fun,
                     success=True, status=0, interp_coeff=C_interp)
     return fit
-
 
 def res_polydisperse(C, M, b, psquare):
     """Residus of the fitting
@@ -782,3 +739,94 @@ def fit_polydisperse(profiles, Basis, phi, prof_noise=1):
     fit = FitResult(x=phi, dx=radius_error, x_distribution=spectrum,
                     basis_spectrum=spectrum, residual=res.fun)
     return fit
+
+#%% Graveyard
+    
+#def res_interp_2(C, M, b, psquare, idx):
+#    C_phi = [1 - C[0], C[0]]
+#    C_interp = C[1:]
+#
+#    By, BB = get_matrices_interp(idx + C_interp, M, b)
+#    
+#    FitFit = (C_phi[0]**2 * BB[0, 0]
+#              + 2 * C_phi[1] * C_phi[0] * BB[0, 1]
+#              + C_phi[1]**2 * BB[1, 1])
+#    Fity = C_phi[0] * By[0] + C_phi[1] * By[1]
+#
+#    residual = FitFit - 2 * Fity + psquare
+#    return residual
+#
+#
+#def jac_interp_2(C, M, b, psquare, idx):
+#    nspecies = 2
+#    C_phi = [1 - C[0], C[0]]
+#    C_interp = C[1:]
+#    
+#    By, BB = get_matrices_interp(idx + C_interp, M, b)
+#    C_interp, idx = get_idx(C_interp, idx)
+#
+#    FitB = np.zeros(nspecies)
+#    for i in range(nspecies):
+#        FitB[i] = C_phi[0] * BB[0, i] + C_phi[1] * BB[1, i]
+#
+#    BBk = np.zeros((nspecies, nspecies, 2))
+#    for i in range(nspecies):
+#        for j in range(nspecies):
+#            for k in range(2):
+#                BBk[i, j, k] = ((1 - C_interp[i]) * M[idx[i, 0], idx[j, k]]
+#                                + C_interp[i] * M[idx[i, 1], idx[j, k]])
+#    FitBk = np.zeros((nspecies, 2))
+#    for i in range(nspecies):
+#        for k in range(2):
+#            FitBk[i, k] = C_phi[0] * BBk[0, i, k] + C_phi[1] * BBk[1, i, k]
+#
+#    dinterp = np.zeros(nspecies)
+#    for i in range(nspecies):
+#        dinterp[i] = 2 * C_phi[i] * (FitBk[i, 1] - FitBk[i, 0]
+#                                     + b[idx[i, 0]] - b[idx[i, 1]])
+#
+#    d0 = 2 * (FitB[1] - FitB[0] + By[0] - By[1])
+#
+#    return np.array([d0, *dinterp])
+    
+#    frac = min_res.x[0]
+#    C_interp = np.asarray(min_res.x[1:])
+    
+#    
+#    sub_M = M[argmin_1:, :argmin_1+1]
+#    
+#    fact_1 = (sub_M 
+#              - (M_diag - b)[argmin_1:, np.newaxis] 
+#              - b[np.newaxis, :argmin_1+1])
+#    fact_2 = (M_diag[np.newaxis, :argmin_1+1] 
+#                - 2 * sub_M 
+#                + M_diag[argmin_1:, np.newaxis])
+#    fact_3 = (M_diag - 2*b)[argmin_1:, np.newaxis] + psquare 
+#    
+#    
+#    
+#    
+#    fraction = np.zeros(np.shape(sub_M))
+#    valid = fact_2 != 0
+#    fraction[valid] = - fact_1[valid]/fact_2[valid]
+#    fraction[fraction > 1] = 1
+#    fraction[fraction < 0] = 0
+#    
+#    # Resibual for each combination
+##    residual = (fraction**2 * fact_2 
+##                    + 2 * fraction * fact_1 
+##                    + fact_3)
+#    
+#    residual = (fraction * fact_1 + fact_3)
+
+#    # If basis not fine enough, we still have a fit, but success is False
+#    if not np.all(np.diff(idx) > 3):
+#        prop_phi = np.asarray([1 - frac, frac])
+#        spectrum[idx] = prop_phi
+#        fit = FitResult(x=phi[idx], dx=phi_error, x_distribution=prop_phi,
+#                        basis_spectrum=spectrum, residual=np.min(residual),
+#                        success=False, status=1)
+#        return fit
+
+    # Find interpolation for each position
+#    C0 = [frac, 0, 0]
