@@ -29,8 +29,6 @@ except ImportError:
     from .compute_profiles_py import compute_profiles
 
 
-
-
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
                 Zgrid=None, muEoD=0, *, fullGrid=False, zpos=None,
                 Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
@@ -156,7 +154,9 @@ The unitless equation is:
     V' dx'C = (dy'^2D + dz'^2C) - mu'E dy'C
 
 """
-#@profile
+# @profile
+
+
 def step_matrix_from_dic(
         step_matrix_dictionnary, Zgrid, Ygrid, beta,
         mu_prime_E, Zmirror, yboundary, step_factor=None, dphi_max=None):
@@ -185,13 +185,15 @@ def step_matrix_from_dic(
             mu_prime_E=mu_prime_E,
             Zmirror=Zmirror, step_factor=step_factor,
             yboundary=yboundary, poiseuille_prime=poiseuille_prime)
-        
+
         Flist = F[np.newaxis]
         Fdic = {"Flist": Flist, 'dphi': dphi}
         step_matrix_dictionnary[key] = Fdic
         return Fdic
 
-#@profile
+# @profile
+
+
 def get_unitless_profiles(Cinit, phi, beta,
                           Zgrid=None, mu_prime_E=0, *, fullGrid=False, zpos=None,
                           Zmirror=True, step_factor=None, yboundary='Neumann',
@@ -272,7 +274,6 @@ def get_unitless_profiles(Cinit, phi, beta,
 
     Ygrid = Cinit.shape[1]
     Nphi = len(phi)
-    
 
     # get maximum acceptable dphi
     dphi_max = None
@@ -285,7 +286,7 @@ def get_unitless_profiles(Cinit, phi, beta,
     Fdic = step_matrix_from_dic(
         step_matrix_dictionnary, Zgrid, Ygrid, beta,
         mu_prime_E, Zmirror, yboundary, step_factor, dphi_max)
-    
+
     dphi = Fdic['dphi']
 
     # Get Nsteps for each radius and position
@@ -299,10 +300,11 @@ def get_unitless_profiles(Cinit, phi, beta,
 
     # Sort for less calculations
     idx_sorted = np.lexsort(NSteps_binary[::-1])
-    
+
     NSteps_binary = NSteps_binary.T
     profilespos = np.tile(np.ravel(Cinit), (Nphi, 1))
-    profilespos = compute_profiles(NSteps_binary, idx_sorted, profilespos, Fdic)
+    profilespos = compute_profiles(
+        NSteps_binary, idx_sorted, profilespos, Fdic)
 
     # reshape correctly
     profilespos.shape = (Nphi, ZgridEffective, Ygrid)
@@ -330,9 +332,9 @@ def get_unitless_profiles(Cinit, phi, beta,
 
     return profilespos, phi, dphi
 
-#@profile
+# @profile
 
-            
+
 def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
                        Wz, viscosity, temperature, Zgrid=None, *,
                        fullGrid=False, zpos=None,
@@ -424,7 +426,7 @@ def getElectroProfiles(Cinit, Q, absmuEoDs, muEs, readingpos, Wy,
 
     return rets
 
-#@profile
+# @profile
 
 
 def poiseuille(*, Zgrid, Ygrid, Q, Wy, beta,
@@ -510,9 +512,9 @@ def poiseuille_unitless(
                 np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
 
     V /= np.mean(V)
-    
+
     poiseuille_unitless.saved_V[key] = V
-    
+
     return V
 
 

@@ -188,7 +188,7 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
 
     pbg = np.nanmean(bg_cpy, 0) - 1
     pbg[np.isnan(pbg)] = 0
-    
+
     squeeze = False
     if len(np.shape(im)) == 2:
         squeeze = True
@@ -206,7 +206,7 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         shift = len(pim) - np.argmax(cnv) - 1
         data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
         shifts.append(shift)
-    
+
     if reflatten:
         data += 1
         data /= rmbg.polyfit2d(data, 2, mask=maskbg)
@@ -250,7 +250,8 @@ def bg_angle(im, bg, Nprofs, chwidth, wallwidth, infoDict=None, goodFeatures=Tru
         tmpout = remove_curve_background_alt(im, bg, infoDict=infoDict)
 
     if infoDict is not None:
-        infoDict['BrightInfos'] = bright.image_infos(tmpout, Nprofs, chwidth,  wallwidth)
+        infoDict['BrightInfos'] = bright.image_infos(
+            tmpout, Nprofs, chwidth,  wallwidth)
     return dp.image_angle(tmpout)
 
 

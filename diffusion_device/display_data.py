@@ -121,9 +121,9 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
     plot_single(radius, profiles, fits, lse, pixel_size,
                 infos["Profiles noise std"], radius_error)
 
-    #==========================================================================
+    # ==========================================================================
     # Save
-    #==========================================================================
+    # ==========================================================================
 
     if outpath is not None:
         plt.savefig(outpath + '_fig.pdf')

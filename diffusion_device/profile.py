@@ -29,6 +29,7 @@ from .basis_generate import getprofiles
 from . import display_data
 from .profiles_fitting import fit_all, normalise_basis_factor
 
+
 def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """Size the profiles
 
@@ -58,7 +59,8 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
 
     vary_offset = settings["KEY_STG_VARY_OFFSET"]
     test_radii = get_test_radii(settings)
-    profile_slice = ignore_slice(settings["KEY_STG_IGNORE"], infos["Pixel size"])
+    profile_slice = ignore_slice(
+        settings["KEY_STG_IGNORE"], infos["Pixel size"])
     readingpos = get_reading_position(metadata, settings, len(profiles))
     profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
 
@@ -116,14 +118,16 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
 
-    fact_a, fact_b = normalise_basis_factor(fits[1:, ..., profile_slice], 
+    fact_a, fact_b = normalise_basis_factor(fits[1:, ..., profile_slice],
                                             fit_profiles, vary_offset)
-    fits[1:] = fact_a[..., np.newaxis] * fits[1:] + np.array(fact_b)[..., np.newaxis]
+    fits[1:] = fact_a[..., np.newaxis] * \
+        fits[1:] + np.array(fact_b)[..., np.newaxis]
 
     get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings)
 
     return r, fits
+
 
 def ignore_slice(ignore, pixel_size):
     """Get a slice to ignore sides
@@ -211,6 +215,7 @@ def get_fit_data(settings, profiles, readingpos, profile_slice, infos, fits):
 
     return fit_init, fit_profiles[..., profile_slice], fit_readingpos, fit_index
 
+
 def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings):
 
@@ -228,6 +233,7 @@ def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
     if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
         raise RuntimeError("Least square error too large")
 
+
 def synthetic_init(prof0, profile_slice):
     """Generates a synthetic profile that is 1/11 of the channel"""
     N = len(prof0)
@@ -236,6 +242,7 @@ def synthetic_init(prof0, profile_slice):
     init[np.abs(x) < 1 / 22 * N] = 1
     init *= np.sum(prof0[profile_slice], -1) / np.sum(init[profile_slice], -1)
     return init
+
 
 def center(prof, subtract_mean=False):
     """
@@ -433,7 +440,6 @@ def init_process(profile, mode, profile_slice):
         init[-Npix_ignore:] = np.mean(profile[-2*Npix_ignore:-Npix_ignore])
     else:
         init = np.array(profile)
-    
 
     if mode == 'none':
         return init

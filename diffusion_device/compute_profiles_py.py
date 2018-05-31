@@ -6,23 +6,24 @@ Created on Tue May 29 17:56:10 2018
 @author: quentinpeter
 """
 import numpy as np
-#@profile
+# @profile
+
 
 def compute_profiles(NSteps_binary, idx_sorted, profilespos, Fdic):
     """
     Do The calculations
     """
     Nbinary = np.shape(NSteps_binary)[1]
-    
+
     if Nbinary > len(Fdic["Flist"]):
         Flist = np.zeros((Nbinary, *np.shape(Fdic["Flist"])[1:]))
         Flist[:len(Fdic["Flist"])] = Fdic["Flist"]
         for i in range(len(Fdic["Flist"]), Nbinary):
             Flist[i] = np.dot(Flist[i-1], Flist[i-1])
         Fdic["Flist"] = Flist
-    
+
     Flist = Fdic["Flist"]
-    
+
     # for each unit
     for i in range(Nbinary):
         F = Flist[i]

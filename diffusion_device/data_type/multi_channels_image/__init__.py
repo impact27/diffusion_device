@@ -347,12 +347,12 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
         window = 31
         if len(background) < 3:
             stds[i] = np.sum(np.square(background
-                                        - np.median(background)))
+                                       - np.median(background)))
         else:
             if len(background) < window:
-                window = 2*(len(background)//2) -1
+                window = 2*(len(background)//2) - 1
             stds[i] = np.sum(np.square(background
-                - savgol_filter(background, window, window//6)))
+                                       - savgol_filter(background, window, window//6)))
 
     # Check the image profiles is not too bad
     if 2 * \
