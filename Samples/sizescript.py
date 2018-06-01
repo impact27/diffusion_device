@@ -15,10 +15,6 @@ outpath = 'output'
 settingsfn = 'SampleData/settings.json'
 metadatafn = 'SampleData/UVim*ulph_metadata.json'
 
-settingsfn = '/Users/quentinpeter/Desktop/200 ulh_2/settings.json'
-metadatafn = '/Users/quentinpeter/Desktop/200 ulh_2/4 channels_200ulh_2_metadata.json'
-
-
 settings = glob(settingsfn)
 metadatas = glob(metadatafn)
 

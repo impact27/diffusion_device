@@ -9,6 +9,7 @@ import os
 import shutil
 from unittest import TestCase
 
+
 class TestSamples(TestCase):
     def test_scripts(self):
         with open("generate_generators.py") as f:
@@ -24,4 +25,3 @@ class TestSamples(TestCase):
             exec(f.read())
         self.assertTrue(os.path.exists("output"))
         shutil.rmtree("output")
-        
