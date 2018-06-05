@@ -2,5 +2,5 @@
 __pycache__/
 Old/
 Samples/SampleData/*.json
-Tests/
+local_Tests/
 diffusion_device.egg-info/

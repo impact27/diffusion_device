@@ -1,0 +1,32 @@
+{
+    "Image file name": "exp1_z2_x2.csv",
+    "Image exposition time [s]": 10e-3,
+    "Background image exposition time [s]": 10e-3,
+    "Wz[m]": 50e-6,
+    "Wy[m]": 100e-6,
+    "Wall Width [m]": 100e-6,
+    "Number of channels in a file": 4,
+    "Q[ulph]": 300,
+    "Read Positions [m]": [
+        0.0,
+        2.556e-3,
+        21.953e-3,
+        45.1e-3
+    ],
+    "Pixel Size [m]": 833e-9,
+    "Date [YYYYMMDD]": "20180515",
+    "Analyte informations": "1uM BSA",
+    "Buffer informations": "PBS",
+    "Device informations": "Kadi100x50 model 1",
+    "Type of data": "single_scan",
+    "Flow direction (u, d, l, r)": [
+        "u",
+        "d",
+        "u",
+        "d"
+    ],
+    "Operator": "Martin",
+    "Success [1-3]": 3,
+    "Temperature [K]": 295,
+    "Viscosity [Pa s]": 1e-3
+}
