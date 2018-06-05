@@ -36,6 +36,18 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 3e-9)
+        
+    def test_single_scans(self):
+        settingsfn = os.path.join(folder,
+                                  'test_data/exp1_z2_x2_settings.json')
+        metadatafn = os.path.join(folder,
+                                  'test_data/exp1_z2_x2_metadata.json')
+        tempdir = "Test_tempdir"
+        radius, profiles, fits, data, infos = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(radius, 2e-9)
+        self.assertLess(radius, 5e-9)
 
     def test_UV_bg_poly_2(self):
         settingsfn = os.path.join(
