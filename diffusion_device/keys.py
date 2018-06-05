@@ -188,6 +188,18 @@ settings.add_info("KEY_STG_VARY_OFFSET", "Vary offset?", bool,
                   required=False,
                   default=False,
                   explanation="Can get a better fit if the offset is not the same for all profiles.")
+settings.add_info("KEY_SET_SCAN_SLICE", "Scan Slice", list,
+                  required=False,
+                  default=[None, None],
+                  explanation="For a single scan, the slice to consider")
+
+settings.add_info("KEY_STG_REBIN", "Rebin Profiles", int,
+                  required=False,
+                  explanation="If too many profiles, rebin")
+
+
+
+
 # settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
 #                  required=False,
 #                  default=False,

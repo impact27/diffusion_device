@@ -7,6 +7,7 @@ Created on Tue Apr 17 22:39:28 2018
 import numpy as np
 from scipy.optimize import basinhopping, minimize, OptimizeResult
 from itertools import combinations
+import warnings
 
 
 class FitResult(OptimizeResult):
@@ -92,6 +93,9 @@ def normalise_basis_factor(Basis, profiles, vary_offset):
     Basis: (M x N x L) / (M x L) 2/3d array of float
         the normalised basis factors
     """
+    # return np.mean(profiles, -1)/np.mean(Basis, -1), 0
+    
+    
     mean_p = np.mean(profiles, -1)
     mean_Basis = np.mean(Basis, -1)
     mean_pBasis = np.mean(Basis * profiles, -1)
@@ -258,7 +262,7 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
 
     fit = FitResult(x=best_phi, dx=phi_error, x_distribution=1,
                     interp_coeff=coeff_basis, basis_spectrum=spectrum,
-                    residual=residual, arg_x=arg_phi)
+                    residual=residual, arg_x=arg_phi, success=True)
 
     return fit
 
@@ -324,6 +328,13 @@ def get_matrices_interp_N(index, BB, Bp, B=None):
 
     return BiBi, Bip, Bi
 
+def myinverse(M):
+    Mm1 = np.ones_like(M) * np.nan
+    mask = np.linalg.det(M) != 0
+    Mm1[mask] = np.linalg.inv(M[mask])
+    return Mm1
+    
+    
 
 def residual_N_floating(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
     """Compute the residual and ratio for two spicies"""
@@ -334,7 +345,7 @@ def residual_N_floating(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
         p = np.reshape(p, scalar_shape)
 
     if not vary_offset:
-        BiBim1 = np.linalg.inv(BiBi)
+        BiBim1 = myinverse(BiBi)
         # residual = (- Bip[..., np.newaxis, :] @ BiBim1 @ Bip[..., np.newaxis]
         #             + pp)[..., 0, 0]
         coeff_a = (BiBim1 @ Bip[..., np.newaxis])[..., 0]
@@ -344,8 +355,9 @@ def residual_N_floating(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
         covBiBi = BiBi/Npix - (Bi[..., np.newaxis] /
                                Npix) @ (Bi[..., np.newaxis, :]/Npix)
         covBip = Bip/Npix - Bi/Npix * p/Npix
-
-        coeff_a = (np.linalg.inv(covBiBi) @ covBip[..., np.newaxis])[..., 0]
+        
+        covBiBi = myinverse(covBiBi)
+        coeff_a = (covBiBi @ covBip[..., np.newaxis])[..., 0]
         coeff_b = (p/Npix
                    - covBip[..., np.newaxis, :] @ coeff_a[..., np.newaxis]
                    )
@@ -369,6 +381,7 @@ def res_interp_N(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
     try:
         return np.sum(residual_N_floating(index, BB, Bp, B, p, pp, vary_offset)[0], 0)
     except:
+        
         return np.nan
 
 
@@ -410,7 +423,8 @@ def res_interp_2(index, M, b, psquare):
     """Compute the residual for two spicies"""
     try:
         return residual_2_floating(index, M, b, psquare)[0]
-    except:
+    except RuntimeError as e:
+        print(e)
         return np.nan
 
 
@@ -532,7 +546,13 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     argmin_diag = np.argmin(res_diag) + 1
 
     if np.min(res_diag) > mono_fit.residual:
-        raise RuntimeError("Monodisperse")
+        warnings.warn("Monodisperse")
+        fit = fit_monodisperse(profiles, Basis, phi, prof_noise, vary_offset)
+        fit.dx = np.tile(fit.dx, 2)
+        fit.x = np.tile(fit.x, 2)
+        fit.interp_coeff = np.tile(fit.interp_coeff, 2)
+        fit.x_distribution = np.array([1, 0])
+        return fit 
 
     XY = np.square(argmin_diag)
     factor = np.square(argmin_diag + 1) / XY * 2
@@ -621,7 +641,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
                          * coeff_a[:, np.newaxis])
 
     distribution = coeff_a/np.sum(coeff_a)
-    fit = FitResult(x=phi_res, dx=phi_error, x_distribution=distribution,
+    fit = FitResult(x=phi_res, dx=phi_error, x_distribution=np.squeeze(distribution),
                     basis_spectrum=spectrum, residual=np.sum(res_fit, 0),
                     success=True, status=0, interp_coeff=C_interp)
     return fit

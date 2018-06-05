@@ -23,12 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 from tifffile import imread
-from scipy import interpolate
 from registrator.image import is_overexposed
 import tifffile
-from scipy.ndimage.morphology import binary_erosion
-from scipy.ndimage.measurements import label
-from scipy.signal import savgol_filter
 
 from . import bright, uv, stack
 from ... import profile as dp
@@ -125,8 +121,9 @@ def get_profiles(data, metadata, settings, infos):
 
 
 def process_profiles(profiles, settings, outpath, infos):
-    return dp.process_profiles(
+    profiles,infos["Pixel size"] = dp.process_profiles(
         profiles, settings, outpath, infos["Pixel size"])
+    return profiles
 
 
 def size_profiles(profiles, metadata, settings, infos):
@@ -271,98 +268,14 @@ def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
     profiles: 2d array
         The profiles (left to right)
     '''
-    # convert ignore to px
-    ignore = int(ignore / pixel_size)
-
-    if ignore == 0:
-        profile_slice = slice(None)
-    else:
-        profile_slice = slice(ignore, -ignore)
-
-    nchannels = len(centers)
-    prof_npix = int(np.round(chwidth / pixel_size))
-
     if imslice is None:
-        image_profile = np.nanmean(image, 0)
+        profiles = np.nanmean(image, 0)
     else:
-        image_profile = imageProfileSlice(
+        profiles = imageProfileSlice(
             image, imslice[0], imslice[1], pixel_size)
-
-    if (np.min(centers) - prof_npix / 2 < 0 or
-            np.max(centers) + prof_npix / 2 > len(image_profile)):
-        raise RuntimeError('Channel not fully contained in the image')
-
-    profiles = np.empty((nchannels, prof_npix), dtype=float)
-
-    # Extract profiles
-    firstcenter = None
-    for i, (cent, fd) in enumerate(zip(centers, flowdir)):
-
-        X = np.arange(len(image_profile)) - cent
-        Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
-        finterp = interpolate.interp1d(X, image_profile)
-        p = finterp(Xc)
-
-        if fd == 'u' or fd == 'up':
-            switch = True
-        elif fd == 'd' or fd == 'down':
-            switch = False
-        else:
-            raise RuntimeError("unknown orientation: {}".format(fd))
-
-        if switch:
-            p = p[::-1]
-
-        # If the profile is not too flat
-        testflat = np.max(p[profile_slice]) > 1.2 * np.mean(p[profile_slice])
-        if testflat:
-            # Align by detecting center
-            prof_center = dp.center(p[profile_slice]) + ignore
-            if firstcenter is not None:
-                diff = prof_center - firstcenter
-                if switch:
-                    diff *= -1
-                X = np.arange(len(image_profile)) - cent - diff
-                finterp = interpolate.interp1d(X, image_profile)
-                p = finterp(Xc)
-                if switch:
-                    p = p[::-1]
-
-            else:
-                firstcenter = prof_center
-
-        profiles[i] = p
-
-    outmask = np.all(np.abs(np.arange(len(image_profile))[:, np.newaxis]
-                            - centers[np.newaxis]) > .55 * prof_npix, axis=1)
-    outmask = np.logical_and(outmask, np.isfinite(image_profile))
-
-    lbl, n = label(outmask)
-    medians = np.zeros(n)
-    stds = np.zeros(n)
-
-    for i in np.arange(n):
-        background = image_profile[lbl == i + 1]
-        medians[i] = np.median(background)
-        window = 31
-        if len(background) < 3:
-            stds[i] = np.sum(np.square(background
-                                       - np.median(background)))
-        else:
-            if len(background) < window:
-                window = 2*(len(background)//2) - 1
-            stds[i] = np.sum(np.square(background
-                                       - savgol_filter(background, window, window//6)))
-
-    # Check the image profiles is not too bad
-    if 2 * \
-            np.abs(np.median(medians)) > np.max(image_profile):
-        raise RuntimeError("Large background. Probably incorrect.")
-
-    noise_std = np.sqrt(np.sum(stds) / np.sum(outmask))
-
-    return profiles, noise_std
-
+    
+    return dp.extract_profiles(
+            profiles, centers, flowdir, chwidth, ignore, pixel_size)
 
 def imageProfileSlice(image, center, width, pixel_size):
     '''Get the image profile corresponding to a center and width

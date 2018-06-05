@@ -53,7 +53,7 @@ json_infos['Savitzky-Golay filter (window, order)'] = None
 # For optimisation and identical processing
 json_infos['Stack is stationnary'] = False
 
-# If there is corners or random blobs, True
+# If there is corners or random blobs, True 
 json_infos['Background had good features'] = True
 
 # If LSE/ signal over noise > 1, ignore
@@ -64,5 +64,13 @@ json_infos['dx factor'] = 1
 
 # Can get a better fit if the offset is not the same for all profiles.
 json_infos['Vary offset?'] = False
+
+# For a single scan, the slice to consider
+json_infos['Scan Slice'] = [
+    None,
+    None]
+
+# If too many profiles, rebin
+json_infos['Rebin Profiles'] = None
 
 settings.generate_json(datapath, json_infos)

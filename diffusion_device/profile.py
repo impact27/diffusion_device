@@ -24,6 +24,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
 from scipy.signal import savgol_filter
+from scipy.ndimage.measurements import label
+from scipy import interpolate
+from scipy.ndimage.filters import maximum_filter1d
 
 from .basis_generate import getprofiles
 from . import display_data
@@ -493,6 +496,17 @@ def process_profiles(profiles, settings, outpath, pixel_size):
     profiles: 2 dim floats array
         The profiles
     """
+    rebin = settings["KEY_STG_REBIN"]
+    if rebin is not None:
+        rebin_profiles = np.zeros(
+                (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
+        kern = np.ones(rebin)/rebin
+        for i in range(len(profiles)):
+            rebin_profiles[i] = np.convolve(
+                    profiles[i], kern, mode='valid')[::rebin]
+        pixel_size *= rebin
+        profiles = rebin_profiles
+            
     profiles_filter = settings["KEY_STG_SGFILTER"]
     if profiles_filter is not None:
         filts = savgol_filter(
@@ -501,4 +515,140 @@ def process_profiles(profiles, settings, outpath, pixel_size):
                                     profiles_filter, outpath)
         profiles = filts
 
-    return profiles
+    return profiles, pixel_size
+
+def extract_profiles(lin_profiles, centers, flowdir, chwidth, ignore, pixel_size):
+    """Extract profiles from a single scan"""
+    # convert ignore to px
+    ignore = int(ignore / pixel_size)
+
+    if ignore == 0:
+        profile_slice = slice(None)
+    else:
+        profile_slice = slice(ignore, -ignore)
+
+    nchannels = len(centers)
+    prof_npix = int(np.round(chwidth / pixel_size))
+
+    if (np.min(centers) - prof_npix / 2 < 0 or
+            np.max(centers) + prof_npix / 2 > len(lin_profiles)):
+        raise RuntimeError('Channel not fully contained in the image')
+
+    profiles = np.empty((nchannels, prof_npix), dtype=float)
+
+    # Extract profiles
+    firstcenter = None
+    for i, (cent, fd) in enumerate(zip(centers, flowdir)):
+
+        X = np.arange(len(lin_profiles)) - cent
+        Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
+        finterp = interpolate.interp1d(X, lin_profiles)
+        p = finterp(Xc)
+
+        if fd == 'u' or fd == 'up':
+            switch = True
+        elif fd == 'd' or fd == 'down':
+            switch = False
+        else:
+            raise RuntimeError("unknown orientation: {}".format(fd))
+
+        if switch:
+            p = p[::-1]
+
+        # If the profile is not too flat
+        testflat = np.max(p[profile_slice]) > 1.2 * np.mean(p[profile_slice])
+        if testflat:
+            # Align by detecting center
+            prof_center = center(p[profile_slice]) + ignore
+            if firstcenter is not None:
+                diff = prof_center - firstcenter
+                if switch:
+                    diff *= -1
+                X = np.arange(len(lin_profiles)) - cent - diff
+                finterp = interpolate.interp1d(X, lin_profiles)
+                p = finterp(Xc)
+                if switch:
+                    p = p[::-1]
+
+            else:
+                firstcenter = prof_center
+
+        profiles[i] = p
+
+    outmask = np.all(np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
+                            - centers[np.newaxis]) > .55 * prof_npix, axis=1)
+    outmask = np.logical_and(outmask, np.isfinite(lin_profiles))
+
+    lbl, n = label(outmask)
+    medians = np.zeros(n)
+    stds = np.zeros(n)
+
+    for i in np.arange(n):
+        background = lin_profiles[lbl == i + 1]
+        medians[i] = np.median(background)
+        window = 31
+        if len(background) < 3:
+            stds[i] = np.sum(np.square(background
+                                       - np.median(background)))
+        else:
+            if len(background) < window:
+                window = 2*(len(background)//2) - 1
+            stds[i] = np.sum(np.square(background
+                                       - savgol_filter(background, window, window//6)))
+
+    # Check the image profiles is not too bad
+    if 2 * np.abs(np.median(medians)) > np.max(lin_profiles):
+        raise RuntimeError("Large background. Probably incorrect.")
+
+    noise_std = np.sqrt(np.sum(stds) / np.sum(outmask))
+
+    return profiles, noise_std
+
+
+
+def get_scan_centers(profiles, number_profiles, chwidth,  wallwidth):
+    """Get centers from a single scan"""
+    profiles = profiles - np.nanmin(profiles)
+    profiles[np.isnan(profiles)] = 0
+
+    # Filter heavely and get position of the centers as a first approx.
+    filter_width = len(profiles)/((number_profiles*2+1)*3)
+    Hfiltered = gfilter(profiles, filter_width)
+    maxs = np.where(maximum_filter1d(
+        Hfiltered, int(filter_width)) == Hfiltered)[0]
+
+    # Filter lightly and get 2nd derivative
+    fprof = gfilter(profiles, 3)
+    # If filter reduces int by 50%, probably a wall
+    maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
+    # Remove sides
+    maxs = maxs[np.logical_and(
+        maxs > 3/2*filter_width, maxs < len(fprof) - 3/2*filter_width)]
+    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
+
+    # Sort and check number
+    maxs = sorted(maxs)
+    if len(maxs) != number_profiles:
+        raise RuntimeError("Can't find the center of the channels!")
+
+    # Get distances
+    dist = np.abs(np.diff(maxs))
+    dist_even = np.mean(dist[::2])
+    dist_odd = np.mean(dist[1::2])
+    meandist = 1/2*(dist_even + dist_odd)
+
+    # Correct for any off balance
+    centers = np.asarray(maxs, float)
+    centers[::2] += (dist_even - meandist) / 2
+    centers[1::2] += (dist_odd - meandist) / 2
+
+    # Get evenly spaced centers
+    start = np.mean(centers - np.arange(number_profiles)*meandist)
+    centers = start + np.arange(number_profiles)*meandist
+
+    pixel_size = np.abs((chwidth+wallwidth) / meandist)
+
+#    from matplotlib.pyplot import figure, show, plot, imshow, title
+#    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
+
+    return centers, pixel_size

@@ -22,10 +22,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
-from scipy.ndimage.filters import maximum_filter1d
-from scipy.ndimage.filters import gaussian_filter1d as gfilter
 import background_rm as rmbg
-import registrator.image as ir
 
 from ..images_files import rotate_image
 from ... import profile as dp
@@ -85,51 +82,8 @@ def straight_image_infos(image, number_profiles, chwidth,  wallwidth):
     """
     # Get profile
     profiles = np.nanmean(image - np.nanmedian(image), 0)
-    profiles -= np.nanmin(profiles)
-    profiles[np.isnan(profiles)] = 0
-
-    # Filter heavely and get position of the centers as a first approx.
-    filter_width = np.shape(image)[1]/((number_profiles*2+1)*3)
-    Hfiltered = gfilter(profiles, filter_width)
-    maxs = np.where(maximum_filter1d(
-        Hfiltered, int(filter_width)) == Hfiltered)[0]
-
-    # Filter lightly and get 2nd derivative
-    fprof = gfilter(profiles, 3)
-    # If filter reduces int by 50%, probably a wall
-    maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
-    # Remove sides
-    maxs = maxs[np.logical_and(
-        maxs > 3/2*filter_width, maxs < len(fprof) - 3/2*filter_width)]
-    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
-
-    # Sort and check number
-    maxs = sorted(maxs)
-    if len(maxs) != number_profiles:
-        raise RuntimeError("Can't get image infos")
-
-    # Get distances
-    dist = np.abs(np.diff(maxs))
-    dist_even = np.mean(dist[::2])
-    dist_odd = np.mean(dist[1::2])
-    meandist = 1/2*(dist_even + dist_odd)
-
-    # Correct for any off balance
-    centers = np.asarray(maxs, float)
-    centers[::2] += (dist_even - meandist) / 2
-    centers[1::2] += (dist_odd - meandist) / 2
-
-    # Get evenly spaced centers
-    start = np.mean(centers - np.arange(number_profiles)*meandist)
-    centers = start + np.arange(number_profiles)*meandist
-
-    pixel_size = np.abs((chwidth+wallwidth) / meandist)
-
-#    from matplotlib.pyplot import figure, show, plot, imshow, title
-#    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
-
-    return centers, pixel_size
-
+    
+    return dp.get_scan_centers(profiles, number_profiles, chwidth,  wallwidth)
 
 def flat_image(image, chwidth, wallwidth, number_profiles, *,
                frac=.6, infosOut=None, subtract=False):

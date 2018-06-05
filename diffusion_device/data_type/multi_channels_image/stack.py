@@ -288,6 +288,13 @@ def process_profiles(profiles, settings, outpath, infos):
                 pxs = infos["Pixel size"]
             else:
                 pxs = infos["Pixel size"][i]
-            ret.append(dp.process_profiles(prof, settings, outpath, pxs))
+            prof, pxs = dp.process_profiles(
+                prof, settings, outpath, pxs)
+            ret.append(prof)
+            if settings["KEY_STG_STAT_STACK"]:
+                infos["Pixel size"] = pxs
+            else:
+                infos["Pixel size"][i] = pxs
+            
 
     return ret

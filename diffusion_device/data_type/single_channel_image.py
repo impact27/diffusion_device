@@ -415,8 +415,9 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
 
 
 def process_profiles(profiles, settings, outpath, infos):
-    return dp.process_profiles(
+    profiles,infos["Pixel size"] = dp.process_profiles(
         profiles, settings, outpath, infos["Pixel size"])
+    return profiles
 
 #    return prof[channel]
 

@@ -24,7 +24,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from . import keys, display_data
-from .data_type import scans, single_channel_image, multi_channels_image
+from .data_type import scans, single_channel_image, multi_channels_image, single_scan
 
 
 def full_fit(settingsfn, metadatafn, outpath=None):
@@ -116,6 +116,9 @@ def get_module(data_type):
 
     if data_type == 'scans':
         return scans
+    
+    if data_type == 'single_scan':
+        return single_scan
 
     elif data_type == '12pos':
         return single_channel_image
@@ -125,3 +128,4 @@ def get_module(data_type):
 
     elif data_type == '4pos_stack':
         return multi_channels_image.stack
+    raise RuntimeError(f"Doesn't know {data_type}")
