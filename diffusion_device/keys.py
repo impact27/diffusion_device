@@ -195,6 +195,7 @@ settings.add_info("KEY_SET_SCAN_SLICE", "Scan Slice", list,
 
 settings.add_info("KEY_STG_REBIN", "Rebin Profiles", int,
                   required=False,
+                  default=1,
                   explanation="If too many profiles, rebin")
 
 

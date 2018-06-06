@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from . import keys, display_data
 from .data_type import scans, single_channel_image, multi_channels_image, single_scan
-
+from . import profile as dp
 
 def full_fit(settingsfn, metadatafn, outpath=None):
     """Perform a fit with the imformations found in the settings file
@@ -79,9 +79,13 @@ def full_fit(settingsfn, metadatafn, outpath=None):
         mod.savedata(data, outpath)
 
     profiles = mod.get_profiles(data, metadata, settings, infos=infos)
-    profiles = mod.process_profiles(profiles, settings, outpath, infos=infos)
+    profiles = mod.process_profiles(profiles, metadata, settings, outpath, infos=infos)
 
-    radius, fits = mod.size_profiles(profiles, metadata, settings,
+    if "size_profiles" in dir(mod):
+        size_profiles = mod.size_profiles
+    else:
+        size_profiles = dp.size_profiles
+    radius, fits = size_profiles(profiles, metadata, settings,
                                      infos=infos)
 
     if outpath is not None:
@@ -107,7 +111,7 @@ def get_module(data_type):
     data = load_data(metadata, infos)
     data = process_data(data, metadata, settings, infos)
     profiles = get_profiles(data, metadata, settings, infos)
-    profiles = process_profiles(profiles, settings, outpath, infos)
+    profiles = process_profiles(profiles, metadata, settings, outpath, infos)
     radius, fits = size_profiles(profiles, metadata, settings, infos)
     plot_and_save(radius, profiles, fits, outpath, settings, infos)
     savedata(data, outpath)

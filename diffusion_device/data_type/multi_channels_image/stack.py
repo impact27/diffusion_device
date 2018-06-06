@@ -229,7 +229,7 @@ def size_profiles(profiles, metadata, settings, infos):
                     metadata_i["KEY_MD_Q"] = metadata_i["KEY_MD_Q"][i]
                 else:
                     metadata_i = metadata
-                r, fit = single.size_profiles(
+                r, fit = dp.size_profiles(
                     profs, metadata_i, settings, infos_i)
                 shape_r = np.shape(r)
                 error = infos_i["Reduced least square"]
@@ -278,7 +278,7 @@ def plot_and_save(radius, profiles, fits,
         radius, profiles, fits, infos, settings, outpath)
 
 
-def process_profiles(profiles, settings, outpath, infos):
+def process_profiles(profiles, metadata, settings, outpath, infos):
     ret = []
     for i, prof in enumerate(profiles):
         if prof is None:
@@ -289,7 +289,7 @@ def process_profiles(profiles, settings, outpath, infos):
             else:
                 pxs = infos["Pixel size"][i]
             prof, pxs = dp.process_profiles(
-                prof, settings, outpath, pxs)
+                prof, metadata, settings, outpath, pxs)
             ret.append(prof)
             if settings["KEY_STG_STAT_STACK"]:
                 infos["Pixel size"] = pxs

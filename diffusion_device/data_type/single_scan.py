@@ -131,7 +131,7 @@ def process_data(data, metadata, settings, infos):
     return data
 
 
-def get_profiles(data, metadata, settings, infos):
+def get_profiles(data, metadata, settings, infos, outpath=None):
     """Do some data processing
 
     Parameters
@@ -158,50 +158,26 @@ def get_profiles(data, metadata, settings, infos):
     
     centers, pixel_size = dp.get_scan_centers(
             data, nchannels, channel_width,  wall_width)
-    profiles, noise_std = dp.extract_profiles(
-            data, centers, flowdir, channel_width, ignore, pixel_size)
+    
     infos["Pixel size"] = pixel_size
-    infos["Profiles noise std"] = noise_std
+    infos["Centers"] = centers
+    infos["flow direction"] = flowdir
+    
+    profiles = dp.extract_profiles(data, channel_width, ignore, infos)
+    
+    profiles, infos["Pixel size"] = dp.process_profiles(
+        profiles, metadata, settings, outpath, infos["Pixel size"])
+    
+    profiles = dp.align_profiles(profiles, data, metadata, settings, infos)
+    
+    profiles, infos["Pixel size"] = dp.process_profiles(
+        profiles, metadata, settings, outpath, infos["Pixel size"])
     
     return profiles
 
 
-def process_profiles(profiles, settings, outpath, infos):
-    profiles,infos["Pixel size"] = dp.process_profiles(
-        profiles, settings, outpath, infos["Pixel size"])
+def process_profiles(profiles, metadata, settings, outpath, infos):
     return profiles
-
-
-def size_profiles(profiles, metadata, settings, infos):
-    """Size the profiles
-
-     Parameters
-    ----------
-    profiles: 2d array
-        List of profiles to fit
-    metadata: dict
-        The metadata
-    settings: dict
-        The settings
-    infos: dict
-        Dictionnary with other infos
-
-    Returns
-    -------
-    radius:
-        if nspecies==1:
-            radii: float
-                The best radius fit
-        else:
-            Rs, spectrum, the radii and corresponding spectrum
-    fits: 2d array
-        The fits
-    """
-    zpos = metadata["KEY_MD_SCANZ"]
-    return dp.size_profiles(profiles, metadata, settings,
-                            infos,
-                            zpos=zpos)
-
 
 def savedata(data, outpath):
     """Save the data"""

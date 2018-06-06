@@ -125,36 +125,6 @@ def get_profiles(data, metadata, settings, infos):
     infos["Profiles noise std"] = noise
     return profiles
 
-
-def size_profiles(profiles, metadata, settings, infos):
-    """Size the profiles
-
-     Parameters
-    ----------
-    profiles: 2d array
-        List of profiles to fit
-    pixel_size:float
-        The pixel size in [m]
-    metadata: dict
-        The metadata
-    settings: dict
-        The settings
-
-    Returns
-    -------
-    radius:
-        if nspecies==1:
-            radii: float
-                The best radius fit
-        else:
-            Rs, spectrum, the radii and corresponding spectrum
-    fits: 2d array
-        The fits
-    """
-    return dp.size_profiles(profiles, metadata, settings,
-                            infos)
-
-
 def savedata(data, outpath):
     """Save the data"""
     tifffile.imsave(outpath + '_ims.tif', data)
@@ -414,9 +384,9 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
     #"""
 
 
-def process_profiles(profiles, settings, outpath, infos):
+def process_profiles(profiles, metadata, settings, outpath, infos):
     profiles,infos["Pixel size"] = dp.process_profiles(
-        profiles, settings, outpath, infos["Pixel size"])
+        profiles, metadata, settings, outpath, infos["Pixel size"])
     return profiles
 
 #    return prof[channel]

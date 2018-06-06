@@ -80,7 +80,7 @@ def process_data(data, metadata, settings, infos):
     return data
 
 
-def get_profiles(data, metadata, settings, infos):
+def get_profiles(data, metadata, settings, infos, outpath=None):
     """Do some data processing
 
     Parameters
@@ -106,54 +106,31 @@ def get_profiles(data, metadata, settings, infos):
     channel_width = metadata["KEY_MD_WY"]
     imslice = settings["KEY_STG_SLICE"]
     ignore = settings["KEY_STG_IGNORE"]
-    flowdir = metadata["KEY_MD_FLOWDIR"]
-    profiles, noise = extract_profiles(
-        data, centers, flowdir, channel_width, ignore, pixel_size,
-        imslice=imslice)
+    infos["flow direction"] = metadata["KEY_MD_FLOWDIR"]
+    
+    if imslice is None:
+        lin_profiles = np.nanmean(data, 0)
+    else:
+        lin_profiles = imageProfileSlice(
+            data, imslice[0], imslice[1], pixel_size)
+    
+    profiles =  dp.extract_profiles(
+            lin_profiles, channel_width, ignore, infos)
+    
+    profiles, infos["Pixel size"] = dp.process_profiles(
+        profiles, metadata, settings, outpath, infos["Pixel size"])
 
-    # If image upside down, turn
-    if profiles[-1].max() > profiles[0].max():
-        profiles = profiles[::-1]
-
-    infos["Profiles noise std"] = noise
-
+    profiles = dp.align_profiles(profiles, lin_profiles,
+                                 metadata, settings, infos)
+    
+    profiles, infos["Pixel size"] = dp.process_profiles(
+        profiles, metadata, settings, outpath, infos["Pixel size"])
+    
     return profiles
 
 
-def process_profiles(profiles, settings, outpath, infos):
-    profiles,infos["Pixel size"] = dp.process_profiles(
-        profiles, settings, outpath, infos["Pixel size"])
+def process_profiles(profiles, metadata, settings, outpath, infos):
     return profiles
-
-
-def size_profiles(profiles, metadata, settings, infos):
-    """Size the profiles
-
-     Parameters
-    ----------
-    profiles: 2d array
-        List of profiles to fit
-    pixel_size:float
-        The pixel size in [m]
-    metadata: dict
-        The metadata
-    settings: dict
-        The settings
-
-    Returns
-    -------
-    radius:
-        if nspecies==1:
-            radii: float
-                The best radius fit
-        else:
-            Rs, spectrum, the radii and corresponding spectrum
-    fits: 2d array
-        The fits
-    """
-    return dp.size_profiles(profiles, metadata, settings,
-                            infos)
-
 
 def savedata(data, outpath):
     """Save the data"""
@@ -242,40 +219,6 @@ def rotate(image, background, flowdir):
         flowdir[flowdir == 'l'] = 'u'
         flowdir[flowdir == 'r'] = 'd'
     return image, background, flowdir
-
-
-def extract_profiles(image, centers, flowdir, chwidth, ignore, pixel_size,
-                     imslice=None):
-    '''cut the image profile into profiles
-
-    Parameters
-    ----------
-    image: 2d array
-        The flat image
-    centers: 1d array
-        The position of the centers [px]
-    chwidth: float
-        Width of the channel [m]
-    ignore: float
-        Distance to sides to ignore [m]
-    pixel_size: float
-        Size of the pixel [m]
-    imslice: 2 floats, default None
-        [Y distance from center, Y width] [m]
-
-    Returns
-    -------
-    profiles: 2d array
-        The profiles (left to right)
-    '''
-    if imslice is None:
-        profiles = np.nanmean(image, 0)
-    else:
-        profiles = imageProfileSlice(
-            image, imslice[0], imslice[1], pixel_size)
-    
-    return dp.extract_profiles(
-            profiles, centers, flowdir, chwidth, ignore, pixel_size)
 
 def imageProfileSlice(image, center, width, pixel_size):
     '''Get the image profile corresponding to a center and width

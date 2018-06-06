@@ -112,42 +112,10 @@ def get_profiles(data, metadata, settings, infos):
     return profiles
 
 
-def process_profiles(profiles, settings, outpath, infos):
+def process_profiles(profiles, metadata, settings, outpath, infos):
     profiles,infos["Pixel size"] = dp.process_profiles(
-        profiles, settings, outpath, infos["Pixel size"])
+        profiles, metadata, settings, outpath, infos["Pixel size"])
     return profiles
-
-
-def size_profiles(profiles, metadata, settings, infos):
-    """Size the profiles
-
-     Parameters
-    ----------
-    profiles: 2d array
-        List of profiles to fit
-    metadata: dict
-        The metadata
-    settings: dict
-        The settings
-    infos: dict
-        Dictionnary with other infos
-
-    Returns
-    -------
-    radius:
-        if nspecies==1:
-            radii: float
-                The best radius fit
-        else:
-            Rs, spectrum, the radii and corresponding spectrum
-    fits: 2d array
-        The fits
-    """
-    zpos = metadata["KEY_MD_SCANZ"]
-    return dp.size_profiles(profiles, metadata, settings,
-                            infos,
-                            zpos=zpos)
-
 
 def savedata(data, outpath):
     """Save the data"""

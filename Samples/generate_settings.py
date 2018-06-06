@@ -71,6 +71,6 @@ json_infos['Scan Slice'] = [
     None]
 
 # If too many profiles, rebin
-json_infos['Rebin Profiles'] = None
+json_infos['Rebin Profiles'] = 1
 
 settings.generate_json(datapath, json_infos)

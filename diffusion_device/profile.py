@@ -33,7 +33,7 @@ from . import display_data
 from .profiles_fitting import fit_all, normalise_basis_factor
 
 
-def size_profiles(profiles, metadata, settings, infos, zpos=None):
+def size_profiles(profiles, metadata, settings, infos):
     """Size the profiles
 
      Parameters
@@ -59,7 +59,7 @@ def size_profiles(profiles, metadata, settings, infos, zpos=None):
     """
     # load variables
     nspecies = settings["KEY_STG_NSPECIES"]
-
+    zpos = metadata["KEY_MD_SCANZ"]
     vary_offset = settings["KEY_STG_VARY_OFFSET"]
     test_radii = get_test_radii(settings)
     profile_slice = ignore_slice(
@@ -213,7 +213,7 @@ def get_fit_data(settings, profiles, readingpos, profile_slice, infos, fits):
 
     # Check if init is large enough
     threshold = 3 * np.median(infos["Profiles noise std"])
-    if np.mean(fit_init[profile_slice]) < threshold:
+    if np.max(fit_init[profile_slice]) < threshold:
         raise RuntimeError("signal to noise too low")
 
     return fit_init, fit_profiles[..., profile_slice], fit_readingpos, fit_index
@@ -481,7 +481,7 @@ def get_fax(profiles):
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
 
 
-def process_profiles(profiles, settings, outpath, pixel_size):
+def process_profiles(profiles, metadata, settings, outpath, pixel_size):
     """Process profiles according to settings
 
     Parameters
@@ -497,7 +497,7 @@ def process_profiles(profiles, settings, outpath, pixel_size):
         The profiles
     """
     rebin = settings["KEY_STG_REBIN"]
-    if rebin is not None:
+    if rebin > 1:
         rebin_profiles = np.zeros(
                 (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
         kern = np.ones(rebin)/rebin
@@ -517,63 +517,103 @@ def process_profiles(profiles, settings, outpath, pixel_size):
 
     return profiles, pixel_size
 
-def extract_profiles(lin_profiles, centers, flowdir, chwidth, ignore, pixel_size):
-    """Extract profiles from a single scan"""
-    # convert ignore to px
-    ignore = int(ignore / pixel_size)
+def max_to_center(maxs, chwidth, wallwidth):
+    number_profiles = len(maxs)
+    # Get distances
+    dist = np.abs(np.diff(maxs))
+    dist_even = np.mean(dist[::2])
+    dist_odd = np.mean(dist[1::2])
+    meandist = 1/2*(dist_even + dist_odd)
 
-    if ignore == 0:
-        profile_slice = slice(None)
+    # Correct for any off balance
+    centers = np.asarray(maxs, float)
+    centers[::2] += (dist_even - meandist) / 2
+    centers[1::2] += (dist_odd - meandist) / 2
+
+    # Get evenly spaced centers
+    start = np.mean(centers - np.arange(number_profiles) * meandist)
+    centers = start + np.arange(number_profiles) * meandist
+
+    pixel_size = np.abs((chwidth+wallwidth) / meandist)
+    return centers, pixel_size
+    
+def get_scan_centers(profiles, number_profiles, chwidth,  wallwidth):
+    """Get centers from a single scan"""
+    profiles = profiles - np.nanmin(profiles)
+    profiles[np.isnan(profiles)] = 0
+
+    # Filter heavely and get position of the centers as a first approx.
+    filter_width = len(profiles)/((number_profiles*2+1)*3)
+    Hfiltered = gfilter(profiles, filter_width)
+    maxs = np.where(maximum_filter1d(
+        Hfiltered, int(filter_width)) == Hfiltered)[0]
+
+    # Filter lightly and get 2nd derivative
+    fprof = gfilter(profiles, 3)
+    # If filter reduces int by 50%, probably a wall
+    maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
+    # Remove sides
+    maxs = maxs[np.logical_and(
+        maxs > 3/2*filter_width, maxs < len(fprof) - 3/2*filter_width)]
+    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
+
+    # Sort and check number
+    maxs = sorted(maxs)
+    if len(maxs) != number_profiles:
+        raise RuntimeError("Can't find the center of the channels!")
+
+    
+    centers, pixel_size = max_to_center(maxs, chwidth, wallwidth)
+
+#    from matplotlib.pyplot import figure, show, plot, imshow, title
+#    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
+
+    return centers, pixel_size
+
+def should_switch(flow_direction):
+    if flow_direction == 'u' or flow_direction == 'up':
+        switch = True
+    elif flow_direction == 'd' or flow_direction == 'down':
+        switch = False
     else:
-        profile_slice = slice(ignore, -ignore)
+        raise RuntimeError("unknown orientation: {}".format(flow_direction))
+    return switch
 
+def get_profiles(lin_profiles, centers, flowdir, prof_npix,
+                 prof_width, old_pixel_size):
+    new_pixel_size = prof_width/prof_npix 
     nchannels = len(centers)
-    prof_npix = int(np.round(chwidth / pixel_size))
+    profiles = np.empty((nchannels, prof_npix), dtype=float)
+
+    # Extract profiles
+    for i, (cent, fd) in enumerate(zip(centers, flowdir)):
+
+        X = np.arange(len(lin_profiles)) - cent
+        finterp = interpolate.interp1d(X * old_pixel_size, lin_profiles)
+        
+        Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
+        p = finterp(Xc * new_pixel_size)
+
+        if should_switch(fd):
+            p = p[::-1]
+
+        profiles[i] = p
+    return profiles, new_pixel_size
+
+def extract_profiles(lin_profiles, channel_width, ignore, infos):
+    """Extract profiles from a single scan"""
+    centers = infos["Centers"]
+    flowdir = infos["flow direction"]
+    pixel_size = infos["Pixel size"]
+    
+    prof_npix = int(np.round(channel_width / pixel_size))
 
     if (np.min(centers) - prof_npix / 2 < 0 or
             np.max(centers) + prof_npix / 2 > len(lin_profiles)):
         raise RuntimeError('Channel not fully contained in the image')
 
-    profiles = np.empty((nchannels, prof_npix), dtype=float)
-
-    # Extract profiles
-    firstcenter = None
-    for i, (cent, fd) in enumerate(zip(centers, flowdir)):
-
-        X = np.arange(len(lin_profiles)) - cent
-        Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
-        finterp = interpolate.interp1d(X, lin_profiles)
-        p = finterp(Xc)
-
-        if fd == 'u' or fd == 'up':
-            switch = True
-        elif fd == 'd' or fd == 'down':
-            switch = False
-        else:
-            raise RuntimeError("unknown orientation: {}".format(fd))
-
-        if switch:
-            p = p[::-1]
-
-        # If the profile is not too flat
-        testflat = np.max(p[profile_slice]) > 1.2 * np.mean(p[profile_slice])
-        if testflat:
-            # Align by detecting center
-            prof_center = center(p[profile_slice]) + ignore
-            if firstcenter is not None:
-                diff = prof_center - firstcenter
-                if switch:
-                    diff *= -1
-                X = np.arange(len(lin_profiles)) - cent - diff
-                finterp = interpolate.interp1d(X, lin_profiles)
-                p = finterp(Xc)
-                if switch:
-                    p = p[::-1]
-
-            else:
-                firstcenter = prof_center
-
-        profiles[i] = p
+    profiles, pixel_size = get_profiles(lin_profiles, centers, flowdir, prof_npix,
+                            channel_width, pixel_size)
 
     outmask = np.all(np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
                             - centers[np.newaxis]) > .55 * prof_npix, axis=1)
@@ -602,53 +642,67 @@ def extract_profiles(lin_profiles, centers, flowdir, chwidth, ignore, pixel_size
 
     noise_std = np.sqrt(np.sum(stds) / np.sum(outmask))
 
-    return profiles, noise_std
+    # If image upside down, turn
+    if profiles[-1].max() > profiles[0].max():
+        profiles = profiles[::-1]
+        centers = centers[::-1]
+        flowdir = flowdir[::-1]
+    
+    infos["Profiles noise std"] = noise_std
+    infos["Centers"] = centers
+    infos["flow direction"] = flowdir
+    infos["Pixel size"] = pixel_size
 
+    return profiles
 
+def align_profiles(profiles, lin_profiles, metadata, settings, infos):
+    ignore = settings["KEY_STG_IGNORE"]
+    rebin = settings["KEY_STG_REBIN"]
+    nchannels = metadata["KEY_MD_NCHANNELS"]
+    pixel_size = infos["Pixel size"]
+    centers = infos["Centers"]
+    flowdir = infos["flow direction"]
+    channel_width = metadata["KEY_MD_WY"]
+    wall_width = metadata["KEY_MD_WALLWIDTH"]
+    
+    prof_npix = np.shape(profiles)[1] * rebin
+    
+    __, fits = size_profiles(profiles, metadata, settings, infos)
+    
+    profile_slice = ignore_slice(ignore, pixel_size)
+    
+    new_centers = np.zeros(nchannels)
+    for i, (cent, fd) in enumerate(zip(centers, flowdir)):
+        
+        # Get diff between profile and fit
+        diff = center(np.correlate(
+                profiles[i, profile_slice],
+                fits[i, profile_slice],
+                mode='full')) - len(profiles[i, profile_slice]) + 1
+        diff *= rebin
+        switch = should_switch(fd)
+        
+        if switch:
+            diff *= -1
+            
+        new_centers[i] = cent + diff
 
-def get_scan_centers(profiles, number_profiles, chwidth,  wallwidth):
-    """Get centers from a single scan"""
-    profiles = profiles - np.nanmin(profiles)
-    profiles[np.isnan(profiles)] = 0
-
-    # Filter heavely and get position of the centers as a first approx.
-    filter_width = len(profiles)/((number_profiles*2+1)*3)
-    Hfiltered = gfilter(profiles, filter_width)
-    maxs = np.where(maximum_filter1d(
-        Hfiltered, int(filter_width)) == Hfiltered)[0]
-
-    # Filter lightly and get 2nd derivative
-    fprof = gfilter(profiles, 3)
-    # If filter reduces int by 50%, probably a wall
-    maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
-    # Remove sides
-    maxs = maxs[np.logical_and(
-        maxs > 3/2*filter_width, maxs < len(fprof) - 3/2*filter_width)]
-    maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
-
-    # Sort and check number
-    maxs = sorted(maxs)
-    if len(maxs) != number_profiles:
-        raise RuntimeError("Can't find the center of the channels!")
-
-    # Get distances
-    dist = np.abs(np.diff(maxs))
-    dist_even = np.mean(dist[::2])
-    dist_odd = np.mean(dist[1::2])
-    meandist = 1/2*(dist_even + dist_odd)
-
-    # Correct for any off balance
-    centers = np.asarray(maxs, float)
-    centers[::2] += (dist_even - meandist) / 2
-    centers[1::2] += (dist_odd - meandist) / 2
-
-    # Get evenly spaced centers
-    start = np.mean(centers - np.arange(number_profiles)*meandist)
-    centers = start + np.arange(number_profiles)*meandist
-
-    pixel_size = np.abs((chwidth+wallwidth) / meandist)
-
-#    from matplotlib.pyplot import figure, show, plot, imshow, title
-#    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
-
-    return centers, pixel_size
+    meandist = np.mean(np.diff((new_centers[1:] + new_centers[:-1])/2))
+    pixel_size = np.abs((channel_width + wall_width) / meandist)
+    
+    res = (new_centers - np.min(new_centers) + meandist/2) % meandist
+    offset = (np.mean(res[::2]) - np.mean(res[1::2])) / 2
+    
+    new_centers -= offset * (-1)**np.arange(len(profiles))
+    
+    new_profiles, pixel_size = get_profiles(lin_profiles, new_centers, flowdir, 
+                                            prof_npix, channel_width, pixel_size)
+    #  # If image upside down, turn
+    # if new_profiles[-1].max() > new_profiles[0].max():
+    #     new_profiles = new_profiles[::-1]
+    #     new_centers_2 = new_centers_2[::-1]
+        
+    infos["Centers"] = new_centers
+    infos["Pixel size"] =  pixel_size
+    return new_profiles
+            
