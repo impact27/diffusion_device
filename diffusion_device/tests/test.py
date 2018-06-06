@@ -46,8 +46,8 @@ class TestImage(TestCase):
         radius, profiles, fits, data, infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 2e-9)
-        self.assertLess(radius, 5e-9)
+        self.assertGreater(radius, 3e-9)
+        self.assertLess(radius, 4e-9)
 
     def test_UV_bg_poly_2(self):
         settingsfn = os.path.join(
