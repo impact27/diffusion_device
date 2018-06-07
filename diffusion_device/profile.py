@@ -550,6 +550,8 @@ def get_scan_centers(profiles, number_profiles, chwidth,  wallwidth):
 
     # Filter lightly and get 2nd derivative
     fprof = gfilter(profiles, 3)
+    # If max negatuve, not a max
+    maxs = maxs[profiles[maxs] > 0]
     # If filter reduces int by 50%, probably a wall
     maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
     # Remove sides
@@ -613,7 +615,7 @@ def extract_profiles(lin_profiles, channel_width, ignore, infos):
         raise RuntimeError('Channel not fully contained in the image')
 
     profiles, pixel_size = get_profiles(lin_profiles, centers, flowdir, prof_npix,
-                            channel_width, pixel_size)
+                            prof_npix * pixel_size , pixel_size)
 
     outmask = np.all(np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
                             - centers[np.newaxis]) > .55 * prof_npix, axis=1)
@@ -695,12 +697,9 @@ def align_profiles(profiles, lin_profiles, metadata, settings, infos):
     
     new_centers -= offset * (-1)**np.arange(len(profiles))
     
-    new_profiles, pixel_size = get_profiles(lin_profiles, new_centers, flowdir, 
-                                            prof_npix, channel_width, pixel_size)
-    #  # If image upside down, turn
-    # if new_profiles[-1].max() > new_profiles[0].max():
-    #     new_profiles = new_profiles[::-1]
-    #     new_centers_2 = new_centers_2[::-1]
+    new_profiles, pixel_size = get_profiles(
+            lin_profiles, new_centers, flowdir, 
+            prof_npix, channel_width, pixel_size)
         
     infos["Centers"] = new_centers
     infos["Pixel size"] =  pixel_size
