@@ -79,7 +79,10 @@ def full_fit(settingsfn, metadatafn, outpath=None):
         mod.savedata(data, outpath)
 
     profiles = mod.get_profiles(data, metadata, settings, infos=infos)
-    profiles = mod.process_profiles(profiles, metadata, settings, outpath, infos=infos)
+    
+    if "process_profiles" in dir(mod):
+        profiles = mod.process_profiles(
+                profiles, metadata, settings, outpath, infos=infos)
 
     if "size_profiles" in dir(mod):
         size_profiles = mod.size_profiles

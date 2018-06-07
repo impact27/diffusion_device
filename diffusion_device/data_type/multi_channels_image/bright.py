@@ -26,7 +26,7 @@ import background_rm as rmbg
 
 from ..images_files import rotate_image
 from ... import profile as dp
-
+from .. import single_scan
 
 def image_infos(image, number_profiles, chwidth,  wallwidth):
     """
@@ -83,7 +83,7 @@ def straight_image_infos(image, number_profiles, chwidth,  wallwidth):
     # Get profile
     profiles = np.nanmean(image - np.nanmedian(image), 0)
     
-    return dp.get_scan_centers(profiles, number_profiles, chwidth,  wallwidth)
+    return single_scan.get_scan_centers(profiles, number_profiles, chwidth,  wallwidth)
 
 def flat_image(image, chwidth, wallwidth, number_profiles, *,
                frac=.6, infosOut=None, subtract=False):

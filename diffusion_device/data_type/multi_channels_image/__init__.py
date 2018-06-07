@@ -30,7 +30,7 @@ from . import bright, uv, stack
 from ... import profile as dp
 from ... import display_data
 from .. import images_files
-
+from .. import single_scan
 
 def load_data(metadata, infos):
     """load data from metadata
@@ -77,6 +77,7 @@ def process_data(data, metadata, settings, infos):
         data, background, metadata, settings)
     infos["Pixel size"] = pixel_size
     infos["Centers"] = centers
+    infos["flow direction"] = metadata["KEY_MD_FLOWDIR"]
     return data
 
 
@@ -100,13 +101,10 @@ def get_profiles(data, metadata, settings, infos, outpath=None):
         The profiles
     """
     pixel_size = infos["Pixel size"]
-    centers = infos["Centers"]
+    imslice = settings["KEY_STG_SLICE"]
+    
     if np.isnan(pixel_size):
         return None
-    channel_width = metadata["KEY_MD_WY"]
-    imslice = settings["KEY_STG_SLICE"]
-    ignore = settings["KEY_STG_IGNORE"]
-    infos["flow direction"] = metadata["KEY_MD_FLOWDIR"]
     
     if imslice is None:
         lin_profiles = np.nanmean(data, 0)
@@ -114,20 +112,8 @@ def get_profiles(data, metadata, settings, infos, outpath=None):
         lin_profiles = imageProfileSlice(
             data, imslice[0], imslice[1], pixel_size)
     
-    profiles =  dp.extract_profiles(
-            lin_profiles, channel_width, ignore, infos)
     
-    profiles, infos["Pixel size"] = dp.process_profiles(
-        profiles, metadata, settings, outpath, infos["Pixel size"])
-
-    profiles = dp.align_profiles(profiles, lin_profiles,
-                                 metadata, settings, infos)
-    
-    profiles, infos["Pixel size"] = dp.process_profiles(
-        profiles, metadata, settings, outpath, infos["Pixel size"])
-    
-    return profiles
-
+    return single_scan.get_profiles(lin_profiles, metadata, settings, infos, outpath)
 
 def process_profiles(profiles, metadata, settings, outpath, infos):
     return profiles

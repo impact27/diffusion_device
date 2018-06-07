@@ -151,6 +151,7 @@ def get_profiles(data, metadata, settings, infos):
     """
     pixel_size = infos["Pixel size"]
     centers = infos["Centers"]
+    flowdir = metadata["KEY_MD_FLOWDIR"]
     profiles = []
     noises = np.zeros(len(data)) * np.nan
     for i, im in enumerate(data):
@@ -162,7 +163,8 @@ def get_profiles(data, metadata, settings, infos):
 
             infos_i = {
                 "Pixel size": pxs,
-                "Centers": cnt}
+                "Centers": cnt,
+                "flow direction": flowdir}
             prof = single.get_profiles(im, metadata, settings, infos_i)
             noises[i] = infos_i["Profiles noise std"]
         except BaseException:

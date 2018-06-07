@@ -1,5 +1,6 @@
 {
     "Image file name": "exp1_z2_x2.csv",
+    "Background file name": "exp1_z2_x2_bg.csv",
     "Image exposition time [s]": 10e-3,
     "Background image exposition time [s]": 10e-3,
     "Wz[m]": 50e-6,
