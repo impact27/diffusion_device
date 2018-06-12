@@ -203,6 +203,11 @@ settings.add_info("KEY_STG_IMAGE_COORD", "Use Image Coordinates", bool,
                   default=True,
                   explanation="Should the alignment be done with the background or the image?")
 
+settings.add_info("KEY_STG_STACK_REBIN", "Rebin stack", int,
+                  required=False,
+                  default=1,
+                  explanation="Decrease the number of images by rebinning")
+
 
 
 

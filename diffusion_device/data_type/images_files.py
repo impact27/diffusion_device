@@ -136,9 +136,9 @@ def remove_optics_background(images, backgrounds, metadata):
     # Remove background from optics
     optics_bgfn = metadata["KEY_MD_OPBGFN"]
     if optics_bgfn is not None:
-        exposure = metadata["KEY_MD_EXP"]
-        background_exposure = metadata["KEY_MD_BGEXP"]
-        optics_background_exposure = metadata["KEY_MD_OPBGEXP"]
+        # exposure = metadata["KEY_MD_EXP"]
+        # background_exposure = metadata["KEY_MD_BGEXP"]
+        # optics_background_exposure = metadata["KEY_MD_OPBGEXP"]
 
         optics = np.asarray(load_images(optics_bgfn), "float32")
         # images = images / exposure - optics + np.median(optics)
