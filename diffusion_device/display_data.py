@@ -299,7 +299,7 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                     f.write('Fits:\n'.encode())
                     np.savetxt(f, fit)
                 else:
-                    f.write(f"Frame {i}\nEmpty\n".encode())
+                    f.write(f"Frame {i:d}\nEmpty\n".encode())
 
     if plotpos is not None:
         plotpos = np.asarray(plotpos)

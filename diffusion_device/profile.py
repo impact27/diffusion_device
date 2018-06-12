@@ -100,7 +100,8 @@ def size_profiles(profiles, metadata, settings, infos):
                 zpos=zpos, infos=infos, **profiles_arg_dir)[0]
 
             if np.any(infos['Fit error'] > 1e-2):
-                raise RuntimeError("The relative error is larger than 1%")
+                raise RuntimeError("The relative error is larger than 1%, "
+                                   "please adapt the step factor.")
 
         # One free parameter
         Mfreepar = 1
