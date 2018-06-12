@@ -209,8 +209,6 @@ settings.add_info("KEY_STG_STACK_REBIN", "Rebin stack", int,
                   explanation="Decrease the number of images by rebinning")
 
 
-
-
 # settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
 #                  required=False,
 #                  default=False,

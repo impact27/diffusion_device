@@ -27,6 +27,7 @@ from . import keys, display_data
 from .data_type import scans, single_channel_image, multi_channels_image, single_scan
 from . import profile as dp
 
+
 def full_fit(settingsfn, metadatafn, outpath=None):
     """Perform a fit with the imformations found in the settings file
 
@@ -79,17 +80,17 @@ def full_fit(settingsfn, metadatafn, outpath=None):
         mod.savedata(data, outpath)
 
     profiles = mod.get_profiles(data, metadata, settings, infos=infos)
-    
+
     if "process_profiles" in dir(mod):
         profiles = mod.process_profiles(
-                profiles, metadata, settings, outpath, infos=infos)
+            profiles, metadata, settings, outpath, infos=infos)
 
     if "size_profiles" in dir(mod):
         size_profiles = mod.size_profiles
     else:
         size_profiles = dp.size_profiles
     radius, fits = size_profiles(profiles, metadata, settings,
-                                     infos=infos)
+                                 infos=infos)
 
     if outpath is not None:
         mod.plot_and_save(
@@ -123,7 +124,7 @@ def get_module(data_type):
 
     if data_type == 'scans':
         return scans
-    
+
     if data_type == 'single_scan':
         return single_scan
 

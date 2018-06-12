@@ -94,8 +94,7 @@ def normalise_basis_factor(Basis, profiles, vary_offset):
         the normalised basis factors
     """
     # return np.mean(profiles, -1)/np.mean(Basis, -1), 0
-    
-    
+
     mean_p = np.mean(profiles, -1)
     mean_Basis = np.mean(Basis, -1)
     mean_pBasis = np.mean(Basis * profiles, -1)
@@ -328,13 +327,13 @@ def get_matrices_interp_N(index, BB, Bp, B=None):
 
     return BiBi, Bip, Bi
 
+
 def myinverse(M):
     Mm1 = np.ones_like(M) * np.nan
     mask = np.linalg.det(M) != 0
     Mm1[mask] = np.linalg.inv(M[mask])
     return Mm1
-    
-    
+
 
 def residual_N_floating(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
     """Compute the residual and ratio for two spicies"""
@@ -355,7 +354,7 @@ def residual_N_floating(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
         covBiBi = BiBi/Npix - (Bi[..., np.newaxis] /
                                Npix) @ (Bi[..., np.newaxis, :]/Npix)
         covBip = Bip/Npix - Bi/Npix * p/Npix
-        
+
         covBiBi = myinverse(covBiBi)
         coeff_a = (covBiBi @ covBip[..., np.newaxis])[..., 0]
         coeff_b = (p/Npix
@@ -381,7 +380,7 @@ def res_interp_N(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
     try:
         return np.sum(residual_N_floating(index, BB, Bp, B, p, pp, vary_offset)[0], 0)
     except:
-        
+
         return np.nan
 
 
@@ -552,7 +551,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
         fit.x = np.tile(fit.x, 2)
         fit.interp_coeff = np.tile(fit.interp_coeff, 2)
         fit.x_distribution = np.array([1, 0])
-        return fit 
+        return fit
 
     XY = np.square(argmin_diag)
     factor = np.square(argmin_diag + 1) / XY * 2

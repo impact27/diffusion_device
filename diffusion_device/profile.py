@@ -496,14 +496,14 @@ def process_profiles(profiles, metadata, settings, outpath, pixel_size):
     rebin = settings["KEY_STG_REBIN"]
     if rebin > 1:
         rebin_profiles = np.zeros(
-                (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
+            (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
         kern = np.ones(rebin)/rebin
         for i in range(len(profiles)):
             rebin_profiles[i] = np.convolve(
-                    profiles[i], kern, mode='valid')[::rebin]
+                profiles[i], kern, mode='valid')[::rebin]
         pixel_size *= rebin
         profiles = rebin_profiles
-            
+
     profiles_filter = settings["KEY_STG_SGFILTER"]
     if profiles_filter is not None:
         filts = savgol_filter(
@@ -513,4 +513,3 @@ def process_profiles(profiles, metadata, settings, outpath, pixel_size):
         profiles = filts
 
     return profiles, pixel_size
-

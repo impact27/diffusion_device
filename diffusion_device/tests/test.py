@@ -36,7 +36,7 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 3e-9)
-        
+
     def test_single_scans(self):
         settingsfn = os.path.join(folder,
                                   'test_data/exp1_z2_x2_settings.json')

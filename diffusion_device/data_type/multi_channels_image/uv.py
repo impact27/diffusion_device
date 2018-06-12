@@ -197,7 +197,7 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
 
     data = np.zeros_like(im)
     shifts = np.zeros(len(im))
-    
+
     for i, image in enumerate(im):
         image_copy = np.copy(image)
         image_copy[rmbg.signalMask(image)] = np.nan
@@ -207,9 +207,11 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         cnv = np.correlate(np.abs(pim), np.abs(np.diff(pbg)), mode='full')
         shift = len(pim) - np.argmax(cnv) - 1
         if image_coord:
-            data[i] = image - ir.shift_image(bg, (0, -shift), borderValue=np.nan)
+            data[i] = image - \
+                ir.shift_image(bg, (0, -shift), borderValue=np.nan)
         else:
-            data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
+            data[i] = ir.shift_image(
+                image, (0, shift), borderValue=np.nan) - bg
         shifts[i] = shift
 
     if reflatten:
@@ -224,6 +226,7 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
     if infoDict is not None:
         infoDict['Shift'] = shifts
     return data
+
 
 def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
               settings, centersOut=None):
@@ -254,13 +257,13 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
     # Get settings
     goodFeatures = settings["KEY_STG_GOODFEATURES"]
     image_coord = settings["KEY_STG_IMAGE_COORD"]
-    
+
     # Get brightest image if stack
     if len(np.shape(im)) == 3:
         im_tmp = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
     else:
         im_tmp = im
-    
+
     # Get first flattened image
     infoDict = {}
     if goodFeatures:
@@ -268,76 +271,76 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
             im_tmp, bg, infoDict=infoDict, bgCoord=not image_coord)
     else:
         data_tmp = remove_curve_background_alt(
-                im_tmp, bg, infoDict=infoDict, image_coord=image_coord)
+            im_tmp, bg, infoDict=infoDict, image_coord=image_coord)
 
     # Get angle
     angle = dp.image_angle(data_tmp)
-    
+
     # rotate
     bg = rotate_image(bg, -angle)
     im = rotate_image(im, -angle)
     data_tmp = rotate_image(data_tmp, -angle)
 
-    # Get current centers 
+    # Get current centers
     bright_infos = bright.image_infos(
         data_tmp, Nprofs, chwidth,  wallwidth)
     pixel_size = bright_infos['pixel_size']
     centers = bright_infos['centers']
-    
+
     # Get data mask
     mask_data = np.ones(data_tmp.shape)
     X = np.arange(np.shape(data_tmp)[1])
     for c in centers:
         mask_data[:, np.abs(X - c) < chwidth / pixel_size/2] = 0
-    
+
     if image_coord:
         mask_im = mask_data
         if goodFeatures:
             c, s = np.cos(angle), np.sin(angle)
-            R = np.array(((c,-s), (s, c)))
+            R = np.array(((c, -s), (s, c)))
             offset = -infoDict['offset']
             offset = R @ offset
             mask_bg = ir.rotate_scale_shift(
-                    mask_im, -infoDict['diffAngle'],
-                    1/infoDict['diffScale'], offset,
-                    borderValue=np.nan) > .5
+                mask_im, -infoDict['diffAngle'],
+                1/infoDict['diffScale'], offset,
+                borderValue=np.nan) > .5
         else:
             offset = np.array([0, infoDict['Shift']])
             mask_bg = ir.shift_image(mask_im, offset,
-                                borderValue=np.nan) > .5
+                                     borderValue=np.nan) > .5
     else:
         mask_bg = mask_data
         if goodFeatures:
             c, s = np.cos(angle), np.sin(angle)
-            R = np.array(((c,-s), (s, c)))
+            R = np.array(((c, -s), (s, c)))
             offset = infoDict['offset']
             offset = R @ offset
             mask_im = ir.rotate_scale_shift(
-                    mask_bg, infoDict['diffAngle'],
-                    infoDict['diffScale'], offset,
-                    borderValue=np.nan) > .5
+                mask_bg, infoDict['diffAngle'],
+                infoDict['diffScale'], offset,
+                borderValue=np.nan) > .5
         else:
             offset = np.array(0, -infoDict['Shift'])
             mask_im = ir.shift_image(mask_bg, offset,
-                                borderValue=np.nan) > .5
+                                     borderValue=np.nan) > .5
 
     if goodFeatures:
         # Get Intensity
         ret = rmbg.remove_curve_background(im, bg,
-                                           maskbg=mask_bg, 
+                                           maskbg=mask_bg,
                                            maskim=mask_im,
                                            bgCoord=not image_coord,
                                            reflatten=True)
     else:
         ret = remove_curve_background_alt(
             im, bg, mask_im, mask_bg, reflatten=True, image_coord=image_coord)
-    
+
     if centersOut is not None:
         im = ret
         if len(np.shape(im)) == 3:
             im = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
         centersOut[:] = bright.image_infos(
-                im, Nprofs, chwidth, wallwidth)['centers']
+            im, Nprofs, chwidth, wallwidth)['centers']
     return ret
 
 
@@ -364,7 +367,7 @@ def extract_data(im, bg, Nprofs, chwidth, wallwidth, settings):
     profiles: 2d array
         list of profiles
     """
-    
+
     # get edges
     centers = np.empty(Nprofs, dtype=int)
     # Get flattened image

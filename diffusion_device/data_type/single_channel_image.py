@@ -125,6 +125,7 @@ def get_profiles(data, metadata, settings, infos):
     infos["Profiles noise std"] = noise
     return profiles
 
+
 def savedata(data, outpath):
     """Save the data"""
     tifffile.imsave(outpath + '_ims.tif', data)
@@ -385,7 +386,7 @@ def extract_profile(flatim, pixel_size, chanWidth, center=None,
 
 
 def process_profiles(profiles, metadata, settings, outpath, infos):
-    profiles,infos["Pixel size"] = dp.process_profiles(
+    profiles, infos["Pixel size"] = dp.process_profiles(
         profiles, metadata, settings, outpath, infos["Pixel size"])
     return profiles
 

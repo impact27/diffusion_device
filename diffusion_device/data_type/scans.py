@@ -113,9 +113,10 @@ def get_profiles(data, metadata, settings, infos):
 
 
 def process_profiles(profiles, metadata, settings, outpath, infos):
-    profiles,infos["Pixel size"] = dp.process_profiles(
+    profiles, infos["Pixel size"] = dp.process_profiles(
         profiles, metadata, settings, outpath, infos["Pixel size"])
     return profiles
+
 
 def savedata(data, outpath):
     """Save the data"""

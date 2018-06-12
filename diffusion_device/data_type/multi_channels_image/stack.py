@@ -82,18 +82,18 @@ def process_data(data, metadata, settings, infos):
         for i in range(len(new_data)):
             new_data[i] = np.mean(data[i * rebin:(i + 1) * rebin], 0)
         data = new_data
-        
+
         new_overexposed = np.zeros(len(infos["Overexposed"])//rebin)
         for i in range(len(new_overexposed)):
             new_overexposed[i] = np.any(
-                    infos["Overexposed"][i * rebin:(i + 1) * rebin])
-        
+                infos["Overexposed"][i * rebin:(i + 1) * rebin])
+
         infos["Overexposed"] = new_overexposed
         for i, val in enumerate(settings["KEY_STG_STACK_FRAMESSLICES"]):
             if val is not None:
                 settings["KEY_STG_STACK_FRAMESSLICES"][i] = val // rebin
         framesslices = slice(*settings["KEY_STG_STACK_FRAMESSLICES"])
-    
+
     centers = np.zeros((len(data), Nchannel))
     pixel_size = np.zeros((len(data)))
     dataout = []
@@ -315,6 +315,5 @@ def process_profiles(profiles, metadata, settings, outpath, infos):
                 infos["Pixel size"] = pxs
             else:
                 infos["Pixel size"][i] = pxs
-            
 
     return ret

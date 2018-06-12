@@ -33,6 +33,7 @@ from ... import display_data
 from .. import images_files
 from .. import single_scan
 
+
 def load_data(metadata, infos):
     """load data from metadata
 
@@ -103,10 +104,10 @@ def get_profiles(data, metadata, settings, infos, outpath=None):
     """
     pixel_size = infos["Pixel size"]
     imslice = settings["KEY_STG_SLICE"]
-    
+
     if np.isnan(pixel_size):
         return None
-    
+
     if imslice is None:
         lin_profiles = np.nanmean(data, 0)
     else:
@@ -116,11 +117,13 @@ def get_profiles(data, metadata, settings, infos, outpath=None):
         warnings.warn("Nan in lin_proifles")
         # Avoid getting nans in the fitting
         lin_profiles[np.isnan(lin_profiles)] = 0
-    
+
     return single_scan.get_profiles(lin_profiles, metadata, settings, infos, outpath)
+
 
 def process_profiles(profiles, metadata, settings, outpath, infos):
     return profiles
+
 
 def savedata(data, outpath):
     """Save the data"""
@@ -207,6 +210,7 @@ def rotate(image, background, flowdir):
         flowdir[flowdir == 'l'] = 'u'
         flowdir[flowdir == 'r'] = 'd'
     return image, background, flowdir
+
 
 def imageProfileSlice(image, center, width, pixel_size):
     '''Get the image profile corresponding to a center and width
