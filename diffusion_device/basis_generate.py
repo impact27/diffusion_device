@@ -82,6 +82,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
               Boltzmann_constant)
     phi, beta, mu_prime_E = get_unitless_parameters(Q, D, readingpos, Wy, Wz,
                                                     muEoD)
+    if zpos is not None:
+        zpos = zpos/Wz
 
     phishape = np.shape(phi)
     phi = np.ravel(phi)
@@ -319,12 +321,10 @@ def get_unitless_profiles(Cinit, phi, beta,
         return profilespos, phi, dphi
 
     if zpos is not None:
-        idx = int(np.floor(Zgrid * zpos / beta))
+        idx = int(np.floor(Zgrid * zpos))
         # Border position
-        if idx == Zgrid:
+        if zpos == 1:
             idx = Zgrid - 1
-        # Take central profile
-        idx = int((Zgrid - 1) / 2)
         profilespos = profilespos[..., idx, :]
     else:
         # Take sum
