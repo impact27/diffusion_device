@@ -25,6 +25,7 @@ import numpy as np
 from tifffile import imread
 from registrator.image import is_overexposed
 import tifffile
+import warnings
 
 from . import bright, uv, stack
 from ... import profile as dp
@@ -111,7 +112,10 @@ def get_profiles(data, metadata, settings, infos, outpath=None):
     else:
         lin_profiles = imageProfileSlice(
             data, imslice[0], imslice[1], pixel_size)
-    
+    if np.any(np.isnan(lin_profiles)):
+        warnings.warn("Nan in lin_proifles")
+        # Avoid getting nans in the fitting
+        lin_profiles[np.isnan(lin_profiles)] = 0
     
     return single_scan.get_profiles(lin_profiles, metadata, settings, infos, outpath)
 
@@ -181,15 +185,13 @@ def process_image(image, background, metadata, settings):
 
     # get profiles
     if background is None:
-        flatten = settings["KEY_STG_BRIGHT_FLAT"]
         # Single image
         image, centers, pixel_size = bright.extract_data(
-            image, nchannels, channel_width, wall_width, flatten)
+            image, nchannels, channel_width, wall_width, settings)
     else:
         # images and background
         image, centers, pixel_size = uv.extract_data(
-            image, background, nchannels, channel_width, wall_width,
-            goodFeatures=settings["KEY_STG_GOODFEATURES"])
+            image, background, nchannels, channel_width, wall_width, settings)
 
     return image, centers, pixel_size
 

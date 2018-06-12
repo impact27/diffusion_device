@@ -198,6 +198,11 @@ settings.add_info("KEY_STG_REBIN", "Rebin Profiles", int,
                   default=1,
                   explanation="If too many profiles, rebin")
 
+settings.add_info("KEY_STG_IMAGE_COORD", "Use Image Coordinates", bool,
+                  required=False,
+                  default=True,
+                  explanation="Should the alignment be done with the background or the image?")
+
 
 
 

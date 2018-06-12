@@ -156,7 +156,7 @@ def flat_image(image, chwidth, wallwidth, number_profiles, *,
 
 
 def extract_data(image, number_profiles, chwidth,
-                 wallwidth, flatten=False, subtract=False):
+                 wallwidth, settings, subtract=False):
     '''
     Extract profiles from image
 
@@ -178,6 +178,7 @@ def extract_data(image, number_profiles, chwidth,
     profiles: 2d array
         The four profiles
     '''
+    flatten = settings["KEY_STG_BRIGHT_FLAT"]
     image = np.asarray(image)
     infos = {}
     if flatten:

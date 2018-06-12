@@ -73,4 +73,7 @@ json_infos['Scan Slice'] = [
 # If too many profiles, rebin
 json_infos['Rebin Profiles'] = 1
 
+# Should the alignment be done with the background or the image?
+json_infos['Use Image Coordinates'] = True
+
 settings.generate_json(datapath, json_infos)

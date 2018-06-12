@@ -118,7 +118,7 @@ def channels_edges(bg, chwidth, wallwidth, Nprofs,
 #    return edges
 
 
-def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
+def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, centersOut=None):
     """
     Get the mask from the image
 
@@ -144,18 +144,19 @@ def channels_mask(bg, chwidth, wallwidth, Nprofs, angle=None, edgesOut=None):
 
     """
     # Find edges position
-    maxpos = channels_edges(bg, chwidth, wallwidth, Nprofs=Nprofs, angle=angle)
-    if edgesOut is not None:
-        edgesOut[:] = maxpos
+    edges = channels_edges(bg, chwidth, wallwidth, Nprofs=Nprofs, angle=angle)
+    if centersOut is not None:
+        centersOut[:] = (edges[1::2] + edges[::2]) / 2
     # Fill mask
     mask = np.ones(bg.shape)
-    for i in range(len(maxpos) // 2):
-        mask[:, maxpos[2 * i]:maxpos[2 * i + 1]] = 0
+    for i in range(len(edges) // 2):
+        mask[:, edges[2 * i]:edges[2 * i + 1]] = 0
     return mask
 
 
 def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
-                                infoDict=None, reflatten=False):
+                                infoDict=None, reflatten=False,
+                                image_coord=False):
     """
     Try to flatten without good features :/
     """
@@ -195,7 +196,8 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         im = im[np.newaxis]
 
     data = np.zeros_like(im)
-    shifts = []
+    shifts = np.zeros(len(im))
+    
     for i, image in enumerate(im):
         image_copy = np.copy(image)
         image_copy[rmbg.signalMask(image)] = np.nan
@@ -204,8 +206,11 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
         pim[np.isnan(pim)] = 0
         cnv = np.correlate(np.abs(pim), np.abs(np.diff(pbg)), mode='full')
         shift = len(pim) - np.argmax(cnv) - 1
-        data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
-        shifts.append(shift)
+        if image_coord:
+            data[i] = image - ir.shift_image(bg, (0, -shift), borderValue=np.nan)
+        else:
+            data[i] = ir.shift_image(image, (0, shift), borderValue=np.nan) - bg
+        shifts[i] = shift
 
     if reflatten:
         data += 1
@@ -215,48 +220,13 @@ def remove_curve_background_alt(im, bg, maskim=None, maskbg=None,
     if squeeze:
         data = np.squeeze(data)
         shifts = np.squeeze(shifts)
+
     if infoDict is not None:
-        infoDict['Shift'] = np.asarray(squeeze)
+        infoDict['Shift'] = shifts
     return data
 
-
-def bg_angle(im, bg, Nprofs, chwidth, wallwidth, infoDict=None, goodFeatures=True):
-    """
-    get the angle by remove_curve_background
-
-    Parameters
-    ----------
-    im:  2d array
-        image containning the 4 channels
-    bg:  2d array
-        background
-    Nprofs: integer
-        the numbers of channels
-    infoDict: dict
-        infos out
-
-    Returns
-    -------
-    angle: float
-        the image orientation angle
-    """
-    if len(np.shape(im)) == 3:
-        im = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
-
-    if goodFeatures:
-        tmpout = rmbg.remove_curve_background(
-            im, bg, infoDict=infoDict, bgCoord=True)
-    else:
-        tmpout = remove_curve_background_alt(im, bg, infoDict=infoDict)
-
-    if infoDict is not None:
-        infoDict['BrightInfos'] = bright.image_infos(
-            tmpout, Nprofs, chwidth,  wallwidth)
-    return dp.image_angle(tmpout)
-
-
 def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
-              edgesOut=None, goodFeatures=True):
+              settings, centersOut=None):
     """
     Flatten and background subtract images
 
@@ -281,49 +251,97 @@ def remove_bg(im, bg, chwidth, wallwidth, Nprofs,
         Flattened image
 
     """
-    # Get bg angle (the other images are the same)
+    # Get settings
+    goodFeatures = settings["KEY_STG_GOODFEATURES"]
+    image_coord = settings["KEY_STG_IMAGE_COORD"]
+    
+    # Get brightest image if stack
+    if len(np.shape(im)) == 3:
+        im_tmp = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
+    else:
+        im_tmp = im
+    
+    # Get first flattened image
     infoDict = {}
-    angle = bg_angle(
-        im,
-        bg,
-        Nprofs,
-        chwidth, wallwidth,
-        infoDict=infoDict,
-        goodFeatures=goodFeatures)
-    approxpixsize = infoDict['BrightInfos']['pixel_size']
-    # Get the mask
-    maskbg = channels_mask(bg,
-                           chwidth / approxpixsize,  # to pix
-                           wallwidth / approxpixsize,  # to pix
-                           Nprofs,
-                           angle=angle,
-                           edgesOut=edgesOut)
-    # rotate and flatten the bg
+    if goodFeatures:
+        data_tmp = rmbg.remove_curve_background(
+            im_tmp, bg, infoDict=infoDict, bgCoord=not image_coord)
+    else:
+        data_tmp = remove_curve_background_alt(
+                im_tmp, bg, infoDict=infoDict, image_coord=image_coord)
+
+    # Get angle
+    angle = dp.image_angle(data_tmp)
+    
+    # rotate
     bg = rotate_image(bg, -angle)
     im = rotate_image(im, -angle)
+    data_tmp = rotate_image(data_tmp, -angle)
 
-    if goodFeatures:
-        maskim = ir.rotate_scale_shift(maskbg, infoDict['diffAngle'],
-                                       infoDict['diffScale'],
-                                       infoDict['offset'],
-                                       borderValue=np.nan) > .5
-
-        maskim = binary_erosion(maskim,
-                                iterations=int(wallwidth / approxpixsize / 10))
-        # Get Intensity
-        ret = rmbg.remove_curve_background(im, bg,
-                                           maskbg=maskbg, maskim=maskim,
-                                           bgCoord=True, reflatten=True)
+    # Get current centers 
+    bright_infos = bright.image_infos(
+        data_tmp, Nprofs, chwidth,  wallwidth)
+    pixel_size = bright_infos['pixel_size']
+    centers = bright_infos['centers']
+    
+    # Get data mask
+    mask_data = np.ones(data_tmp.shape)
+    X = np.arange(np.shape(data_tmp)[1])
+    for c in centers:
+        mask_data[:, np.abs(X - c) < chwidth / pixel_size/2] = 0
+    
+    if image_coord:
+        mask_im = mask_data
+        if goodFeatures:
+            c, s = np.cos(angle), np.sin(angle)
+            R = np.array(((c,-s), (s, c)))
+            offset = -infoDict['offset']
+            offset = R @ offset
+            mask_bg = ir.rotate_scale_shift(
+                    mask_im, -infoDict['diffAngle'],
+                    1/infoDict['diffScale'], offset,
+                    borderValue=np.nan) > .5
+        else:
+            offset = np.array([0, infoDict['Shift']])
+            mask_bg = ir.shift_image(mask_im, offset,
+                                borderValue=np.nan) > .5
     else:
-        maskim = ir.shift_image(maskbg, (0, infoDict['Shift']),
+        mask_bg = mask_data
+        if goodFeatures:
+            c, s = np.cos(angle), np.sin(angle)
+            R = np.array(((c,-s), (s, c)))
+            offset = infoDict['offset']
+            offset = R @ offset
+            mask_im = ir.rotate_scale_shift(
+                    mask_bg, infoDict['diffAngle'],
+                    infoDict['diffScale'], offset,
+                    borderValue=np.nan) > .5
+        else:
+            offset = np.array(0, -infoDict['Shift'])
+            mask_im = ir.shift_image(mask_bg, offset,
                                 borderValue=np.nan) > .5
 
+    if goodFeatures:
+        # Get Intensity
+        ret = rmbg.remove_curve_background(im, bg,
+                                           maskbg=mask_bg, 
+                                           maskim=mask_im,
+                                           bgCoord=not image_coord,
+                                           reflatten=True)
+    else:
         ret = remove_curve_background_alt(
-            im, bg, maskim, maskbg, reflatten=True)
+            im, bg, mask_im, mask_bg, reflatten=True, image_coord=image_coord)
+    
+    if centersOut is not None:
+        im = ret
+        if len(np.shape(im)) == 3:
+            im = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
+        centersOut[:] = bright.image_infos(
+                im, Nprofs, chwidth, wallwidth)['centers']
     return ret
 
 
-def extract_data(im, bg, Nprofs, chwidth, wallwidth, goodFeatures=True):
+def extract_data(im, bg, Nprofs, chwidth, wallwidth, settings):
     """
     Extract diffusion profiles
 
@@ -346,19 +364,13 @@ def extract_data(im, bg, Nprofs, chwidth, wallwidth, goodFeatures=True):
     profiles: 2d array
         list of profiles
     """
+    
     # get edges
-    edges = np.empty(Nprofs * 2, dtype=int)
+    centers = np.empty(Nprofs, dtype=int)
     # Get flattened image
-    flat_im = remove_bg(im, bg, chwidth, wallwidth, Nprofs, edgesOut=edges,
-                        goodFeatures=goodFeatures)
+    flat_im = remove_bg(im, bg, chwidth, wallwidth, Nprofs, centersOut=centers,
+                        settings=settings)
     # Get channel width
-    widthpx = int(np.mean(np.diff(edges)[::2]))
-
-    if (edges[1] + edges[0]) < widthpx:  # channel outside
-        raise RuntimeError("Edges incorrectly detected.")
-
-    centers = (edges[1::2] + edges[::2]) / 2
-
-    pixel_size = chwidth / widthpx
+    pixel_size = (chwidth + wallwidth) / np.mean(np.diff(centers))
 
     return flat_im, centers, pixel_size
