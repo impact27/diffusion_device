@@ -259,7 +259,34 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     By = (1 - coeff_basis) * b[arg_cent] + coeff_basis * b[arg_side]
     residual = BB - 2 * By + psquare
 
+    # Get range (use delta xi^2)
+    minres = np.min(res[res > 0])
+    threshold = minres + 2 * prof_noise * np.sqrt(minres)
+    possible = res < threshold
+
+    argmin = np.argwhere(possible)[0][0]
+    argmax = np.argwhere(possible)[-1][0]
+
+    if argmin > 0:
+        phi_min = (phi[argmin - 1]
+                   + (threshold - res[argmin - 1])
+                   / (res[argmin] - res[argmin - 1])
+                   * (phi[argmin] - phi[argmin - 1]))
+    else:
+        phi_min = phi[argmin]
+
+    if argmax < len(res) - 1:
+        phi_max = (phi[argmax]
+                   + (threshold - res[argmax])
+                   / (res[argmax + 1] - res[argmax])
+                   * (phi[argmax + 1] - phi[argmax]))
+    else:
+        phi_max = phi[argmax]
+
+    phiRange = [phi_min, phi_max]
+
     fit = FitResult(x=best_phi, dx=phi_error, x_distribution=1,
+                    x_range=phiRange,
                     interp_coeff=coeff_basis, basis_spectrum=spectrum,
                     residual=residual, arg_x=arg_phi, success=True)
 
@@ -551,6 +578,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
         fit.x = np.tile(fit.x, 2)
         fit.interp_coeff = np.tile(fit.interp_coeff, 2)
         fit.x_distribution = np.array([1, 0])
+        fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
         return fit
 
     XY = np.square(argmin_diag)
@@ -643,6 +671,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     fit = FitResult(x=phi_res, dx=phi_error, x_distribution=np.squeeze(distribution),
                     basis_spectrum=spectrum, residual=np.sum(res_fit, 0),
                     success=True, status=0, interp_coeff=C_interp)
+    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
     return fit
 
 # @profile
@@ -776,6 +805,7 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
     fit = FitResult(x=phi_res, dx=phi_error, x_distribution=prop_phi,
                     basis_spectrum=spectrum, residual=min_res.fun,
                     success=True, status=0, interp_coeff=C_interp)
+    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
     return fit
 
 
@@ -938,7 +968,7 @@ def fit_N(profiles, Basis, nspecies, phi, prof_noise=1):
 
     fit = FitResult(x=phi[idx], dx=radius_error, x_distribution=C[bestidx],
                     basis_spectrum=spectrum, residual=np.min(res))
-
+    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
     return fit
 
 
@@ -989,6 +1019,7 @@ def fit_polydisperse(profiles, Basis, phi, prof_noise=1):
 
     fit = FitResult(x=phi, dx=radius_error, x_distribution=spectrum,
                     basis_spectrum=spectrum, residual=res.fun)
+    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
     return fit
 
 # %% Graveyard

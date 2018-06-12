@@ -81,6 +81,7 @@ def size_profiles(profiles, metadata, settings, infos):
                   prof_noise=infos["Profiles noise std"], vary_offset=vary_offset)
 
     infos["Radius error std"] = fit.dx
+    infos["Radius range"] = fit.x_range
 
     if nspecies == 1:
         # Get resulting r

@@ -50,7 +50,7 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
 
 
 def plot_single(radius, profiles, fits, lse, pixel_size,
-                signal_noise, radius_error=None, prefix=''):
+                signal_noise, radius_range, prefix=''):
     # =========================================================================
     # Fit
     # =========================================================================
@@ -59,10 +59,11 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
         title = (prefix + 'LSE = {:.3f}, pixel = {:.3f} um'.format(
             lse, pixel_size * 1e6))
     else:
-        title = (prefix + 'r= {:.2f}$\pm${:.2f}nm, LSE = {:.3f}, '
+        title = (prefix + 'r= {:.2f} [{:.2f}; {:.2f}]nm, LSE = {:.3f}, '
                  'pixel = {:.3f} um'.format(
                      radius * 1e9,
-                     radius_error * 3e9,
+                     radius_range[0] * 1e9,
+                     radius_range[1] * 1e9,
                      lse,
                      pixel_size * 1e6))
     # =========================================================================
@@ -107,6 +108,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
     lse = infos["Reduced least square"]
     pixel_size = infos["Pixel size"]
     radius_error = infos["Radius error std"]
+    radius_range = infos["Radius range"]
     signal_over_noise = infos["Signal over noise"]
 
     if len(np.shape(radius)) > 0:
@@ -119,7 +121,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             plt.savefig(outpath + '_rSpectrum_fig.pdf')
 
     plot_single(radius, profiles, fits, lse, pixel_size,
-                infos["Profiles noise std"], radius_error)
+                infos["Profiles noise std"], radius_range)
 
     # ==========================================================================
     # Save
@@ -197,6 +199,8 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     x = np.arange(len(radius))
     valid = np.logical_not(overexposed)
     radius_error = np.asarray(infos["Radius error std"])
+    radius_range = np.asarray(infos["Radius range"])
+
     if len(np.shape(radius)) == 3:
         Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
         ylim = (0, len(radius))
@@ -212,13 +216,17 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     else:
         figure()
         plt.errorbar(x[valid], radius[valid] * 1e9,
-                     yerr=radius_error[valid] * 3e9, fmt='x', label='data')
+                     yerr=np.abs(radius_range.T - radius)[..., valid] * 1e9,
+                     fmt='x', label='data')
         plt.xlabel('Frame number')
         plt.ylabel('Radius [nm]')
         if np.any(overexposed):
             plt.errorbar(x[overexposed], radius[overexposed] * 1e9,
-                         yerr=radius_error[overexposed] * 3e9, fmt='x',
-                         label='overexposed data')
+                         yerr=np.abs(
+                radius_range.T - radius
+            )[..., overexposed] * 1e9,
+                fmt='x',
+                label='overexposed data')
             plt.legend()
 #        if settings["KEY_STG_RLOG"]:
 #            plt.yscale("log")
@@ -285,12 +293,16 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                 np.savetxt(f, radius[:, 1])
                 f.write('radius error:\n'.encode())
                 np.savetxt(f, radius_error)
+                f.write('radius range:\n'.encode())
+                np.savetxt(f, radius_range)
 
             else:
                 f.write('radius:\n'.encode())
                 np.savetxt(f, radius[np.newaxis])
                 f.write('radius error:\n'.encode())
                 np.savetxt(f, radius_error[np.newaxis])
+                f.write('radius range:\n'.encode())
+                np.savetxt(f, radius_range)
 
             for i, (prof, fit) in enumerate(zip(profiles, fits)):
                 if prof is not None and fit is not None:
@@ -312,7 +324,7 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                 pixs = pixel_size[pos]
 
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
-                        pixs, infos["Profiles noise std"][pos], radius_error[pos], prefix=f'{pos}: ')
+                        pixs, infos["Profiles noise std"][pos], radius_range[pos], prefix=f'{pos}: ')
 
             if outpath is not None:
                 plt.savefig(outpath + '_{}_fig.pdf'.format(pos))

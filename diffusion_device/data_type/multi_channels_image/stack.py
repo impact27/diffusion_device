@@ -226,6 +226,7 @@ def size_profiles(profiles, metadata, settings, infos):
     fits = []
     errors = []
     r_errors = []
+    r_ranges = []
     shape_r = None
     signal_over_noise = np.zeros(len(profiles)) * np.nan
     for i, profs in enumerate(profiles):
@@ -233,7 +234,7 @@ def size_profiles(profiles, metadata, settings, infos):
         fit = None
         error = np.nan
         r_error = np.nan
-
+        r_range = [np.nan, np.nan]
         if profs is not None:
             try:
                 if settings["KEY_STG_STAT_STACK"]:
@@ -255,6 +256,7 @@ def size_profiles(profiles, metadata, settings, infos):
                 error = infos_i["Reduced least square"]
                 r_error = infos_i["Radius error std"]
                 signal_over_noise[i] = infos_i["Signal over noise"]
+                r_range = infos_i["Radius range"]
             except BaseException:
                 if settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info()[1])
@@ -264,6 +266,7 @@ def size_profiles(profiles, metadata, settings, infos):
         radius.append(r)
         errors.append(error)
         r_errors.append(r_error)
+        r_ranges.append(r_range)
 
     if shape_r is None:
         raise RuntimeError("Can't find a single good frame")
@@ -278,6 +281,7 @@ def size_profiles(profiles, metadata, settings, infos):
             radius[idx] = np.ones(np.shape(radius)[1:]) * np.nan
     infos["Reduced least square"] = errors
     infos["Radius error std"] = r_errors
+    infos["Radius range"] = r_ranges
     infos["Signal over noise"] = signal_over_noise
     return radius, fits
 
