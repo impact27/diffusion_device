@@ -61,14 +61,16 @@ def size_profiles(profiles, metadata, settings, infos):
     test_radii = get_test_radii(settings)
     profile_slice = ignore_slice(
         settings["KEY_STG_IGNORE"], infos["Pixel size"])
+    prof_noise = infos["Profiles noise std"]
+    
     readingpos = get_reading_position(metadata, settings, len(profiles))
     profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
 
     profiles = np.asarray(profiles)
     fits = np.zeros_like(profiles) * np.nan
 
-    fit_init, fit_profiles, fit_readingpos, fit_index = get_fit_data(
-        settings, profiles, readingpos, profile_slice, infos, fits)
+    fit_init, fit_profiles, fit_readingpos, fit_index, fit_noise= get_fit_data(
+        settings, profiles, readingpos, profile_slice, infos, fits, prof_noise)
 
     # Get basis function
     Basis = getprofiles(fit_init, Radii=test_radii,
@@ -76,9 +78,10 @@ def size_profiles(profiles, metadata, settings, infos):
                         zpos=zpos, infos=infos,
                         **profiles_arg_dir)
     fit_Basis = Basis[..., profile_slice]
+    
     # Get best fit
     fit = fit_all(fit_profiles, fit_Basis, test_radii, nspecies=nspecies,
-                  prof_noise=infos["Profiles noise std"], vary_offset=vary_offset)
+                  prof_noise=fit_noise, vary_offset=vary_offset)
 
     infos["Radius error std"] = fit.dx
     infos["Radius range"] = fit.x_range
@@ -185,18 +188,31 @@ def get_profiles_arg_dir(metadata, settings):
         'step_factor': settings["KEY_STG_DXFACTOR"]}
 
 
-def get_fit_data(settings, profiles, readingpos, profile_slice, infos, fits):
+def get_fit_data(settings, profiles, readingpos, profile_slice, 
+                 infos, fits, prof_noise):
     """get_fit_data"""
+    
+    initmode = settings["KEY_STG_POS0FILTER"]
+    
+    # Select fit index
     fit_index = settings["KEY_STG_FITPOS"]
     if fit_index is not None:
         fit_index = np.sort(fit_index)
     else:
         fit_index = np.arange(len(profiles))
-
     fit_profiles = profiles[fit_index]
     fit_readingpos = readingpos[fit_index]
+        
+    # If we have a different noise for each point
+    if len(np.shape(prof_noise)) > 0:
+        fit_noise = prof_noise[fit_index]
+        if initmode != 'synthetic':
+            fit_noise = fit_noise[1:]
+        fit_noise = fit_noise[..., profile_slice]
+    else:
+        fit_noise = prof_noise
 
-    initmode = settings["KEY_STG_POS0FILTER"]
+    # Process init mode
     if initmode == 'synthetic':
         fit_init = synthetic_init(fit_profiles[0], profile_slice)
     else:
@@ -215,7 +231,8 @@ def get_fit_data(settings, profiles, readingpos, profile_slice, infos, fits):
     if np.max(fit_init[profile_slice]) < threshold:
         raise RuntimeError("signal to noise too low")
 
-    return fit_init, fit_profiles[..., profile_slice], fit_readingpos, fit_index
+    return (fit_init, fit_profiles[..., profile_slice], 
+        fit_readingpos, fit_index, fit_noise)
 
 
 def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
@@ -226,9 +243,8 @@ def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
     slicesize = np.sum(np.ones_like(fit_profiles)[..., profile_slice])
     nu = slicesize - Mfreepar
     reduced_least_square = ((np.nansum(np.square(
-        (profiles[..., profile_slice] - fits[..., profile_slice])
-        / infos["Profiles noise std"])))
-        / nu)
+        ((profiles - fits) / infos["Profiles noise std"])[..., profile_slice])
+        )) / nu)
     infos["Reduced least square"] = np.sqrt(reduced_least_square)
 
     ratio = infos["Reduced least square"] / infos["Signal over noise"]
@@ -436,10 +452,10 @@ def init_process(profile, mode, profile_slice):
     """
     Npix_ignore = profile_slice.start
     if Npix_ignore is not None:
-        init = np.zeros_like(profile)*np.nan
+        init = np.zeros_like(profile)
         init[profile_slice] = profile[profile_slice]
-        init[:Npix_ignore] = np.mean(profile[Npix_ignore:2*Npix_ignore])
-        init[-Npix_ignore:] = np.mean(profile[-2*Npix_ignore:-Npix_ignore])
+        init[:Npix_ignore] = profile[Npix_ignore]
+        init[-Npix_ignore:] = profile[-Npix_ignore]
     else:
         init = np.array(profile)
 
@@ -479,7 +495,19 @@ def get_fax(profiles):
     return np.ravel(np.concatenate(
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
 
-
+def rebin_profiles(profiles, rebin):
+    """rebin profiles"""
+    
+    if rebin > 1:
+        rebin_profiles = np.zeros(
+            (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
+        kern = np.ones(rebin)/rebin
+        for i in range(len(profiles)):
+            rebin_profiles[i] = np.convolve(
+                profiles[i], kern, mode='valid')[::rebin]
+        profiles = rebin_profiles
+    return profiles
+        
 def process_profiles(profiles, metadata, settings, outpath, pixel_size):
     """Process profiles according to settings
 
@@ -496,15 +524,8 @@ def process_profiles(profiles, metadata, settings, outpath, pixel_size):
         The profiles
     """
     rebin = settings["KEY_STG_REBIN"]
-    if rebin > 1:
-        rebin_profiles = np.zeros(
-            (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
-        kern = np.ones(rebin)/rebin
-        for i in range(len(profiles)):
-            rebin_profiles[i] = np.convolve(
-                profiles[i], kern, mode='valid')[::rebin]
-        pixel_size *= rebin
-        profiles = rebin_profiles
+    profiles = rebin_profiles(profiles, rebin)
+    pixel_size *= rebin
 
     profiles_filter = settings["KEY_STG_SGFILTER"]
     if profiles_filter is not None:

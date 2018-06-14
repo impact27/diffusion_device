@@ -24,7 +24,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from . import keys, display_data
-from .data_type import scans, single_channel_image, multi_channels_image, single_scan
 from . import profile as dp
 
 
@@ -70,36 +69,11 @@ def full_fit(settingsfn, metadatafn, outpath=None):
 
     # Get type
     data_type = metadata["KEY_MD_TYPE"]
-    infos = {}
-    mod = get_module(data_type)
-
-    data = mod.load_data(metadata, infos=infos)
-    data = mod.process_data(data, metadata, settings, infos=infos)
-
-    if outpath is not None:
-        mod.savedata(data, outpath)
-
-    profiles = mod.get_profiles(data, metadata, settings, infos=infos)
-
-    if "process_profiles" in dir(mod):
-        profiles = mod.process_profiles(
-            profiles, metadata, settings, outpath, infos=infos)
-
-    if "size_profiles" in dir(mod):
-        size_profiles = mod.size_profiles
-    else:
-        size_profiles = dp.size_profiles
-    radius, fits = size_profiles(profiles, metadata, settings,
-                                 infos=infos)
-
-    if outpath is not None:
-        mod.plot_and_save(
-            radius, profiles, fits, outpath, settings, infos=infos)
-
-    return radius, profiles, fits, data, infos
+    mod = get_module(data_type, metadata, settings, outpath)
+    return mod.full_fit()
 
 
-def get_module(data_type):
+def get_module(data_type, metadata, settings, outpath):
     """Returns the correct module corresponding to data_type
 
     Parameters
@@ -122,18 +96,23 @@ def get_module(data_type):
 
     """
 
-    if data_type == 'scans':
-        return scans
+    if data_type == "single_pos_scan" or data_type == 'scans':
+        from .data_type.single_pos_scan import SinglePosScan
+        return SinglePosScan(metadata, settings, outpath)
 
-    if data_type == 'single_scan':
-        return single_scan
+    if data_type == "multi_pos_scan" or data_type == 'single_scan':
+        from .data_type.multi_pos_scan import MultiPosScan
+        return MultiPosScan(metadata, settings, outpath)
 
-    elif data_type == '12pos':
-        return single_channel_image
+    elif data_type == "single_pos_image" or data_type == '12pos':
+        from .data_type.single_pos_image import SinglePosImage
+        return SinglePosImage(metadata, settings, outpath)
 
-    elif data_type == '4pos':
-        return multi_channels_image
+    elif data_type == "multi_pos_image" or data_type == '4pos':
+        from .data_type.multi_pos_image import MultiPosImage
+        return MultiPosImage(metadata, settings, outpath)
 
-    elif data_type == '4pos_stack':
-        return multi_channels_image.stack
+    elif data_type == "stack_multi_pos_image" or data_type == '4pos_stack':
+        from .data_type.stack_multi_pos_image import StackMultiPosImage
+        return StackMultiPosImage(metadata, settings, outpath)
     raise RuntimeError(f"Doesn't know {data_type}")

@@ -35,7 +35,7 @@ class FitResult(OptimizeResult):
 
 
 def fit_all(profiles, Basis, phi, *, nspecies=1,
-            prof_noise=1, vary_offset=False):
+            prof_noise, vary_offset=False):
     """Find the best radius for monodisperse/polydisperse solutions
 
     Parameters
@@ -60,26 +60,29 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
     """
     if np.shape(np.unique(phi)) != np.shape(phi):
         raise RuntimeError('duplicated phi')
-
+        
+    profiles = profiles/prof_noise
+    Basis = Basis/prof_noise
+    
     if nspecies == 1 and phi is not None:
-        return fit_monodisperse(profiles, Basis, phi, prof_noise, vary_offset)
+        return fit_monodisperse(profiles, Basis, phi, vary_offset)
 
     elif nspecies == 2:
-        return fit_2_alt(profiles, Basis, phi, prof_noise, vary_offset)
-        return fit_2(profiles, Basis, phi, prof_noise)
+        return fit_2_alt(profiles, Basis, phi, vary_offset)
+        # return fit_2(profiles, Basis, phi)
 
     elif nspecies > 0:
-        return fit_N(profiles, Basis, nspecies, phi, prof_noise)
+        return fit_N(profiles, Basis, nspecies, phi)
 
     elif nspecies == 0:
-        return fit_polydisperse(profiles, Basis, phi, prof_noise)
+        return fit_polydisperse(profiles, Basis, phi)
 
     else:
         raise RuntimeError('Number of species negative!')
 
 
 def normalise_basis_factor(Basis, profiles, vary_offset):
-    """Normalise basis so they corrrespond to profiles
+    """Normalise basis so they correspond to profiles
 
     Parameters
     ----------
@@ -186,7 +189,7 @@ def interpolate_1pos(arg_cent, arg_side, M_diag, M_udiag, b):
     return coeff_basis, Bl_minus_Br_square
 
 
-def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
+def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
     """Find the best monodisperse radius
 
     Parameters
@@ -247,8 +250,7 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
 
     # Get error
     # sqrt(dR**2/np.sum((b1-b2)**2)*sigma
-    phi_error = (prof_noise
-                 * np.sqrt(np.square(phi[arg_cent] - phi[arg_side])
+    phi_error = (np.sqrt(np.square(phi[arg_cent] - phi[arg_side])
                            / Bl_minus_Br_square))
     # Get residual
     # B = (1-c) B_0 + c B_1
@@ -261,8 +263,8 @@ def fit_monodisperse(profiles, Basis, phi, prof_noise=1, vary_offset=False):
 
     # Get range (use delta xi^2)
     minres = np.min(res[res > 0])
-    threshold = minres + 2 * prof_noise * np.sqrt(minres)
-    possible = res < threshold
+    threshold = minres + 2 * np.sqrt(minres)
+    possible = res <= threshold
 
     argmin = np.argwhere(possible)[0][0]
     argmax = np.argwhere(possible)[-1][0]
@@ -406,8 +408,7 @@ def res_interp_N(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
     """Compute the residual for two spicies"""
     try:
         return np.sum(residual_N_floating(index, BB, Bp, B, p, pp, vary_offset)[0], 0)
-    except:
-
+    except BaseException as e:
         return np.nan
 
 
@@ -488,6 +489,7 @@ def jac_interp_2(index, M, b, psquare):
 
 
 def get_zoom_indices(residual, indices, idx_min_mono, N, percentile):
+    """Get the zoom indices"""
     zoom_mask = residual <= np.percentile(residual, percentile)
 
     zoom_x = (idx_min_mono - indices[..., 0])[zoom_mask]
@@ -512,7 +514,7 @@ def get_zoom_indices(residual, indices, idx_min_mono, N, percentile):
     zoom_indices = np.moveaxis(zoom_indices, 0, -1)
 
     zoom_valid = np.logical_and(zoom_indices > 0, zoom_indices < N - 1)
-    zoom_valid = np.logical_and(zoom_indices[..., 0], zoom_indices[..., 1])
+    zoom_valid = np.logical_and(zoom_valid[..., 0], zoom_valid[..., 1])
     zoom_indices = zoom_indices[zoom_valid]
 
     return zoom_indices, zoom_valid
@@ -520,7 +522,7 @@ def get_zoom_indices(residual, indices, idx_min_mono, N, percentile):
 # @profile
 
 
-def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
+def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     """Find the best monodisperse radius
 
     Parameters
@@ -541,7 +543,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     radii: float
         The best radius fit
     """
-    mono_fit = fit_monodisperse(profiles, Basis, phi, prof_noise, vary_offset)
+    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
     idx_min_mono = mono_fit.arg_x
 
     if len(Basis.shape) == 2:
@@ -573,7 +575,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
 
     if np.min(res_diag) > mono_fit.residual:
         warnings.warn("Monodisperse")
-        fit = fit_monodisperse(profiles, Basis, phi, prof_noise, vary_offset)
+        fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
         fit.dx = np.tile(fit.dx, 2)
         fit.x = np.tile(fit.x, 2)
         fit.interp_coeff = np.tile(fit.interp_coeff, 2)
@@ -606,8 +608,8 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
     for i in range(2):
         zoom_indices, zoom_valid = get_zoom_indices(
             zoom_residual, zoom_indices, idx_min_mono, Nb, percentile=0.1)
-        zoom_residual = res_interp_N(
-            zoom_indices, BB, Bp, B, p, pp, Npix, vary_offset)
+        zoom_residual = np.sum(residual_N_floating(
+            zoom_indices, BB, Bp, B, p, pp, vary_offset)[0], 0)
 
     # # Get best
     # idx = np.unravel_index(np.argmin(residual), np.shape(residual))
@@ -656,8 +658,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
         Bl_minus_Br_square = np.sum(coeff_a[..., rn] * Bl_minus_Br_square)
         if Bl_minus_Br_square == 0:
             raise RuntimeError("No Gradient in Basis")
-        error = (prof_noise
-                 * np.sqrt((phi[i] - phi[j])**2
+        error = (np.sqrt((phi[i] - phi[j])**2
                            / Bl_minus_Br_square))
         phi_error[rn] = error
 
@@ -677,7 +678,7 @@ def fit_2_alt(profiles, Basis, phi, prof_noise=1, vary_offset=False):
 # @profile
 
 
-def fit_2(profiles, Basis, phi, prof_noise=1):
+def fit_2(profiles, Basis, phi):
     """Find the best monodisperse radius
 
     Parameters
@@ -770,8 +771,7 @@ def fit_2(profiles, Basis, phi, prof_noise=1):
         Bl_minus_Br_square = (M[i, i] + M[j, j] - M[i, j] - M[j, i])
         if Bl_minus_Br_square == 0:
             raise RuntimeError("No Gradient in Basis")
-        error = (prof_noise
-                 * np.sqrt((phi[i] - phi[j])**2
+        error = (np.sqrt((phi[i] - phi[j])**2
                            / Bl_minus_Br_square))
         phi_error[rn] = error
 
@@ -910,7 +910,7 @@ def get_constraints(Nb):
     return constr
 
 
-def fit_N(profiles, Basis, nspecies, phi, prof_noise=1):
+def fit_N(profiles, Basis, nspecies, phi):
     """Find the best N-disperse radius
 
     Parameters
@@ -961,8 +961,7 @@ def fit_N(profiles, Basis, nspecies, phi, prof_noise=1):
         j = i + 1
         if j == NRs:
             j = NRs - 2
-        error = (prof_noise
-                 * np.sqrt((phi[i] - phi[j])**2
+        error = (np.sqrt((phi[i] - phi[j])**2
                            / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
         radius_error[rn] = error
 
@@ -972,7 +971,7 @@ def fit_N(profiles, Basis, nspecies, phi, prof_noise=1):
     return fit
 
 
-def fit_polydisperse(profiles, Basis, phi, prof_noise=1):
+def fit_polydisperse(profiles, Basis, phi):
     """Find the best N-disperse radius
 
     Parameters
@@ -994,6 +993,7 @@ def fit_polydisperse(profiles, Basis, phi, prof_noise=1):
 
     Nb = len(b)
     C0 = np.zeros(Nb)
+    C0[np.argmin(psquare + np.diag(M) - 2 * b)] = 1
 
     def fun2(C, M, b, psquare):
         return res_polydisperse(np.abs(C), M, b, psquare)
@@ -1011,8 +1011,7 @@ def fit_polydisperse(profiles, Basis, phi, prof_noise=1):
 
     for i in range(1, Nb):
         j = i - 1
-        error = (prof_noise
-                 * np.sqrt((phi[i] - phi[j])**2
+        error = (np.sqrt((phi[i] - phi[j])**2
                            / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
         radius_error[i] = error
     radius_error[0] = radius_error[1]

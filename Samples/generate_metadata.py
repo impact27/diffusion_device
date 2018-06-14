@@ -5,6 +5,10 @@ from diffusion_device.keys import metadata
 datapath = 'SampleData/UVim300ulph.tif'
 json_infos = {}
 
+# Data Type
+# One of "single_pos_scan", "multi_pos_scan", "single_pos_image", "multi_pos_image", "stack_multi_pos_image"
+json_infos['Type of data'] = 'multi_pos_image'
+
 # Location of the data file(s). If None, will take the last path part of datapath.
 json_infos['Image file name'] = None
 
@@ -66,10 +70,6 @@ json_infos['Buffer informations'] = '100mM phosphate pH8'
 
 # Device informations
 json_infos['Device informations'] = 'Kadi100x50 model 1'
-
-# Data Type
-# One of "4pos", "4pos_stack", "12pos", "scans"
-json_infos['Type of data'] = '4pos'
 
 # profile position. None means the mean over Z is used.
 json_infos['Z position of scans [m]'] = None

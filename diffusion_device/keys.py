@@ -9,7 +9,11 @@ from .json_info_list import ListGenerator
 
 metadata = ListGenerator(
     'metadata', "SampleData/UVim300ulph.tif", True, "Image file name")
-
+metadata.add_info("KEY_MD_TYPE", "Type of data", str,
+                  required=True,
+                  example="multi_pos_image",
+                  explanation="Data Type\n"
+                  '# One of "single_pos_scan", "multi_pos_scan", "single_pos_image", "multi_pos_image", "stack_multi_pos_image"')
 metadata.add_info("KEY_MD_FN", "Image file name", "path",
                   required=True,
                   example=None,
@@ -78,11 +82,6 @@ metadata.add_info("KEY_MD_BUFFER", "Buffer informations", str,
 metadata.add_info("KEY_MD_DEVICE", "Device informations", str,
                   required=False,
                   example="Kadi100x50 model 1")
-metadata.add_info("KEY_MD_TYPE", "Type of data", str,
-                  required=True,
-                  example="4pos",
-                  explanation="Data Type\n"
-                  '# One of "4pos", "4pos_stack", "12pos", "scans"')
 metadata.add_info("KEY_MD_SCANZ", "Z position of scans [m]", float,
                   required=False,
                   explanation="profile position. None means the mean over Z is used.")
