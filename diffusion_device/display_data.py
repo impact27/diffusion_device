@@ -114,11 +114,15 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
     if len(np.shape(radius)) > 0:
         Rs, spectrum = radius
         figure()
-        plot(Rs * 1e9, spectrum, 'x-')
+        plt.errorbar(Rs * 1e9, spectrum, 
+                     xerr=np.transpose(np.abs(radius_range - Rs[:, np.newaxis])) * 1e9,
+                     fmt='x')
         plt.xlabel("Radius [nm]")
         plt.ylabel("Coefficient")
         if outpath is not None:
             plt.savefig(outpath + '_rSpectrum_fig.pdf')
+        plt.title('; '.join([f"r= {r:.2f} [{rng[0]:.2f}; {rng[1]:.2f}]nm"
+                            for r, rng in zip(Rs * 1e9, np.asarray(radius_range)*1e9)]))
 
     plot_single(radius, profiles, fits, lse, pixel_size,
                 infos["Profiles noise std"], radius_range)

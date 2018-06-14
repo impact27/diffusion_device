@@ -123,10 +123,11 @@ def size_profiles(profiles, metadata, settings, infos):
         if nspecies == 0:
             Mfreepar = 1  # TODO: fix that
 
-    fact_a, fact_b = normalise_basis_factor(fits[1:, ..., profile_slice],
-                                            fit_profiles, vary_offset)
-    fits[1:] = fact_a[..., np.newaxis] * \
-        fits[1:] + np.array(fact_b)[..., np.newaxis]
+    fact_a, fact_b = normalise_basis_factor(
+            fits[fit_index][:, ..., profile_slice],
+            fit_profiles, vary_offset)
+    fits[fit_index] = fact_a[..., np.newaxis] * \
+        fits[fit_index] + np.array(fact_b)[..., np.newaxis]
 
     get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings)

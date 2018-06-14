@@ -488,9 +488,9 @@ def jac_interp_2(index, M, b, psquare):
     return np.array(dinterp)
 
 
-def get_zoom_indices(residual, indices, idx_min_mono, N, percentile):
+def get_zoom_indices(residual, indices, idx_min_mono, N, threshold):
     """Get the zoom indices"""
-    zoom_mask = residual <= np.percentile(residual, percentile)
+    zoom_mask = residual <= threshold
 
     zoom_x = (idx_min_mono - indices[..., 0])[zoom_mask]
     zoom_y = (indices[..., 1] - idx_min_mono)[zoom_mask]
@@ -604,12 +604,25 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
 
     zoom_residual = res_interp_N(
         zoom_indices, BB, Bp, B, p, pp, Npix, vary_offset)
-
+    
+    minres = np.min(zoom_residual[zoom_residual > 0])
+    threshold = minres + 2 * np.sqrt(minres)
+    
+    indices_range = [np.min(zoom_indices[zoom_residual < threshold], axis=0),
+                     np.max(zoom_indices[zoom_residual < threshold], axis=0)]
+    phi_range = np.interp(indices_range, np.arange(len(phi)), phi)
+        
     for i in range(2):
+        threshold = np.percentile(zoom_residual, 0.1)
         zoom_indices, zoom_valid = get_zoom_indices(
-            zoom_residual, zoom_indices, idx_min_mono, Nb, percentile=0.1)
+            zoom_residual, zoom_indices, idx_min_mono, Nb, threshold)
         zoom_residual = np.sum(residual_N_floating(
             zoom_indices, BB, Bp, B, p, pp, vary_offset)[0], 0)
+
+    # # Get range (use delta xi^2)
+    # minres = np.min(res[res > 0])
+    # threshold = minres + 2 * np.sqrt(minres)
+    # possible = res <= threshold
 
     # # Get best
     # idx = np.unravel_index(np.argmin(residual), np.shape(residual))
@@ -672,7 +685,7 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     fit = FitResult(x=phi_res, dx=phi_error, x_distribution=np.squeeze(distribution),
                     basis_spectrum=spectrum, residual=np.sum(res_fit, 0),
                     success=True, status=0, interp_coeff=C_interp)
-    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
+    fit.x_range = phi_range.T
     return fit
 
 # @profile
