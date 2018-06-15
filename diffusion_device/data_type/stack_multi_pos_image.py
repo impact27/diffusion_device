@@ -138,7 +138,7 @@ class StackMultiPosImage(MultiPosImage):
                     skip.append(i)
                 else:
                     raise
-
+        infos_stack["flow direction"] = self.infos["flow direction"]
         self.infos = infos_stack
         # Fix metadata
         metadata_stack["KEY_MD_FLOWDIR"] = self.metadata["KEY_MD_FLOWDIR"]
@@ -174,7 +174,7 @@ class StackMultiPosImage(MultiPosImage):
         """
         pixel_size = self.infos["Pixel size"]
         centers = self.infos["Centers"]
-        flowdir = self.metadata["KEY_MD_FLOWDIR"]
+        flowdir = self.infos["flow direction"]
         profiles = []
         noises = []
         infos_tmp = self.infos
