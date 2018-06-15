@@ -23,7 +23,7 @@ def readme():
 
 
 setup(name='diffusion_device',
-      version='0.1.1',
+      version='0.1.2',
       description='Image processing on diffusion device images',
       long_description=readme(),
       classifiers=[
@@ -43,8 +43,9 @@ setup(name='diffusion_device',
           'scipy',
           'opencv-python',
           'tifffile',
-          'background_rm',
-          'registrator'
+          'background_rm>=0.1.2',
+          'registrator>=0.1.2',
+          'natsort'
       ],
       test_suite='nose.collector',
       tests_require=['nose', 'nose-cover3'],
