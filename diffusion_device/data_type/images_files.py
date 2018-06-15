@@ -79,7 +79,7 @@ class ImagesFile(DataType):
         else:
             data = self.load_image(filename)
     
-        return data
+        return np.asarray(data, dtype=float)
     
     
     def load_image(self, fn):
@@ -98,7 +98,7 @@ class ImagesFile(DataType):
         ims = imread(fn)
         if len(ims.shape) == 3:
             ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
-        return ims
+        return np.asarray(ims, dtype=float)
     
     
     def get_background(self):

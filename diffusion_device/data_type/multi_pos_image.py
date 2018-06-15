@@ -57,6 +57,8 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         filename = self.metadata["KEY_MD_FN"]
         data = self.load_image(filename)
         self.infos["Overexposed"] = is_overexposed(data)
+        if len(np.shape(data)) > 2:
+            raise RuntimeError("Too many dimentions for single image data.")
         return data
 
     def process_data(self, raw_data):
