@@ -16,7 +16,11 @@ settingsfn = 'SampleData/settings.json'
 metadatafn = 'SampleData/UVim*ulph_metadata.json'
 
 settings = glob(settingsfn)
+if len(settings) == 0:
+    raise RuntimeError(f"Can't find {settingsfn}")
 metadatas = glob(metadatafn)
+if len(metadatas) == 0:
+    raise RuntimeError(f"Can't find {metadatafn}")
 
 for sfn in settings:
     for mfn in metadatas:
