@@ -206,17 +206,32 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     radius_range = np.asarray(infos["Radius range"])
 
     if len(np.shape(radius)) == 3:
-        Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
-        ylim = (0, len(radius))
-        xlim = (np.min(Rs), np.max(Rs))
-        figure()
-        im = NonUniformImage(plt.gca(), extent=(*xlim, *ylim))
-        im.set_data(Rs, np.arange(len(radius)), radius[:, 1])
-        plt.gca().images.append(im)
-        plt.xlim(*xlim)
-        plt.ylim(*ylim)
-        plt.xlabel('Radius [nm]')
-        plt.ylabel('Frame number')
+        if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
+            Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
+            ylim = (0, len(radius))
+            xlim = (np.min(Rs), np.max(Rs))
+            figure()
+            im = NonUniformImage(plt.gca(), extent=(*xlim, *ylim))
+            im.set_data(Rs, np.arange(len(radius)), radius[:, 1])
+            plt.gca().images.append(im)
+            plt.xlim(*xlim)
+            plt.ylim(*ylim)
+            plt.xlabel('Radius [nm]')
+            plt.ylabel('Frame number')
+        else:
+            for i in range(np.shape(radius)[1]):
+                figure()
+                plt.errorbar(x[valid], radius[valid, 0, i] * 1e9,
+                         yerr=np.abs(radius_range[:, i, :].T
+                                     - radius[:, 0, i])[..., valid] * 1e9,
+                         fmt='x', label='data')
+                plt.xlabel('Frame number')
+                plt.ylabel('Radius [nm]')
+            figure()
+            plot(radius[valid, 1], 'x')
+            plt.xlabel('Frame number')
+            plt.ylabel('Fraction')
+            
     else:
         figure()
         plt.errorbar(x[valid], radius[valid] * 1e9,
@@ -291,14 +306,26 @@ def plot_and_save_stack(radius, profiles, fits, infos,
             np.savetxt(f, signal_over_noise[np.newaxis])
 
             if len(np.shape(radius)) == 3:
-                f.write(f'Radii [nm]:\n'.encode())
-                np.savetxt(f, Rs[np.newaxis])
-                f.write(f'Spectrums:\n'.encode())
-                np.savetxt(f, radius[:, 1])
-                f.write('radius error:\n'.encode())
-                np.savetxt(f, radius_error)
-                f.write('radius range:\n'.encode())
-                np.savetxt(f, radius_range)
+                if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
+                    f.write(f'Radii [nm]:\n'.encode())
+                    np.savetxt(f, Rs[np.newaxis])
+                    f.write(f'Spectrums:\n'.encode())
+                    np.savetxt(f, radius[:, 1])
+                    f.write('radius error:\n'.encode())
+                    np.savetxt(f, radius_error)
+                    f.write('radius range:\n'.encode())
+                    np.savetxt(f, radius_range)
+                else:
+                    f.write(f'Radii [nm]:\n'.encode())
+                    np.savetxt(f, radius[:, 0])
+                    f.write(f'Spectrums:\n'.encode())
+                    np.savetxt(f, radius[:, 1])
+                    f.write('radius error:\n'.encode())
+                    np.savetxt(f, radius_error)
+                    for i in range(np.shape(radius_range)[1]):
+                        f.write(f'radius range {i}:\n'.encode())
+                        np.savetxt(f, radius_range[:, i])
+                    
 
             else:
                 f.write('radius:\n'.encode())
@@ -360,7 +387,7 @@ def prepare_output(outpath, settingsfn, metadatafn):
             metadata_name = os.path.basename(os.path.dirname(metadatafn))
         if re.match(".+metadata$", metadata_name, re.IGNORECASE):
             metadata_name = metadata_name[:-8]
-        if metadata_name[-1] == '_':
+        if len(metadata_name) > 0 and metadata_name[-1] == '_':
             metadata_name = metadata_name[:-1]
         newoutpath = os.path.join(
             outpath,

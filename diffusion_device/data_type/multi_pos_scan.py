@@ -361,6 +361,7 @@ class MultiPosScan(DataType):
             np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
                    - centers[np.newaxis]) > .55 * prof_npix, axis=1)
         outmask = np.logical_and(outmask, np.isfinite(lin_profiles))
+        outmask = np.logical_and(outmask, np.isfinite(lin_var))
 
         lbl, n = label(outmask)
         wall_var = np.zeros(n)

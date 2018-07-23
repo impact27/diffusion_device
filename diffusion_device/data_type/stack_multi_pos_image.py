@@ -244,7 +244,7 @@ class StackMultiPosImage(MultiPosImage):
             fit = None
             error = np.nan
             r_error = np.nan
-            r_range = [np.nan, np.nan]
+            r_range = None
             if profs is not None:
                 try:
                     if self.settings["KEY_STG_STAT_STACK"]:
@@ -277,7 +277,7 @@ class StackMultiPosImage(MultiPosImage):
             errors.append(error)
             r_errors.append(r_error)
             r_ranges.append(r_range)
-
+            
         if shape_r is None:
             raise RuntimeError("Can't find a single good frame")
 

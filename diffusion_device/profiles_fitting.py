@@ -210,6 +210,9 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
     radii: float
         The best radius fit
     """
+    if np.any(np.isnan(profiles)):
+        raise RuntimeError(f'Profiles can not be nan')
+        
     # Normalize the basis to fit profiles
     Basis = normalise_basis(Basis, profiles, vary_offset)
 
@@ -270,18 +273,19 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
     argmax = np.argwhere(possible)[-1][0]
 
     if argmin > 0:
-        phi_min = (phi[argmin - 1]
-                   + (threshold - res[argmin - 1])
-                   / (res[argmin] - res[argmin - 1])
-                   * (phi[argmin] - phi[argmin - 1]))
+        roots = np.roots(np.polyfit(phi[argmin - 1:argmin + 2],
+                                    res[argmin - 1:argmin + 2] - threshold,
+                                    2))
+        phi_min = np.min(roots)
     else:
         phi_min = phi[argmin]
 
     if argmax < len(res) - 1:
-        phi_max = (phi[argmax]
-                   + (threshold - res[argmax])
-                   / (res[argmax + 1] - res[argmax])
-                   * (phi[argmax + 1] - phi[argmax]))
+        roots = np.roots(np.polyfit(phi[argmax - 1:argmax + 2],
+                                    res[argmax - 1:argmax + 2] - threshold,
+                                    2))
+        phi_max = np.max(roots)
+        
     else:
         phi_max = phi[argmax]
 
