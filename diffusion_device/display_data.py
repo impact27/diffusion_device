@@ -186,24 +186,26 @@ def plot_and_save_stack(radius, profiles, fits, infos,
         Positions to plot if this is a stack
 
     """
-    plotpos = settings["KEY_STG_STACK_POSPLOT"]
-    overexposed = np.asarray(infos["Overexposed"])
-    pixel_size = np.asarray(infos["Pixel size"])
-
-    intensity = np.zeros(len(profiles))
-    for i, p in enumerate(profiles):
-        if p is None:
-            intensity[i] = np.nan
-        else:
-            intensity[i] = np.nanmean(p)
-
-    LSE = np.asarray(infos["Reduced least square"])
-    signal_over_noise = infos["Signal over noise"]
-
-    x = np.arange(len(radius))
+    def compress(radius, mask):
+        return [r for r, s in zip(radius, mask) if s]
+    
+    success = [r is not None for r in radius]
+    x = np.arange(len(radius))[success]
+    
+    radius = np.asarray(compress(radius, success))
+    overexposed = np.asarray(compress(infos["Overexposed"], success))
+    pixel_size = np.asarray(compress(infos["Pixel size"], success))
+    radius_error = np.asarray(compress(infos["Radius error std"], success))
+    radius_range = np.asarray(compress(infos["Radius range"], success))
+    LSE = np.asarray(compress(infos["Reduced least square"], success))
+    signal_over_noise = np.asarray(compress(infos["Signal over noise"], success))
+    profiles = np.asarray(compress(profiles, success))
+    fits = np.asarray(compress(fits, success))
+    
     valid = np.logical_not(overexposed)
-    radius_error = np.asarray(infos["Radius error std"])
-    radius_range = np.asarray(infos["Radius range"])
+    plotpos = settings["KEY_STG_STACK_POSPLOT"]
+    
+    intensity = np.array([np.nanmean(p) for p in profiles])
 
     if len(np.shape(radius)) == 3:
         if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
@@ -224,6 +226,9 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                 plt.errorbar(x[valid], radius[valid, 0, i] * 1e9,
                          yerr=np.abs(radius_range[:, i, :].T
                                      - radius[:, 0, i])[..., valid] * 1e9,
+                         fmt='x', label='data')
+                plt.errorbar(x[valid]+0.2, radius[valid, 0, i] * 1e9,
+                         yerr=np.abs(radius_error[:, i])[..., valid] * 1e9,
                          fmt='x', label='data')
                 plt.xlabel('Frame number')
                 plt.ylabel('Radius [nm]')
@@ -335,7 +340,7 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                 f.write('radius range:\n'.encode())
                 np.savetxt(f, radius_range)
 
-            for i, (prof, fit) in enumerate(zip(profiles, fits)):
+            for i, prof, fit in zip(x, profiles, fits):
                 if prof is not None and fit is not None:
                     f.write(f"Frame {i}\nProfiles:\n".encode())
                     np.savetxt(f, prof)

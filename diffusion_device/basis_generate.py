@@ -280,7 +280,7 @@ def get_unitless_profiles(Cinit, phi, beta,
     # get maximum acceptable dphi
     dphi_max = None
     if step_factor is None and len(phi) > 1:
-        dphi_max = np.min(np.abs(np.diff(phi))) / 2
+        dphi_max = np.min(np.abs(np.diff(phi))) / 20
         if not dphi_max > 0:
             raise RuntimeError('dphi too small!')
 

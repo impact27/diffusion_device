@@ -198,6 +198,7 @@ class StackMultiPosImage(MultiPosImage):
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
                     print(sys.exc_info())
                     prof = None
+                    noise = None
                 else:
                     raise
             profiles.append(prof)
@@ -242,8 +243,8 @@ class StackMultiPosImage(MultiPosImage):
         for i, profs in enumerate(profiles):
             r = None
             fit = None
-            error = np.nan
-            r_error = np.nan
+            error = None
+            r_error = None
             r_range = None
             if profs is not None:
                 try:
@@ -281,14 +282,6 @@ class StackMultiPosImage(MultiPosImage):
         if shape_r is None:
             raise RuntimeError("Can't find a single good frame")
 
-        for i, r in enumerate(radius):
-            if r is None:
-                radius[i] = np.nan * np.ones(shape_r)
-
-        radius = np.asarray(radius, float)
-        for idx, add in enumerate([r is None for r in radius]):
-            if add:
-                radius[idx] = np.ones(np.shape(radius)[1:]) * np.nan
         self.infos["Reduced least square"] = errors
         self.infos["Radius error std"] = r_errors
         self.infos["Radius range"] = r_ranges

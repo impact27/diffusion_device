@@ -104,7 +104,7 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(np.sum(np.isfinite(radius)),
                            np.sum(np.isnan(radius)))
-        self.assertFalse(np.any(radius > 4e-9))
+        self.assertFalse(np.max(radius) > 4e-9)
 
     def test_12pos(self):
         settingsfn = os.path.join(

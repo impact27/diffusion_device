@@ -114,8 +114,8 @@ settings.add_info("KEY_STG_R", "Radii[m] (min, max, number)", float,
                   required=False,
                   example=[
                       5e-10,  # Min [m]
-                      1e-08,  # Max [m]
-                      20  # number
+                      10e-09,  # Max [m]
+                      1000  # number
                   ])
 settings.add_info("KEY_STG_R_STEP", "Radii[m] (min, max, step)", float,
                   required=False,
@@ -181,7 +181,6 @@ settings.add_info("KEY_STG_LSE_THRESHOLD", "Remove bad fits", bool,
                   explanation="If LSE/ signal over noise > 1, ignore")
 settings.add_info("KEY_STG_DXFACTOR", "dx factor", float,
                   required=False,
-                  default=1,
                   explanation="Set to 0<x<1 to reduce fitting error from step size.")
 settings.add_info("KEY_STG_VARY_OFFSET", "Vary offset?", bool,
                   required=False,
