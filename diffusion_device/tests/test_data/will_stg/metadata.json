@@ -1,0 +1,35 @@
+{
+    "Type of data": "stack_multi_pos_image",
+    "Image file name": "stack1.tif",
+    "Background file name": "in_situ_bkg.tif",
+    "Optics background file name": "optical_bkg.tif",
+    "Image exposition time [s]": 5,
+    "Background image exposition time [s]": 5,
+    "Optics background image exposition time [s]": 5,
+    "Wz[m]": 46e-6,
+    "Wy[m]": 300e-6,
+    "Wall Width [m]": 100e-6,
+    "Number of channels in a file": 4,
+    "Q[ulph]": 150,
+    "Read Positions [m]": [
+        525e-6,
+        9.34e-3,
+        19.519e-3,
+        39.341e-3
+    ],
+    "Pixel Size [m]": 2.586e-6,
+    "Date [YYYYMMDD]": "20180721",
+    "Analyte informations": "anti-aS aptamer",
+    "Buffer informations": "NaPi 20 mM, pH 6.5, 150 mM NaCl, 5 mM KCl",
+    "Device informations": "Therese_d.04",
+    "Flow direction (u, d, l, r)": [
+        "d",
+        "u",
+        "d",
+        "u"
+    ],
+    "Operator": "Will",
+    "Success [1-3]": 3,
+    "Temperature [K]": 294,
+    "Viscosity [Pa s]": 1e-3
+}

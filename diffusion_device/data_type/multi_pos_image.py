@@ -108,7 +108,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
                             var, -self.infos["offset"], borderValue=np.nan)
                 
         if "image_intensity_reflatten" in self.infos: 
-            var /= self.infos["image_intensity_reflatten"]**2
+            var /= self.infos["image_intensity_reflatten"][0]**2
             
         var[np.isnan(data)] = np.nan
         noise_var = self.get_multi_pos_scan(var)
@@ -446,7 +446,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         if np.any(fbg <= 0):
             raise RuntimeError("Background mask too small")
 
-        self.info['image_intensity'] = fim
+        self.infos['image_intensity'] = fim
         
         im = im / fim
         bg = bg / fbg

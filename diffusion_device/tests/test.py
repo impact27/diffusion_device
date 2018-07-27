@@ -129,6 +129,18 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(radius, 2e-9)
         self.assertLess(radius, 4e-9)
+        
+    def test_will(self):
+        settingsfn = os.path.join(
+            folder, 'test_data/will_stg/settings.json')
+        metadatafn = os.path.join(
+            folder, 'test_data/will_stg/metadata.json')
+        tempdir = "Test_tempdir"
+        radius, profiles, fits, data, infos = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(np.min(radius), 1e-9)
+        self.assertLess(np.max(radius), 3e-9)
 
     def test_Slice(self):
         settingsfn = os.path.join(
