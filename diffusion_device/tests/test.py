@@ -204,3 +204,16 @@ class TestImage(TestCase):
 
         self.assertLess(np.max(np.abs(
             (prof-prof2)/np.max(prof[:-3]))[:-2]), .1)
+        
+    def test_scan(self):
+        settingsfn = os.path.join(
+            folder, 'test_data/martin/martin_settings.json')
+        metadatafn = os.path.join(
+            folder, 'test_data/martin/metadata.json')
+        tempdir = "Test_tempdir"
+        radius, profiles, fits, data, infos = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(np.min(radius), 1e-9)
+        self.assertLess(np.max(radius), 3e-9)
+        
