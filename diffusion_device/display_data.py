@@ -199,8 +199,8 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     radius_range = np.asarray(compress(infos["Radius range"], success))
     LSE = np.asarray(compress(infos["Reduced least square"], success))
     signal_over_noise = np.asarray(compress(infos["Signal over noise"], success))
-    profiles = np.asarray(compress(profiles, success))
-    fits = np.asarray(compress(fits, success))
+    profiles = compress(profiles, success)
+    fits = compress(fits, success)
     
     valid = np.logical_not(overexposed)
     plotpos = settings["KEY_STG_STACK_POSPLOT"]

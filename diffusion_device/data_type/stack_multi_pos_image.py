@@ -208,6 +208,25 @@ class StackMultiPosImage(MultiPosImage):
         self.infos["Profiles noise std"] = noises
         return profiles
 
+    def get_infos_i(self, i):
+        """get_infos_i"""
+        if self.settings["KEY_STG_STAT_STACK"]:
+            infos_i = {
+                "Pixel size": self.infos["Pixel size"]}
+        else:
+            infos_i = {
+                "Pixel size": self.infos["Pixel size"][i]}
+        infos_i["Profiles noise std"] = self.infos["Profiles noise std"][i]
+        return infos_i
+
+    def set_infos_i(self, infos_i, i):
+        """set_infos_i"""
+        if self.settings["KEY_STG_STAT_STACK"]:
+            self.infos["Pixel size"] = infos_i["Pixel size"]
+        else:
+            self.infos["Pixel size"][i] = infos_i["Pixel size"]
+        self.infos["Profiles noise std"][i] = infos_i["Profiles noise std"]
+        
     def size_profiles(self, profiles):
         """Size the profiles
 
@@ -248,14 +267,7 @@ class StackMultiPosImage(MultiPosImage):
             r_range = None
             if profs is not None:
                 try:
-                    if self.settings["KEY_STG_STAT_STACK"]:
-                        infos_i = {
-                            "Pixel size": self.infos["Pixel size"],
-                            "Profiles noise std": self.infos["Profiles noise std"][i]}
-                    else:
-                        infos_i = {
-                            "Pixel size": self.infos["Pixel size"][i],
-                            "Profiles noise std": self.infos["Profiles noise std"][i]}
+                    infos_i = self.get_infos_i(i)
                     if len(np.shape(self.metadata["KEY_MD_Q"])) > 0:
                         metadata_i = self.metadata.copy()
                         metadata_i["KEY_MD_Q"] = metadata_i["KEY_MD_Q"][i]
@@ -307,16 +319,10 @@ class StackMultiPosImage(MultiPosImage):
             if prof is None:
                 ret.append(None)
             else:
-                if self.settings["KEY_STG_STAT_STACK"]:
-                    pxs = self.infos["Pixel size"]
-                else:
-                    pxs = self.infos["Pixel size"][i]
-                prof, pxs = dp.process_profiles(
-                    prof, self.metadata, self.settings, self.outpath, pxs)
+                infos = self.get_infos_i(i)
+                prof = dp.process_profiles(
+                    prof, self.metadata, self.settings, self.outpath, infos)
                 ret.append(prof)
-                if self.settings["KEY_STG_STAT_STACK"]:
-                    self.infos["Pixel size"] = pxs
-                else:
-                    self.infos["Pixel size"][i] = pxs
+                self.set_infos_i(infos, i)
 
         return ret

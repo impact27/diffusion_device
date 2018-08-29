@@ -379,9 +379,9 @@ class SinglePosImage(ImagesFile):
         #"""
 
     def process_profiles(self, profiles):
-        profiles, self.infos["Pixel size"] = dp.process_profiles(
+        profiles = dp.process_profiles(
             profiles, self.metadata, self.settings, self.outpath,
-            self.infos["Pixel size"])
+            self.infos)
         return profiles
 
 #    return prof[channel]

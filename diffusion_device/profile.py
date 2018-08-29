@@ -509,7 +509,7 @@ def rebin_profiles(profiles, rebin):
         profiles = rebin_profiles
     return profiles
         
-def process_profiles(profiles, metadata, settings, outpath, pixel_size):
+def process_profiles(profiles, metadata, settings, outpath, infos):
     """Process profiles according to settings
 
     Parameters
@@ -524,6 +524,10 @@ def process_profiles(profiles, metadata, settings, outpath, pixel_size):
     profiles: 2 dim floats array
         The profiles
     """
+    
+    pixel_size = infos["Pixel size"]
+    
+    
     rebin = settings["KEY_STG_REBIN"]
     profiles = rebin_profiles(profiles, rebin)
     pixel_size *= rebin
@@ -536,4 +540,8 @@ def process_profiles(profiles, metadata, settings, outpath, pixel_size):
                                     profiles_filter, outpath)
         profiles = filts
 
-    return profiles, pixel_size
+    infos["Pixel size"] = pixel_size
+    infos["Profiles noise std"] = rebin_profiles(
+            infos["Profiles noise std"], rebin)
+    
+    return profiles

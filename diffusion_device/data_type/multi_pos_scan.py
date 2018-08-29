@@ -212,15 +212,15 @@ class MultiPosScan(DataType):
         """
         profiles = self.extract_profiles(lin_profiles)
 
-        profiles, self.infos["Pixel size"] = dp.process_profiles(
+        profiles = dp.process_profiles(
             profiles, self.metadata, self.settings,
-            self.outpath, self.infos["Pixel size"])
+            self.outpath, self.infos)
 
         profiles = self.align_profiles(profiles, lin_profiles)
 
-        profiles, self.infos["Pixel size"] = dp.process_profiles(
+        profiles = dp.process_profiles(
             profiles, self.metadata, self.settings,
-            self.outpath, self.infos["Pixel size"])
+            self.outpath, self.infos)
 
         return profiles
 
@@ -386,9 +386,6 @@ class MultiPosScan(DataType):
         noise, __ = self.interpolate_profiles(
             noise, centers, self.infos["flow direction"],
             prof_npix, channel_width, self.infos["Pixel size"])
-        
-        rebin = self.settings["KEY_STG_REBIN"]
-        noise = dp.rebin_profiles(noise, rebin)/rebin
         
         min_var = np.sum(wall_var) / np.sum(outmask)
         noise[ noise < min_var] = min_var
