@@ -27,7 +27,7 @@ from scipy.signal import savgol_filter
 
 from .. import profile as dp
 from . import DataType
-
+from .scans_files import load_file
 
 class SinglePosScan(DataType):
 
@@ -50,7 +50,7 @@ class SinglePosScan(DataType):
             the image
         """
         filename = self.metadata["KEY_MD_FN"]
-        data = np.asarray([np.loadtxt(fn, skiprows=22) for fn in filename])
+        data = load_file(filename)
         return data
 
     def process_data(self, data):

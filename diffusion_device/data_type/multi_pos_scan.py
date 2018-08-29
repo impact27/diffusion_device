@@ -30,7 +30,7 @@ from scipy.signal import savgol_filter
 
 from .. import profile as dp
 from . import DataType
-
+from .scans_files import load_file
 
 class MultiPosScan(DataType):
 
@@ -54,7 +54,7 @@ class MultiPosScan(DataType):
         """
         if filename is None:
             filename = self.metadata["KEY_MD_FN"]
-        data = np.loadtxt(filename, delimiter=',')[:, 1]
+        data = load_file(filename)
         
         # Apply scan slice
         scan_slice = self.settings["KEY_SET_SCAN_SLICE"]
