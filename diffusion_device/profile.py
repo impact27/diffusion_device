@@ -383,7 +383,7 @@ def image_angle(image, maxAngle=np.pi / 7):
     top[np.isnan(top)] = 0
     bottom[np.isnan(bottom)] = 0
     # correlate
-    C = np.correlate(top, bottom, mode='full')
+    C = np.correlate(top - np.mean(top), bottom - np.mean(bottom), mode='full')
 
     pos = np.arange(len(C)) - (len(C) - 1) / 2
     disty = ((lims[1] - lims[0]) / 2)

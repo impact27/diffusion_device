@@ -207,7 +207,9 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     
     intensity = np.array([np.nanmean(p) for p in profiles])
 
+    # If more than 1 analyte
     if len(np.shape(radius)) == 3:
+        # IF spectrum
         if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
             Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
             ylim = (0, len(radius))
@@ -220,6 +222,9 @@ def plot_and_save_stack(radius, profiles, fits, infos,
             plt.ylim(*ylim)
             plt.xlabel('Radius [nm]')
             plt.ylabel('Frame number')
+            if outpath is not None:
+                plt.savefig(outpath + '_R_fig.pdf')
+        # if list
         else:
             for i in range(np.shape(radius)[1]):
                 figure()
@@ -227,15 +232,18 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                          yerr=np.abs(radius_range[:, i, :].T
                                      - radius[:, 0, i])[..., valid] * 1e9,
                          fmt='x', label='data')
-                plt.errorbar(x[valid]+0.2, radius[valid, 0, i] * 1e9,
-                         yerr=np.abs(radius_error[:, i])[..., valid] * 1e9,
-                         fmt='x', label='data')
                 plt.xlabel('Frame number')
                 plt.ylabel('Radius [nm]')
+                plt.title(f'Radius {i+1}')
+                if outpath is not None:
+                    plt.savefig(outpath + f'_R{i+1}_fig.pdf')
             figure()
             plot(radius[valid, 1], 'x')
             plt.xlabel('Frame number')
             plt.ylabel('Fraction')
+            plt.legend([f'Radius{i+1}' for i in range(np.shape(radius)[1])])
+            if outpath is not None:
+                plt.savefig(outpath + '_fractions_fig.pdf')
             
     else:
         figure()
@@ -252,11 +260,9 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                 fmt='x',
                 label='overexposed data')
             plt.legend()
-#        if settings["KEY_STG_RLOG"]:
-#            plt.yscale("log")
-
-    if outpath is not None:
-        plt.savefig(outpath + '_R_fig.pdf')
+        if outpath is not None:
+            plt.savefig(outpath + '_R_fig.pdf')
+            
 
     figure()
     plot(x[valid], LSE[valid], 'x', label='regular')

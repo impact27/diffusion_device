@@ -266,8 +266,8 @@ class MultiPosScan(DataType):
         fprof = gfilter(profiles, 3)
         # If max negatuve, not a max
         maxs = maxs[profiles[maxs] > 0]
-        # If filter reduces int by 50%, probably a wall
-        maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
+        # If filter reduces int by 90%, probably a wall
+        maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .9]
         # Remove sides
         maxs = maxs[np.logical_and(
             maxs > 3/2*filter_width, maxs < len(fprof) - 3/2*filter_width)]
