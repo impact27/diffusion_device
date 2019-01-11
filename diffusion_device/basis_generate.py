@@ -507,11 +507,15 @@ def poiseuille_unitless(
     nz = np.arange(1, 100, 2)[None, None, :, None]
     ny = np.arange(1, 100, 2)[None, None, None, :]
 
-    V = np.sum(1 / (nz * ny * (nz**2 + ny**2 * beta**2)) *
+    V = (16 * beta**2 / np.pi**4 *
+         np.sum(1 / (nz * ny * (nz**2 + ny**2 * beta**2)) *
                (np.sin(nz * np.pi * i / Zgrid) *
-                np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3))
+                np.sin(ny * np.pi * j / Ygrid)), axis=(2, 3)))
+    
+    Vmean = (64 * beta**2 / np.pi**6 *
+             np.sum(1 / (nz**2 * ny**2 * (nz**2 + ny**2 * beta**2))))
 
-    V /= np.mean(V)
+    V /= Vmean
 
     poiseuille_unitless.saved_V[key] = V
 
@@ -564,7 +568,7 @@ def get_dphi(Zgrid, Ygrid, beta, *,
     # Choosing dx as dx=dy^2*Vmin/D, The step matrix is:
     dphi = np.min((dy, dz))**2 * poiseuille_prime.min() / 2
     if mu_prime_E != 0:
-        dphi2 = poiseuille_prime.min() / np.abs(mu_prime_E)**2
+        dphi2 = poiseuille_prime.min() / np.abs(mu_prime_E) * dy / 2
         dphi = np.min([dphi, dphi2])
 
     if step_factor is None:
