@@ -302,7 +302,7 @@ class StackMultiPosImage(MultiPosImage):
 
     def savedata(self, data):
         """Save the data"""
-        tifffile.imsave(self.outpath + '_ims.tif', data)
+        tifffile.imsave(self.outpath + '_ims.tif', np.asarray(data, 'float32'))
 
     def plot_and_save(self, radius, profiles, fits):
         """Plot the sizing data"""

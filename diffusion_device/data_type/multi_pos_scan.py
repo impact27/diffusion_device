@@ -250,7 +250,7 @@ class MultiPosScan(DataType):
 
     def get_scan_centers(self, profiles):
         """Get centers from a single scan"""
-        
+
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
         
         profiles = profiles - np.nanmin(profiles)
