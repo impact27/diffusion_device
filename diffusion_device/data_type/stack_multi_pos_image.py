@@ -136,7 +136,7 @@ class StackMultiPosImage(MultiPosImage):
                 dataout.append(d)
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
-                    print(sys.exc_info())
+                    print('Frame', i, sys.exc_info()[1])
                     pixel_size[i] = np.nan
                     centers[i, :] = np.nan
                     skip.append(i)
@@ -204,7 +204,7 @@ class StackMultiPosImage(MultiPosImage):
                 noise = infos_i["Profiles noise std"]
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
-                    print(sys.exc_info())
+                    print('Frame', i, sys.exc_info()[1])
                     prof = None
                     noise = None
                 else:
@@ -290,7 +290,7 @@ class StackMultiPosImage(MultiPosImage):
                     r_range = infos_i["Radius range"]
                 except BaseException:
                     if self.settings["KEY_STG_IGNORE_ERROR"]:
-                        print(sys.exc_info()[1])
+                        print('Frame', i, sys.exc_info()[1])
                     else:
                         raise
             fits.append(fit)

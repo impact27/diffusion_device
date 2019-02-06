@@ -30,6 +30,7 @@ class ImagesFile(DataType):
     
     def __init__(self, metadata, settings, outpath):
         super().__init__(metadata, settings, outpath)
+        self.files = {}
         
     def process_background(self, data):
         """Remove optical background from data and background, and clip images.
@@ -89,10 +90,14 @@ class ImagesFile(DataType):
         im: array
             image
         """
+        if fn in self.files:
+            return self.files[fn]
+        
         data = imread(fn)
         if len(data.shape) == 3:
             data = np.squeeze(data[np.logical_not(np.all(data == 0, (1, 2)))])
         data = self.clip_border(data)
+        self.files[fn] = data
         return data
     
     
