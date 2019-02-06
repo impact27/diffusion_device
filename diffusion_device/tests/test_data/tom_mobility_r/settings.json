@@ -1,0 +1,28 @@
+{
+    "Radii[m] (min, max, number)": [
+        100e-12,
+        10e-9,
+        30
+    ],
+    "Radii in log": false,
+    "Number of species to fit": 1,
+    "Ignore Edge[m]": 0.0,
+    "Number of z slices": 11,
+    "First Position Filter": "none",
+    "Flatten bright field": true,
+    "Stack images to plot": [
+        1,
+        10,
+        20,
+        30
+    ],
+    "Ignore Error": true,
+    "Stack is stationnary": true,
+    "Background had good features": true,
+    "Remove bad fits": false,
+    "dx factor": 10e-3,
+    "Vary offset?": false,
+    "Rebin Profiles": 1,
+    "Use Image Coordinates": true,
+    "Rebin stack": 3
+}

@@ -1,0 +1,45 @@
+{
+    "Type of data": "stack_multi_pos_image",
+    "Image file name": "stack.tif",
+    "Optics background file name": "optical bg.tiff",
+    "Image exposition time [s]": 5,
+    "Optics background image exposition time [s]": 5,
+    "Wz[m]": 55.2e-6,
+    "Wy[m]": 300e-6,
+    "Wall Width [m]": 100e-6,
+    "Number of channels in a file": 7,
+    "Q[ulph]": 168.6,
+    "Read Positions [m]": [
+        1.4e-3,
+        2.02832e-3,
+        10.6566e-3,
+        11.285e-3,
+        19.9133e-3,
+        20.5416e-3,
+        39.1982e-3
+    ],
+    "Pixel Size [m]": 2.8e-6,
+    "Image border[px] (t, d, l, r)": [
+        null,
+        null,
+        600,
+        null
+    ],
+    "Date [YYYYMMDD]": "20100231",
+    "Analyte informations": "15uM BSA",
+    "Buffer informations": "100mM phosphate pH8",
+    "Device informations": "Kadi100x50 model 1",
+    "Flow direction (u, d, l, r)": [
+        "l",
+        "r",
+        "l",
+        "r",
+        "l",
+        "r",
+        "l"
+    ],
+    "Operator": "Kadi",
+    "Success [1-3]": 3,
+    "Temperature [K]": 301.8,
+    "Viscosity [Pa s]": 823.44e-6
+}
