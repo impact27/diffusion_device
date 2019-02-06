@@ -79,7 +79,9 @@ class StackMultiPosImage(MultiPosImage):
         """
         Nchannel = self.metadata['KEY_MD_NCHANNELS']
         framesslices = slice(*self.settings["KEY_STG_STACK_FRAMESSLICES"])
-        data = np.asarray(data, dtype="float32")[framesslices]
+        
+        data = np.asarray(data[framesslices], dtype="float32")
+        
         rebin = self.settings["KEY_STG_STACK_REBIN"]
         if rebin > 1:
             new_data = np.zeros(
@@ -88,7 +90,7 @@ class StackMultiPosImage(MultiPosImage):
                 new_data[i] = np.mean(data[i * rebin:(i + 1) * rebin], 0)
             data = new_data
 
-            new_overexposed = np.zeros(len(self.infos["Overexposed"])//rebin)
+            new_overexposed = np.zeros(len(self.infos["Overexposed"])//rebin, bool)
             for i in range(len(new_overexposed)):
                 new_overexposed[i] = np.any(
                     self.infos["Overexposed"][i * rebin:(i + 1) * rebin])
@@ -103,6 +105,7 @@ class StackMultiPosImage(MultiPosImage):
         pixel_size = np.zeros((len(data)))
         dataout = []
         skip = []
+        noise_var = []
 
         if self.settings["KEY_STG_STAT_STACK"]:
             # Check KEY_MD_EXP are all the same
@@ -129,6 +132,7 @@ class StackMultiPosImage(MultiPosImage):
 
                 pixel_size[i] = self.infos["Pixel size"]
                 centers[i] = self.infos["Centers"]
+                noise_var.append(self.infos["noise_var"])
                 dataout.append(d)
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
@@ -136,8 +140,10 @@ class StackMultiPosImage(MultiPosImage):
                     pixel_size[i] = np.nan
                     centers[i, :] = np.nan
                     skip.append(i)
+                    noise_var.append(None)
                 else:
                     raise
+
         infos_stack["flow direction"] = self.infos["flow direction"]
         self.infos = infos_stack
         # Fix metadata
@@ -151,6 +157,7 @@ class StackMultiPosImage(MultiPosImage):
 
         self.infos["Pixel size"] = pixel_size
         self.infos["Centers"] = centers
+        self.infos["noise_var"] = noise_var
         return dataout
 
     def get_profiles(self, data):
@@ -189,7 +196,8 @@ class StackMultiPosImage(MultiPosImage):
                 infos_i = {
                     "Pixel size": pxs,
                     "Centers": cnt,
-                    "flow direction": flowdir}
+                    "flow direction": flowdir,
+                    'noise_var': infos_tmp['noise_var'][i]}
 
                 self.infos = infos_i
                 prof = super().get_profiles(im)
@@ -226,7 +234,7 @@ class StackMultiPosImage(MultiPosImage):
         else:
             self.infos["Pixel size"][i] = infos_i["Pixel size"]
         self.infos["Profiles noise std"][i] = infos_i["Profiles noise std"]
-        
+
     def size_profiles(self, profiles):
         """Size the profiles
 

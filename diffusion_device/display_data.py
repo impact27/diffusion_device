@@ -194,13 +194,17 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     
     radius = np.asarray(compress(radius, success))
     overexposed = np.asarray(compress(infos["Overexposed"], success))
-    pixel_size = np.asarray(compress(infos["Pixel size"], success))
     radius_error = np.asarray(compress(infos["Radius error std"], success))
     radius_range = np.asarray(compress(infos["Radius range"], success))
     LSE = np.asarray(compress(infos["Reduced least square"], success))
     signal_over_noise = np.asarray(compress(infos["Signal over noise"], success))
+    profiles_noise_std = compress(infos["Profiles noise std"], success)
     profiles = compress(profiles, success)
     fits = compress(fits, success)
+    
+    pixel_size = infos["Pixel size"]
+    if len(np.shape(pixel_size)) > 0:
+        pixel_size = np.asarray(compress(infos["Pixel size"], success))
     
     valid = np.logical_not(overexposed)
     plotpos = settings["KEY_STG_STACK_POSPLOT"]
@@ -366,7 +370,8 @@ def plot_and_save_stack(radius, profiles, fits, infos,
                 pixs = pixel_size[pos]
 
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
-                        pixs, infos["Profiles noise std"][pos], radius_range[pos], prefix=f'{pos}: ')
+                        pixs, profiles_noise_std[pos],
+                        radius_range[pos], prefix=f'{pos}: ')
 
             if outpath is not None:
                 plt.savefig(outpath + '_{}_fig.pdf'.format(pos))

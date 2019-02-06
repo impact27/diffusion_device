@@ -82,13 +82,12 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         """
         data, background = self.process_background(raw_data)
         data = self.process_image(data, background)
-        self.noise_var = self.get_noise_var(raw_data, data)
+        self.infos["noise_var"] = self.get_noise_var(raw_data, data)
         return data
 
     def get_noise_var(self, raw_data, data):
         """ Get the noise corresponding to the image"""
-        var = self.clip_border(raw_data)
-        var = self.rotate90(var)
+        var = self.rotate90(raw_data)
         var = self.rotate_image(var, -self.infos["image_angle"])
         
         if "image_intensity" in self.infos:
@@ -112,7 +111,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             
         var[np.isnan(data)] = np.nan
         noise_var = self.get_multi_pos_scan(var)
-        noise_var /= np.sum(np.isfinite(var), 0)
+        noise_var /= np.sum(np.isfinite(var), -2)
         return noise_var
     
     def get_multi_pos_scan(self, data):
@@ -120,7 +119,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         pixel_size = self.infos["Pixel size"]
         imslice = self.settings["KEY_STG_SLICE"]
         if imslice is None:
-            lin_profiles = np.nanmean(data, 0)
+            lin_profiles = np.nanmean(data, -2)
         else:
             lin_profiles = self.imageProfileSlice(
                 data, imslice[0], imslice[1], pixel_size)
@@ -242,13 +241,13 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             The profile corresponding to the slice
 
         '''
-        center = len(image) // 2 + int(np.round(center / pixel_size))
+        center = np.shape(image)[-2] // 2 + int(np.round(center / pixel_size))
         width = int(np.round(width / pixel_size))
         amin = (2 * center - width) // 2
         amax = (2 * center + width) // 2
-        if amin < 0 or amax > len(image):
+        if amin < 0 or amax > np.shape(image)[-2]:
             raise RuntimeError("Poorly defined slice")
-        return np.nanmean(image[amin:amax], 0)
+        return np.nanmean(image[..., amin:amax, :], -2)
 
     def image_infos(self, image):
         """

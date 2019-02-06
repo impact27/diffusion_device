@@ -50,12 +50,7 @@ class ImagesFile(DataType):
     
         """
         data = self.remove_optics_background(data)
-        data = self.clip_border(data)
-        
-        background = self.get_background()
-        background = self.remove_optics_background(background)
-        background = self.clip_border(background)
-        
+        background = self.remove_optics_background(self.get_background())
         return data, background
     
     
@@ -78,10 +73,9 @@ class ImagesFile(DataType):
             data = np.asarray([self.load_image(fn) for fn in filename])
         else:
             data = self.load_image(filename)
-    
-        return np.asarray(data, dtype=float)
-    
-    
+        return data
+
+
     def load_image(self, fn):
         """ Load single image
     
@@ -95,10 +89,11 @@ class ImagesFile(DataType):
         im: array
             image
         """
-        ims = imread(fn)
-        if len(ims.shape) == 3:
-            ims = np.squeeze(ims[np.logical_not(np.all(ims == 0, (1, 2)))])
-        return np.asarray(ims, dtype=float)
+        data = imread(fn)
+        if len(data.shape) == 3:
+            data = np.squeeze(data[np.logical_not(np.all(data == 0, (1, 2)))])
+        data = self.clip_border(data)
+        return data
     
     
     def get_background(self):
@@ -145,6 +140,7 @@ class ImagesFile(DataType):
         if images is None:
             return None
         
+        images =  np.asarray(images, "float32")
         # Remove background from optics
         optics_bgfn = self.metadata["KEY_MD_OPBGFN"]
         if optics_bgfn is None:

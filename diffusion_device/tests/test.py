@@ -217,3 +217,15 @@ class TestImage(TestCase):
         self.assertGreater(np.min(radius), 1e-9)
         self.assertLess(np.max(radius), 3e-9)
         
+    def test_mobility(self):
+        settingsfn = os.path.join(
+            folder, 'test_data/tom_mobility_r/settings.json')
+        metadatafn = os.path.join(
+            folder, 'test_data/tom_mobility_r/stack_metadata.json')
+        tempdir = "Test_tempdir"
+        radius, profiles, fits, data, infos = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(radius[0], 3e-9)
+        self.assertLess(radius[0], 4e-9)
+        
