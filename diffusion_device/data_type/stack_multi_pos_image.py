@@ -27,6 +27,8 @@ import numpy as np
 import tifffile
 import sys
 import pandas as pd
+import os
+import shutil
 
 from .multi_pos_image import MultiPosImage
 from .. import display_data
@@ -119,6 +121,7 @@ class StackMultiPosImage(MultiPosImage):
                     self.metadata["KEY_MD_EXP"] = self.metadata["KEY_MD_EXP"][0]
 
             super_infos = super().process_data(data)
+            super_infos['Error'] = False
             for data_idx, i in enumerate(infos.index):
                 infos_i = super_infos.copy()
                 key_break =['Data', 'image_intensity',
@@ -137,11 +140,13 @@ class StackMultiPosImage(MultiPosImage):
                     self.metadata["KEY_MD_EXP"] = (
                         np.asarray(metadata_stack["KEY_MD_EXP"])[framesslices][i])
                 infos_i = super().process_data(frame)
+                infos_i['Error'] = False
                 infos = self.add_to_line(infos, i, infos_i)
 
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
                     print('Frame', i, sys.exc_info()[1])
+                    infos.at[i, 'Error'] = True
                 else:
                     raise
 
@@ -181,13 +186,14 @@ class StackMultiPosImage(MultiPosImage):
             The profiles
         """
 
-        for i in infos.index:
+        for i in infos.index[np.logical_not(infos.loc[:, 'Error'])]:
             try:
                 infos = self.add_to_line(
                         infos, i, super().get_profiles(infos.loc[i].to_dict()))
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
                     print('Frame', i, sys.exc_info()[1])
+                    infos.at[i, 'Error'] = True
                 else:
                     raise
         return infos
@@ -217,31 +223,36 @@ class StackMultiPosImage(MultiPosImage):
         fits: 2d array
             The fits
         """
-        for i in infos.index:
-            if infos.at[i, "Profiles"] is not np.nan:
-                try:
-                    if len(np.shape(self.metadata["KEY_MD_Q"])) > 0:
-                        metadata_i = self.metadata.copy()
-                        metadata_i["KEY_MD_Q"] = metadata_i["KEY_MD_Q"][i]
-                    else:
-                        metadata_i = self.metadata
-                    infos_i = dp.size_profiles(
-                            infos.loc[i].to_dict(), metadata_i, self.settings)
-                    infos = self.add_to_line(infos, i, infos_i)
-                except BaseException:
-                    if self.settings["KEY_STG_IGNORE_ERROR"]:
-                        print('Frame', i, sys.exc_info()[1])
-                    else:
-                        raise
+        for i in infos.index[np.logical_not(infos.loc[:, 'Error'])]:
+            try:
+                if len(np.shape(self.metadata["KEY_MD_Q"])) > 0:
+                    metadata_i = self.metadata.copy()
+                    metadata_i["KEY_MD_Q"] = metadata_i["KEY_MD_Q"][i]
+                else:
+                    metadata_i = self.metadata
+                infos_i = dp.size_profiles(
+                        infos.loc[i].to_dict(), metadata_i, self.settings)
+                infos = self.add_to_line(infos, i, infos_i)
+            except BaseException:
+                if self.settings["KEY_STG_IGNORE_ERROR"]:
+                    print('Frame', i, sys.exc_info()[1])
+                    infos.at[i, 'Error'] = True
+                else:
+                    raise
 
         return infos
 
     def savedata(self, infos):
         """Save the data"""
-        tifffile.imsave(self.outpath + '_ims.tif',
-                        np.asarray(
-                                np.stack(infos.loc[:, "Data"], axis=0),
-                                'float32'))
+        data = infos.loc[infos.loc[:, 'Data'].notna(), 'Data']
+        nchar = int(np.ceil(np.log10(np.max(data.index.to_numpy()))))
+        fn = self.outpath + '_image'
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+        os.makedirs(fn)
+        for i in data.index:
+            tifffile.imsave(self.outpath + f'_image/{i:0{nchar}d}.tif',
+                        np.asarray(data.at[i], 'float32'))
 
     def plot_and_save(self, infos):
         """Plot the sizing data"""
@@ -249,11 +260,10 @@ class StackMultiPosImage(MultiPosImage):
             infos, self.settings, self.outpath)
 
     def process_profiles(self, infos):
-        for i in infos.index:
-            if infos.at[i, 'Profiles'] is not None:
-                infos_i = dp.process_profiles(
-                    infos.loc[i].to_dict(),
-                    self.metadata, self.settings, self.outpath)
-                infos = self.add_to_line(infos, i, infos_i)
+        for i in infos.index[np.logical_not(infos.loc[:, 'Error'])]:
+            infos_i = dp.process_profiles(
+                infos.loc[i].to_dict(),
+                self.metadata, self.settings, self.outpath)
+            infos = self.add_to_line(infos, i, infos_i)
 
         return infos

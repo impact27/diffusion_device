@@ -188,32 +188,23 @@ def plot_and_save_stack(infos, settings, outpath=None):
         Positions to plot if this is a stack
 
     """
-    radius = infos.loc[:, "Radius"]
-    profiles = infos.loc[:, "Profiles"]
-    fits = infos.loc[:, "Fitted Profiles"]
-    def compress(radius, mask):
-        return [r for r, s in zip(radius, mask) if s]
-    
-    success = [r is not None for r in radius]
-    x = np.arange(len(radius))[success]
-    
-    radius = np.asarray(compress(radius, success))
-    overexposed = np.asarray(compress(infos.loc[:, "Overexposed"], success))
-    radius_error = np.asarray(compress(infos.loc[:, "Radius error std"], success))
-    radius_range = np.asarray(compress(infos.loc[:, "Radius range"], success))
-    LSE = np.asarray(compress(infos.loc[:, "Reduced least square"], success))
-    signal_over_noise = np.asarray(compress(infos.loc[:, "Signal over noise"], success))
-    profiles_noise_std = compress(infos.loc[:, "Profiles noise std"], success)
-    profiles = compress(profiles, success)
-    fits = compress(fits, success)
-    
-    pixel_size = infos.loc[:, "Pixel size"]
-    if len(np.shape(pixel_size)) > 0:
-        pixel_size = np.asarray(compress(infos.loc[:, "Pixel size"], success))
-    
+    success = infos.loc[:, "Radius"].notna()
+
+    radius = infos.loc[success, "Radius"]
+    x = radius.index
+    overexposed = infos.loc[success, "Overexposed"]
+    radius_error = infos.loc[success, "Radius error std"]
+    radius_range = infos.loc[success, "Radius range"]
+    LSE = infos.loc[success, "Reduced least square"]
+    signal_over_noise = infos.loc[success, "Signal over noise"]
+    profiles_noise_std = infos.loc[success, "Profiles noise std"]
+    profiles = infos.loc[success, "Profiles"]
+    fits = infos.loc[success, "Fitted Profiles"]
+    pixel_size = infos.loc[success, "Pixel size"]
+
     valid = np.logical_not(overexposed)
     plotpos = settings["KEY_STG_STACK_POSPLOT"]
-    
+
     intensity = np.array([np.nanmean(p) for p in profiles])
 
     # If more than 1 analyte
@@ -238,9 +229,9 @@ def plot_and_save_stack(infos, settings, outpath=None):
             for i in range(np.shape(radius)[1]):
                 figure()
                 plt.errorbar(x[valid], radius[valid, 0, i] * 1e9,
-                         yerr=np.abs(radius_range[:, i, :].T
-                                     - radius[:, 0, i])[..., valid] * 1e9,
-                         fmt='x', label='data')
+                             yerr=np.abs(radius_range[:, i, :].T
+                                         - radius[:, 0, i])[..., valid] * 1e9,
+                                         fmt='x', label='data')
                 plt.xlabel('Frame number')
                 plt.ylabel('Radius [nm]')
                 plt.title(f'Radius {i+1}')
@@ -253,11 +244,12 @@ def plot_and_save_stack(infos, settings, outpath=None):
             plt.legend([f'Radius{i+1}' for i in range(np.shape(radius)[1])])
             if outpath is not None:
                 plt.savefig(outpath + '_fractions_fig.pdf')
-            
+
     else:
         figure()
         plt.errorbar(x[valid], radius[valid] * 1e9,
-                     yerr=np.abs(radius_range.T - radius)[..., valid] * 1e9,
+                     yerr=np.abs(np.stack(radius_range).T
+                                 - radius.to_numpy())[..., valid] * 1e9,
                      fmt='x', label='data')
         plt.xlabel('Frame number')
         plt.ylabel('Radius [nm]')
@@ -271,7 +263,6 @@ def plot_and_save_stack(infos, settings, outpath=None):
             plt.legend()
         if outpath is not None:
             plt.savefig(outpath + '_R_fig.pdf')
-            
 
     figure()
     plot(x[valid], LSE[valid], 'x', label='regular')
@@ -314,60 +305,75 @@ def plot_and_save_stack(infos, settings, outpath=None):
             plt.savefig(outpath + '_pixel_size_fig.pdf')
 
     if outpath is not None:
-        with open(outpath + '_result.txt', 'wb') as f:
-            f.write('Reduced least square:\n'.encode())
-            np.savetxt(f, LSE[np.newaxis])
-            if np.any(overexposed):
-                f.write('Overexposed Frames:\n'.encode())
-                np.savetxt(f, overexposed[np.newaxis])
-            f.write('Pixel size:\n'.encode())
-            np.savetxt(f, pixel_size[np.newaxis])
-            f.write('Signal over noise:\n'.encode())
-            np.savetxt(f, signal_over_noise[np.newaxis])
+        selected_keys = [
+                "Radius",
+                "Radius range",
+                "Radius error std",
+                "Signal over noise",
+                "Reduced least square",
+                "Overexposed",
+                "Profiles noise std",
+                "Pixel size",
+                "Profiles",
+                "Fitted Profiles"
 
-            if len(np.shape(radius)) == 3:
-                if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
-                    f.write(f'Radii [nm]:\n'.encode())
-                    np.savetxt(f, Rs[np.newaxis])
-                    f.write(f'Spectrums:\n'.encode())
-                    np.savetxt(f, radius[:, 1])
-                    f.write('radius error:\n'.encode())
-                    np.savetxt(f, radius_error)
-                    f.write('radius range:\n'.encode())
-                    np.savetxt(f, radius_range)
-                else:
-                    f.write(f'Radii [nm]:\n'.encode())
-                    np.savetxt(f, radius[:, 0])
-                    f.write(f'Spectrums:\n'.encode())
-                    np.savetxt(f, radius[:, 1])
-                    f.write('radius error:\n'.encode())
-                    np.savetxt(f, radius_error)
-                    for i in range(np.shape(radius_range)[1]):
-                        f.write(f'radius range {i}:\n'.encode())
-                        np.savetxt(f, radius_range[:, i])
-                    
 
-            else:
-                f.write('radius:\n'.encode())
-                np.savetxt(f, radius[np.newaxis])
-                f.write('radius error:\n'.encode())
-                np.savetxt(f, radius_error[np.newaxis])
-                f.write('radius range:\n'.encode())
-                np.savetxt(f, radius_range)
+                ]
+        infos.loc[np.logical_not(infos.loc[:, 'Error']),
+                  selected_keys].to_csv(outpath + '_result.csv')
+        # with open(outpath + '_result.txt', 'wb') as f:
+        #     f.write('Reduced least square:\n'.encode())
+        #     np.savetxt(f, LSE[np.newaxis])
+        #     if np.any(overexposed):
+        #         f.write('Overexposed Frames:\n'.encode())
+        #         np.savetxt(f, overexposed[np.newaxis])
+        #     f.write('Pixel size:\n'.encode())
+        #     np.savetxt(f, pixel_size[np.newaxis])
+        #     f.write('Signal over noise:\n'.encode())
+        #     np.savetxt(f, signal_over_noise[np.newaxis])
 
-            for i, prof, fit in zip(x, profiles, fits):
-                if prof is not None and fit is not None:
-                    f.write(f"Frame {i}\nProfiles:\n".encode())
-                    np.savetxt(f, prof)
-                    f.write('Fits:\n'.encode())
-                    np.savetxt(f, fit)
-                else:
-                    f.write(f"Frame {i:d}\nEmpty\n".encode())
+        #     if len(np.shape(radius)) == 3:
+        #         if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
+        #             f.write(f'Radii [nm]:\n'.encode())
+        #             np.savetxt(f, Rs[np.newaxis])
+        #             f.write(f'Spectrums:\n'.encode())
+        #             np.savetxt(f, radius[:, 1])
+        #             f.write('radius error:\n'.encode())
+        #             np.savetxt(f, radius_error)
+        #             f.write('radius range:\n'.encode())
+        #             np.savetxt(f, radius_range)
+        #         else:
+        #             f.write(f'Radii [nm]:\n'.encode())
+        #             np.savetxt(f, radius[:, 0])
+        #             f.write(f'Spectrums:\n'.encode())
+        #             np.savetxt(f, radius[:, 1])
+        #             f.write('radius error:\n'.encode())
+        #             np.savetxt(f, radius_error)
+        #             for i in range(np.shape(radius_range)[1]):
+        #                 f.write(f'radius range {i}:\n'.encode())
+        #                 np.savetxt(f, radius_range[:, i])
+
+        #     else:
+        #         f.write('radius:\n'.encode())
+        #         np.savetxt(f, radius[np.newaxis])
+        #         f.write('radius error:\n'.encode())
+        #         np.savetxt(f, radius_error[np.newaxis])
+        #         f.write('radius range:\n'.encode())
+        #         np.savetxt(f, radius_range)
+
+        #     for i, prof, fit in zip(x, profiles, fits):
+        #         if prof is not None and fit is not None:
+        #             f.write(f"Frame {i}\nProfiles:\n".encode())
+        #             np.savetxt(f, prof)
+        #             f.write('Fits:\n'.encode())
+        #             np.savetxt(f, fit)
+        #         else:
+        #             f.write(f"Frame {i:d}\nEmpty\n".encode())
 
     if plotpos is not None:
-        plotpos = np.asarray(plotpos)
-
-        for pos in plotpos[plotpos < len(profiles)]:
+        for pos in plotpos:
+            argmin = np.argmin(np.abs(pos - profiles.index))
+            pos = profiles.index[argmin]
             if profiles[pos] is None:
                 continue
             pixs = pixel_size
