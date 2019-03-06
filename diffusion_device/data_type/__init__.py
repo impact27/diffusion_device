@@ -32,7 +32,6 @@ class DataType():
     def __init__(self, metadata, settings, outpath):
         """Init"""
         super().__init__()
-        self.infos = {}
         self.metadata = metadata
         self.settings = settings
         self.outpath = outpath
@@ -40,19 +39,19 @@ class DataType():
     def full_fit(self):
         """Perform a fit with the imformations found in the settings file"""
         raw_data = self.load_data()
-        data = self.process_data(raw_data)
+        infos = self.process_data(raw_data)
 
         if self.outpath is not None:
-            self.savedata(data)
+            self.savedata(infos)
 
-        profiles = self.get_profiles(data)
-        profiles = self.process_profiles(profiles)
-        radius, fits = self.size_profiles(profiles)
+        infos = self.get_profiles(infos)
+        infos = self.process_profiles(infos)
+        infos = self.size_profiles(infos)
 
         if self.outpath is not None:
-            self.plot_and_save(radius, profiles, fits)
+            self.plot_and_save(infos)
 
-        return radius, profiles, fits, data, self.infos
+        return infos
 
     def load_data(self):
         """load data from metadata
@@ -77,13 +76,15 @@ class DataType():
         data: array
             The processed data
         """
-        return data
+        infos = {}
+        infos['Data'] = data
+        return infos
 
-    def savedata(self, data):
+    def savedata(self, infos):
         """Save the data"""
         pass
 
-    def get_profiles(self, data):
+    def get_profiles(self, infos):
         """Do some data processing
 
         Parameters
@@ -98,16 +99,15 @@ class DataType():
         """
         assert(False)
 
-    def process_profiles(self, profiles):
+    def process_profiles(self, infos):
         """process_profiles"""
-        return profiles
+        return infos
 
-    def size_profiles(self, profiles):
+    def size_profiles(self, infos):
         """size_profiles"""
         return dp.size_profiles(
-            profiles, self.metadata, self.settings, infos=self.infos)
+            infos, self.metadata, self.settings)
 
-    def plot_and_save(self, radius, profiles, fits):
+    def plot_and_save(self, infos):
         """plot_and_save"""
-        display_data.plot_and_save(
-            radius, profiles, fits, self.infos, self.outpath)
+        display_data.plot_and_save(infos, self.outpath)

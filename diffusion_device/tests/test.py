@@ -3,6 +3,7 @@ from unittest import TestCase
 import numpy as np
 import os
 import shutil
+import warnings
 
 from .. import basis_generate as ddbg
 from ..process_data import full_fit
@@ -10,6 +11,8 @@ from ..process_data import full_fit
 from . import __file__
 
 folder = os.path.dirname(__file__)
+warnings.filterwarnings('ignore', 'More than 20 figures have been opened.',
+                        RuntimeWarning)
 
 
 class TestImage(TestCase):
@@ -19,11 +22,10 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 2.5e-9)
-        self.assertLess(radius, 5e-9)
+        self.assertGreater(infos['Radius'], 2.5e-9)
+        self.assertLess(infos['Radius'], 5e-9)
 
     def test_scans(self):
         settingsfn = os.path.join(folder,
@@ -31,11 +33,10 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/scans/metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 2e-9)
-        self.assertLess(radius, 3e-9)
+        self.assertGreater(infos['Radius'], 2e-9)
+        self.assertLess(infos['Radius'], 3e-9)
 
     def test_single_scans(self):
         settingsfn = os.path.join(folder,
@@ -43,11 +44,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/exp1_z2_x2_metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 3e-9)
-        self.assertLess(radius, 4e-9)
+        self.assertGreater(infos['Radius'], 3e-9)
+        self.assertLess(infos['Radius'], 4e-9)
 
     def test_UV_bg_poly_2(self):
         settingsfn = os.path.join(
@@ -56,7 +57,7 @@ class TestImage(TestCase):
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
         try:
-            radius, profiles, fits, data, infos = \
+            infos = \
                 full_fit(settingsfn, metadatafn, tempdir)
         except RuntimeError as e:
             if e.args[0] != "Monodisperse":
@@ -64,7 +65,7 @@ class TestImage(TestCase):
             return
 
         shutil.rmtree(tempdir)
-        Rs, spectrum = radius
+        Rs, spectrum = infos['Radius']
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
         self.assertLess(Rs[np.argmax(spectrum)], 5e-9)
 
@@ -74,10 +75,10 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        Rs, spectrum = radius
+        Rs, spectrum = infos['Radius']
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
         self.assertLess(Rs[np.argmax(spectrum)], 5e-9)
 
@@ -87,11 +88,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/Brightim900ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, .2e-9)
-        self.assertLess(radius, 1e-9)
+        self.assertGreater(infos['Radius'], .2e-9)
+        self.assertLess(infos['Radius'], 1e-9)
 
     def test_film(self):
         settingsfn = os.path.join(
@@ -99,12 +100,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/327.68ul-h-50um device_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(np.sum(np.isfinite(radius)),
-                           np.sum(np.isnan(radius)))
-        self.assertFalse(np.max(radius) > 4e-9)
+        self.assertGreater(np.sum(np.isfinite(infos.loc[:, 'Radius'])),
+                           np.sum(np.isnan(infos.loc[:, 'Radius'])))
+        self.assertFalse(np.max(infos.loc[:, 'Radius']) > 4e-9)
 
     def test_12pos(self):
         settingsfn = os.path.join(
@@ -112,11 +112,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/350ulh_12pos/metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 2.5e-9)
-        self.assertLess(radius, 4.5e-9)
+        self.assertGreater(infos['Radius'], 2.5e-9)
+        self.assertLess(infos['Radius'], 4.5e-9)
 
     def test_bright_walls(self):
         settingsfn = os.path.join(
@@ -124,11 +124,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 2e-9)
-        self.assertLess(radius, 4e-9)
+        self.assertGreater(infos['Radius'], 2e-9)
+        self.assertLess(infos['Radius'], 4e-9)
         
     def test_will(self):
         settingsfn = os.path.join(
@@ -136,11 +136,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/will_stg/metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(np.min(radius), 1e-9)
-        self.assertLess(np.max(radius), 3e-9)
+        self.assertGreater(np.min(infos['Radius']), 1e-9)
+        self.assertLess(np.max(infos['Radius']), 3e-9)
 
     def test_Slice(self):
         settingsfn = os.path.join(
@@ -148,11 +148,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/1tf_001tweentico75_100ulhr_Metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 2e-9)
-        self.assertLess(radius, 4e-9)
+        self.assertGreater(infos['Radius'], 2e-9)
+        self.assertLess(infos['Radius'], 4e-9)
 
     def test_opticsbg(self):
         settingsfn = os.path.join(folder,
@@ -160,11 +160,11 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/M4-5_metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
+        infos = \
             full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius, 4e-9)
-        self.assertLess(radius, 4.6e-9)
+        self.assertGreater(infos['Radius'], 4e-9)
+        self.assertLess(infos['Radius'], 4.6e-9)
 
     def test_electrophoresis(self):
         basisfn = os.path.join(folder,
@@ -211,11 +211,14 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/martin/metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore',
+                                    "Missing pixels, scan not large enough",
+                                    RuntimeWarning)
+            infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(np.min(radius), 1e-9)
-        self.assertLess(np.max(radius), 3e-9)
+        self.assertGreater(np.min(infos['Radius']), 1e-9)
+        self.assertLess(np.max(infos['Radius']), 3e-9)
         
     def test_mobility(self):
         settingsfn = os.path.join(
@@ -223,9 +226,8 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/tom_mobility_r/stack_metadata.json')
         tempdir = "Test_tempdir"
-        radius, profiles, fits, data, infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(radius[0], 3e-9)
-        self.assertLess(radius[0], 4e-9)
+        self.assertGreater(infos['Radius'][0], 3e-9)
+        self.assertLess(infos['Radius'][0], 4e-9)
         

@@ -26,6 +26,7 @@ from registrator.image import is_overexposed
 import numpy as np
 import tifffile
 import sys
+import pandas as pd
 
 from .multi_pos_image import MultiPosImage
 from .. import display_data
@@ -55,7 +56,6 @@ class StackMultiPosImage(MultiPosImage):
         """
         filename = self.metadata["KEY_MD_FN"]
         data = self.load_images(filename)
-        self.infos["Overexposed"] = [is_overexposed(d) for d in data]
         return data
 
     def process_data(self, data):
@@ -79,10 +79,13 @@ class StackMultiPosImage(MultiPosImage):
         """
         Nchannel = self.metadata['KEY_MD_NCHANNELS']
         framesslices = slice(*self.settings["KEY_STG_STACK_FRAMESSLICES"])
-        
-        data = np.asarray(data[framesslices], dtype="float32")
-        
         rebin = self.settings["KEY_STG_STACK_REBIN"]
+
+        index = np.arange(0, np.shape(data)[0]//rebin) * rebin
+
+        overexposed = [is_overexposed(d) for d in data[framesslices]]
+        data = np.asarray(data[framesslices], dtype="float32")
+
         if rebin > 1:
             new_data = np.zeros(
                 (np.shape(data)[0]//rebin, *np.shape(data)[1:]))
@@ -90,22 +93,19 @@ class StackMultiPosImage(MultiPosImage):
                 new_data[i] = np.mean(data[i * rebin:(i + 1) * rebin], 0)
             data = new_data
 
-            new_overexposed = np.zeros(len(self.infos["Overexposed"])//rebin, bool)
+            new_overexposed = np.zeros(len(overexposed)//rebin, bool)
             for i in range(len(new_overexposed)):
                 new_overexposed[i] = np.any(
-                    self.infos["Overexposed"][i * rebin:(i + 1) * rebin])
+                    overexposed[i * rebin:(i + 1) * rebin])
 
-            self.infos["Overexposed"] = new_overexposed
+            overexposed = new_overexposed
             for i, val in enumerate(self.settings["KEY_STG_STACK_FRAMESSLICES"]):
                 if val is not None:
                     self.settings["KEY_STG_STACK_FRAMESSLICES"][i] = val // rebin
             framesslices = slice(*self.settings["KEY_STG_STACK_FRAMESSLICES"])
 
-        centers = np.zeros((len(data), Nchannel))
-        pixel_size = np.zeros((len(data)))
-        dataout = []
-        skip = []
-        noise_var = []
+        infos = pd.DataFrame(index=index)
+        infos.loc[:, "Overexposed"] = overexposed
 
         if self.settings["KEY_STG_STAT_STACK"]:
             # Check KEY_MD_EXP are all the same
@@ -118,49 +118,50 @@ class StackMultiPosImage(MultiPosImage):
                 else:
                     self.metadata["KEY_MD_EXP"] = self.metadata["KEY_MD_EXP"][0]
 
-            return super().process_data(data)
+            super_infos = super().process_data(data)
+            for data_idx, i in enumerate(infos.index):
+                infos_i = super_infos.copy()
+                key_break =['Data', 'image_intensity',
+                            'Overexposed', 'noise_var']
+                for key in key_break:
+                    infos_i[key] = infos_i[key][data_idx]
+                infos = self.add_to_line(infos, i, infos_i)
 
-        infos_stack = self.infos
+            return infos
+
         metadata_stack = self.metadata.copy()
-        for i in range(len(data)):
+        for i, frame in zip(index, data):
             try:
                 # Get KEY_MD_EXP correct in the metadata
                 if isinstance(metadata_stack["KEY_MD_EXP"], list):
                     self.metadata["KEY_MD_EXP"] = (
                         np.asarray(metadata_stack["KEY_MD_EXP"])[framesslices][i])
-                d = super().process_data(data[i])
+                infos_i = super().process_data(frame)
+                infos = self.add_to_line(infos, i, infos_i)
 
-                pixel_size[i] = self.infos["Pixel size"]
-                centers[i] = self.infos["Centers"]
-                noise_var.append(self.infos["noise_var"])
-                dataout.append(d)
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
                     print('Frame', i, sys.exc_info()[1])
-                    pixel_size[i] = np.nan
-                    centers[i, :] = np.nan
-                    skip.append(i)
-                    noise_var.append(None)
                 else:
                     raise
 
-        infos_stack["flow direction"] = self.infos["flow direction"]
-        self.infos = infos_stack
         # Fix metadata
         metadata_stack["KEY_MD_FLOWDIR"] = self.metadata["KEY_MD_FLOWDIR"]
         self.metadata = metadata_stack
-        dataout = np.asarray(dataout)
-        if skip != []:
-            for idx in skip:
-                dataout = np.insert(dataout, idx,
-                                    np.ones(np.shape(dataout)[1:]) * np.nan, 0)
+        return infos
 
-        self.infos["Pixel size"] = pixel_size
-        self.infos["Centers"] = centers
-        self.infos["noise_var"] = noise_var
-        return dataout
+    def add_to_line(self, infos, index, adict):
+        intersection = infos.columns.intersection(adict.keys())
+        missing = [key for key in adict.keys() if key not in infos.columns]
+        adict = pd.DataFrame({k: [adict[k]] for k in adict.keys()},
+                              index=[index])
+        if len(missing) > 0:
+            # add columns
+            infos = infos.join(adict.loc[:, missing])
+        infos.loc[index, intersection] = adict.loc[index, intersection]
+        return infos
 
-    def get_profiles(self, data):
+    def get_profiles(self, infos):
         """Do some data processing
 
         Parameters
@@ -179,63 +180,19 @@ class StackMultiPosImage(MultiPosImage):
         profiles: array
             The profiles
         """
-        pixel_size = self.infos["Pixel size"]
-        centers = self.infos["Centers"]
-        flowdir = self.infos["flow direction"]
-        profiles = []
-        noises = []
-        infos_tmp = self.infos
 
-        for i, im in enumerate(data):
+        for i in infos.index:
             try:
-                if self.settings["KEY_STG_STAT_STACK"]:
-                    pxs, cnt = pixel_size, centers
-                else:
-                    pxs, cnt = pixel_size[i], centers[i]
-
-                infos_i = {
-                    "Pixel size": pxs,
-                    "Centers": cnt,
-                    "flow direction": flowdir,
-                    'noise_var': infos_tmp['noise_var'][i]}
-
-                self.infos = infos_i
-                prof = super().get_profiles(im)
-                noise = infos_i["Profiles noise std"]
+                infos = self.add_to_line(
+                        infos, i, super().get_profiles(infos.loc[i].to_dict()))
             except BaseException:
                 if self.settings["KEY_STG_IGNORE_ERROR"]:
                     print('Frame', i, sys.exc_info()[1])
-                    prof = None
-                    noise = None
                 else:
                     raise
-            profiles.append(prof)
-            noises.append(noise)
+        return infos
 
-        self.infos = infos_tmp
-        self.infos["Profiles noise std"] = noises
-        return profiles
-
-    def get_infos_i(self, i):
-        """get_infos_i"""
-        if self.settings["KEY_STG_STAT_STACK"]:
-            infos_i = {
-                "Pixel size": self.infos["Pixel size"]}
-        else:
-            infos_i = {
-                "Pixel size": self.infos["Pixel size"][i]}
-        infos_i["Profiles noise std"] = self.infos["Profiles noise std"][i]
-        return infos_i
-
-    def set_infos_i(self, infos_i, i):
-        """set_infos_i"""
-        if self.settings["KEY_STG_STAT_STACK"]:
-            self.infos["Pixel size"] = infos_i["Pixel size"]
-        else:
-            self.infos["Pixel size"][i] = infos_i["Pixel size"]
-        self.infos["Profiles noise std"][i] = infos_i["Profiles noise std"]
-
-    def size_profiles(self, profiles):
+    def size_profiles(self, infos):
         """Size the profiles
 
          Parameters
@@ -260,77 +217,43 @@ class StackMultiPosImage(MultiPosImage):
         fits: 2d array
             The fits
         """
-        radius = []
-        fits = []
-        errors = []
-        r_errors = []
-        r_ranges = []
-        shape_r = None
-        signal_over_noise = np.zeros(len(profiles)) * np.nan
-        for i, profs in enumerate(profiles):
-            r = None
-            fit = None
-            error = None
-            r_error = None
-            r_range = None
-            if profs is not None:
+        for i in infos.index:
+            if infos.at[i, "Profiles"] is not np.nan:
                 try:
-                    infos_i = self.get_infos_i(i)
                     if len(np.shape(self.metadata["KEY_MD_Q"])) > 0:
                         metadata_i = self.metadata.copy()
                         metadata_i["KEY_MD_Q"] = metadata_i["KEY_MD_Q"][i]
                     else:
                         metadata_i = self.metadata
-                    r, fit = dp.size_profiles(
-                        profs, metadata_i, self.settings, infos_i)
-                    shape_r = np.shape(r)
-                    error = infos_i["Reduced least square"]
-                    r_error = infos_i["Radius error std"]
-                    signal_over_noise[i] = infos_i["Signal over noise"]
-                    r_range = infos_i["Radius range"]
+                    infos_i = dp.size_profiles(
+                            infos.loc[i].to_dict(), metadata_i, self.settings)
+                    infos = self.add_to_line(infos, i, infos_i)
                 except BaseException:
                     if self.settings["KEY_STG_IGNORE_ERROR"]:
                         print('Frame', i, sys.exc_info()[1])
                     else:
                         raise
-            fits.append(fit)
-            radius.append(r)
-            errors.append(error)
-            r_errors.append(r_error)
-            r_ranges.append(r_range)
-            
-        if shape_r is None:
-            raise RuntimeError("Can't find a single good frame")
 
-        self.infos["Reduced least square"] = errors
-        self.infos["Radius error std"] = r_errors
-        self.infos["Radius range"] = r_ranges
-        self.infos["Signal over noise"] = signal_over_noise
-        return radius, fits
+        return infos
 
-    def savedata(self, data):
+    def savedata(self, infos):
         """Save the data"""
-        tifffile.imsave(self.outpath + '_ims.tif', np.asarray(data, 'float32'))
+        tifffile.imsave(self.outpath + '_ims.tif',
+                        np.asarray(
+                                np.stack(infos.loc[:, "Data"], axis=0),
+                                'float32'))
 
-    def plot_and_save(self, radius, profiles, fits):
+    def plot_and_save(self, infos):
         """Plot the sizing data"""
-        framesslices = slice(*self.settings["KEY_STG_STACK_FRAMESSLICES"])
-
-        self.infos["Overexposed"] = self.infos["Overexposed"][framesslices]
-
         display_data.plot_and_save_stack(
-            radius, profiles, fits, self.infos, self.settings, self.outpath)
+            infos, self.settings, self.outpath)
 
-    def process_profiles(self, profiles):
-        ret = []
-        for i, prof in enumerate(profiles):
-            if prof is None:
-                ret.append(None)
-            else:
-                infos = self.get_infos_i(i)
-                prof = dp.process_profiles(
-                    prof, self.metadata, self.settings, self.outpath, infos)
-                ret.append(prof)
-                self.set_infos_i(infos, i)
+    def process_profiles(self, infos):
+        for i in infos.index:
+            if infos.at[i, 'Profiles'] is not None:
+                infos_i = dp.process_profiles(
+                    infos.loc[i].to_dict(),
+                    self.metadata, self.settings, self.outpath)
+                infos = self.add_to_line(infos, i, infos_i)
 
-        return ret
+        return infos

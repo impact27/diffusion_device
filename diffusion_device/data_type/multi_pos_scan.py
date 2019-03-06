@@ -86,32 +86,34 @@ class MultiPosScan(DataType):
 
         # Find centers for processing
         centers, pixel_size = self.get_scan_centers(raw_data)
-        self.infos["Pixel size"] = pixel_size
-        self.infos["Centers"] = centers
-        self.infos["flow direction"] = self.metadata["KEY_MD_FLOWDIR"]
+        infos = {}
+        infos["Pixel size"] = pixel_size
+        infos["Centers"] = centers
+        infos["flow direction"] = self.metadata["KEY_MD_FLOWDIR"]
 
         # Get background
         if background_fn is None:
-            data = self.flatten_scan(raw_data)
+            data = self.flatten_scan(raw_data, infos)
         else:
             bg = self.load_data(background_fn)
-            data = self.remove_scan_background(raw_data, bg)
+            data = self.remove_scan_background(raw_data, bg, infos)
 
-        self.infos["noise_var"] = self.get_noise_var(raw_data)
-        return data
+        infos["noise_var"] = self.get_noise_var(raw_data, infos)
+        infos['Data'] = data
+        return infos
 
-    def flatten_scan(self, data):
+    def flatten_scan(self, data, infos):
         """flatten_scan"""
-        out_mask = self.get_out_mask(data)
+        out_mask = self.get_out_mask(data, infos)
         data -= np.nanmean(data[out_mask])
         return data
 
-    def get_channel_mask(self, data):
+    def get_channel_mask(self, data, infos):
         """get_channel_mask"""
 
         channel_width = self.metadata["KEY_MD_WY"]
-        pixel_size = self.infos["Pixel size"]
-        centers = self.infos["Centers"]
+        pixel_size = infos["Pixel size"]
+        centers = infos["Centers"]
 
         X = np.arange(len(data))
         channel_mask = np.any(np.abs(
@@ -119,15 +121,15 @@ class MultiPosScan(DataType):
         ) * pixel_size < channel_width / 2, axis=1)
         return channel_mask
 
-    def get_out_mask(self, data):
+    def get_out_mask(self, data, infos):
         """get_out_mask"""
 
         channel_width = self.metadata["KEY_MD_WY"]
         wall_width = self.metadata["KEY_MD_WALLWIDTH"]
-        pixel_size = self.infos["Pixel size"]
-        centers = self.infos["Centers"]
+        pixel_size = infos["Pixel size"]
+        centers = infos["Centers"]
 
-        out_mask = np.logical_not(self.get_channel_mask(data))
+        out_mask = np.logical_not(self.get_channel_mask(data, infos))
 
         # Remove what is too far
         X = np.arange(len(data))
@@ -139,11 +141,11 @@ class MultiPosScan(DataType):
 
         return out_mask
 
-    def get_noise_var(self, raw_data):
+    def get_noise_var(self, raw_data, infos):
         """get_noise_var"""
         noise_var = raw_data.copy()
-        if 'offset' in self.infos:
-            offset = self.infos['offset']
+        if 'offset' in infos:
+            offset = infos['offset']
             if offset < 0:
                 noise_var = noise_var[:offset]
 
@@ -152,12 +154,12 @@ class MultiPosScan(DataType):
 
         return noise_var
 
-    def remove_scan_background(self, data, bg):
+    def remove_scan_background(self, data, bg, infos):
         """remove_scan_background"""
 
-        centers = self.infos["Centers"]
+        centers = infos["Centers"]
         # Determine what is in the channels and far from the channels
-        out_mask = self.get_out_mask(data)
+        out_mask = self.get_out_mask(data, infos)
 
         # Get dummy profiles and correlate
         p0 = data - np.mean(data[out_mask])
@@ -169,7 +171,7 @@ class MultiPosScan(DataType):
         offset = np.argmax(corr)
         if offset > len(p0) / 2:
             offset -= len(p0)
-        self.infos['offset'] = offset
+        infos['offset'] = offset
         if offset < 0:
             bg = bg[-offset:]
             data = data[:offset]
@@ -178,10 +180,10 @@ class MultiPosScan(DataType):
             bg = bg[:-offset]
             data = data[offset:]
             centers -= offset
-            self.infos["Centers"] = centers
+            infos["Centers"] = centers
 
         # Get updated mask
-        out_mask = self.get_out_mask(data)
+        out_mask = self.get_out_mask(data, infos)
 
         # Scale background
         newbg = bg * (np.sum(data[out_mask] * bg[out_mask])
@@ -191,7 +193,7 @@ class MultiPosScan(DataType):
         data = data - newbg
         return data
 
-    def get_profiles(self, lin_profiles):
+    def get_profiles(self, infos):
         """Do some data processing
 
         Parameters
@@ -210,19 +212,19 @@ class MultiPosScan(DataType):
         profiles: array
             The profiles
         """
-        profiles = self.extract_profiles(lin_profiles)
+        infos["Profiles"] = self.extract_profiles(infos)
 
-        profiles = dp.process_profiles(
-            profiles, self.metadata, self.settings,
-            self.outpath, self.infos)
+        infos = dp.process_profiles(
+            infos, self.metadata, self.settings,
+            self.outpath)
 
-        profiles = self.align_profiles(profiles, lin_profiles)
+        infos = self.align_profiles(infos)
 
-        profiles = dp.process_profiles(
-            profiles, self.metadata, self.settings,
-            self.outpath, self.infos)
+        infos = dp.process_profiles(
+            infos, self.metadata, self.settings,
+            self.outpath)
 
-        return profiles
+        return infos
 
     def max_to_center(self, maxs):
         """Get centers from a max distribution"""
@@ -270,7 +272,8 @@ class MultiPosScan(DataType):
         maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .9]
         # Remove sides
         maxs = maxs[np.logical_and(
-            maxs > 3 / 2 * filter_width, maxs < len(fprof) - 3 / 2 * filter_width)]
+            maxs > 3 / 2 * filter_width,
+            maxs < len(fprof) - 3 / 2 * filter_width)]
         maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
 
         # Sort and check number
@@ -316,13 +319,13 @@ class MultiPosScan(DataType):
             profiles[i] = p
         return profiles, new_pixel_size
 
-    def extract_profiles(self, lin_profiles):
+    def extract_profiles(self, infos):
         """Extract profiles from a single scan"""
-
+        lin_profiles = infos['Data']
         channel_width = self.metadata["KEY_MD_WY"]
-        centers = self.infos["Centers"]
-        flowdir = self.infos["flow direction"]
-        pixel_size = self.infos["Pixel size"]
+        centers = infos["Centers"]
+        flowdir = infos["flow direction"]
+        pixel_size = infos["Pixel size"]
 
         prof_npix = int(np.round(channel_width / pixel_size))
 
@@ -340,19 +343,19 @@ class MultiPosScan(DataType):
             centers = centers[::-1]
             flowdir = flowdir[::-1]
 
-        self.infos["Centers"] = centers
-        self.infos["flow direction"] = flowdir
-        self.infos["Pixel size"] = pixel_size
-        self.infos["Profiles noise std"] = self.get_noise(
-            lin_profiles)
+        infos["Centers"] = centers
+        infos["flow direction"] = flowdir
+        infos["Pixel size"] = pixel_size
+        infos["Profiles noise std"] = self.get_noise(
+            infos, prof_npix=prof_npix)
         return profiles
 
-    def get_noise(self, lin_profiles, prof_npix=None):
+    def get_noise(self, infos, prof_npix=None):
         """get_noise"""
         channel_width = self.metadata["KEY_MD_WY"]
         wall_width = self.metadata["KEY_MD_WALLWIDTH"]
-        centers = self.infos["Centers"]
-
+        centers = infos["Centers"]
+        lin_profiles = infos['Data']
         if prof_npix is None:
             pixel_size = (channel_width + wall_width) / \
                 np.abs(np.mean(np.diff(centers)))
@@ -362,7 +365,7 @@ class MultiPosScan(DataType):
             np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
                    - centers[np.newaxis]) > .55 * prof_npix, axis=1)
         outmask = np.logical_and(outmask, np.isfinite(lin_profiles))
-        outmask = np.logical_and(outmask, np.isfinite(self.infos["noise_var"]))
+        outmask = np.logical_and(outmask, np.isfinite(infos["noise_var"]))
 
         lbl, n = label(outmask)
         wall_var = np.zeros(n)
@@ -381,32 +384,35 @@ class MultiPosScan(DataType):
                 wall_var[i] = np.sum(np.square(
                     background
                     - savgol_filter(background, window, window // 6)))
-            lin_var_list[i] = np.sum(self.infos["noise_var"][mask])
+            lin_var_list[i] = np.sum(infos["noise_var"][mask])
 
-        noise = self.infos["noise_var"] / np.sum(lin_var_list) * np.sum(wall_var)
+        noise = infos["noise_var"] / np.sum(lin_var_list) * np.sum(wall_var)
         noise, __ = self.interpolate_profiles(
-            noise, centers, self.infos["flow direction"],
-            prof_npix, channel_width, self.infos["Pixel size"])
+            noise, centers, infos["flow direction"],
+            prof_npix, channel_width, infos["Pixel size"])
 
         min_var = np.sum(wall_var) / np.sum(outmask)
         noise[noise < min_var] = min_var
         # if True:
-        #     noise_std = noise_std * 0 + np.sqrt(np.sum(wall_var) / np.sum(outmask))
+        #     noise_std = noise_std * 0
+        #      + np.sqrt(np.sum(wall_var) / np.sum(outmask))
         return np.sqrt(noise)
 
-    def align_profiles(self, profiles, lin_profiles):
+    def align_profiles(self, infos):
         ignore = self.settings["KEY_STG_IGNORE"]
         rebin = self.settings["KEY_STG_REBIN"]
-        pixel_size = self.infos["Pixel size"]
-        centers = self.infos["Centers"]
-        flowdir = self.infos["flow direction"]
+        pixel_size = infos["Pixel size"]
+        centers = infos["Centers"]
+        flowdir = infos["flow direction"]
         channel_width = self.metadata["KEY_MD_WY"]
         wall_width = self.metadata["KEY_MD_WALLWIDTH"]
+        profiles = infos['Profiles']
+        lin_profiles = infos['Data']
 
         prof_npix = np.shape(profiles)[1] * rebin
 
-        __, fits = dp.size_profiles(profiles,
-                                    self.metadata, self.settings, self.infos)
+        infos_tmp = dp.size_profiles(infos.copy(), self.metadata, self.settings)
+        fits = infos_tmp['Fitted Profiles']
 
         profile_slice = dp.ignore_slice(ignore, pixel_size)
 
@@ -439,8 +445,9 @@ class MultiPosScan(DataType):
             lin_profiles, new_centers, flowdir,
             prof_npix, channel_width, pixel_size)
 
-        self.infos["Centers"] = new_centers
-        self.infos["Pixel size"] = pixel_size
-        self.infos["Profiles noise std"] = self.get_noise(
-            lin_profiles, prof_npix=prof_npix)
-        return new_profiles
+        infos["Centers"] = new_centers
+        infos["Pixel size"] = pixel_size
+        infos["Profiles noise std"] = self.get_noise(
+            infos, prof_npix=prof_npix)
+        infos['Profiles'] = new_profiles
+        return infos

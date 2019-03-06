@@ -57,7 +57,6 @@ class SinglePosImage(ImagesFile):
         """
         filename = self.metadata["KEY_MD_FN"]
         data = self.load_images(filename)
-        self.infos["Overexposed"] = is_overexposed(data)
         return data
 
     def process_data(self, data):
@@ -79,12 +78,16 @@ class SinglePosImage(ImagesFile):
         data: array
             The processed data
         """
+        overexposed = is_overexposed(data)
         data, backgrounds = self.process_background(data)
         data, pixel_size = self.process_images(data, backgrounds)
-        self.infos["Pixel size"] = pixel_size
-        return data
+        infos = {}
+        infos["Overexposed"] = overexposed
+        infos["Pixel size"] = pixel_size
+        infos["Data"] = data
+        return infos
 
-    def get_profiles(self, data):
+    def get_profiles(self, infos):
         """Do some data processing
 
         Parameters
@@ -103,9 +106,10 @@ class SinglePosImage(ImagesFile):
         profiles: array
             The profiles
         """
-        pixel_size = self.infos["Pixel size"]
+        pixel_size = infos["Pixel size"]
         channel_width = self.metadata["KEY_MD_WY"]
         Npix = int(channel_width // pixel_size) + 1
+        data = infos["Data"]
         profiles = np.zeros((len(data), Npix))
         flowdir = self.metadata["KEY_MD_FLOWDIR"]
         noise = np.zeros(len(data))
@@ -124,12 +128,13 @@ class SinglePosImage(ImagesFile):
                 im, pixel_size, channel_width)
 
         noise = np.mean(noise)
-        self.infos["Profiles noise std"] = noise
-        return profiles
+        infos["Profiles noise std"] = noise
+        infos["Profiles"] = profiles
+        return infos
 
-    def savedata(self, data):
+    def savedata(self, infos):
         """Save the data"""
-        tifffile.imsave(self.outpath + '_ims.tif', data)
+        tifffile.imsave(self.outpath + '_ims.tif', infos['Data'])
 
     def process_images(self, images, backgrounds, rebin=2):
         """
@@ -378,11 +383,10 @@ class SinglePosImage(ImagesFile):
         plot([c+Npix//2, c+Npix//2], [np.nanmin(pr), np.nanmax(pr)], 'r')
         #"""
 
-    def process_profiles(self, profiles):
-        profiles = dp.process_profiles(
-            profiles, self.metadata, self.settings, self.outpath,
-            self.infos)
-        return profiles
+    def process_profiles(self, infos):
+        infos = dp.process_profiles(
+            infos, self.metadata, self.settings, self.outpath)
+        return infos
 
 #    return prof[channel]
 

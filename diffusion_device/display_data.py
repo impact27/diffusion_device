@@ -29,7 +29,7 @@ import os
 from matplotlib.image import NonUniformImage
 import shutil
 import re
-
+import pandas as pd
 from . import profile as dp
 
 
@@ -85,7 +85,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     plt.legend()
 
 
-def plot_and_save(radius, profiles, fits, infos, outpath=None):
+def plot_and_save(infos, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -105,6 +105,9 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
         Folder where to save the figures and data
 
     """
+    radius = infos['Radius']
+    profiles = infos['Profiles']
+    fits = infos['Fitted Profiles']
     lse = infos["Reduced least square"]
     pixel_size = infos["Pixel size"]
     radius_error = infos["Radius error std"]
@@ -158,8 +161,7 @@ def plot_and_save(radius, profiles, fits, infos, outpath=None):
             np.savetxt(f, fits)
 
 
-def plot_and_save_stack(radius, profiles, fits, infos,
-                        settings, outpath=None):
+def plot_and_save_stack(infos, settings, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -186,6 +188,9 @@ def plot_and_save_stack(radius, profiles, fits, infos,
         Positions to plot if this is a stack
 
     """
+    radius = infos.loc[:, "Radius"]
+    profiles = infos.loc[:, "Profiles"]
+    fits = infos.loc[:, "Fitted Profiles"]
     def compress(radius, mask):
         return [r for r, s in zip(radius, mask) if s]
     
@@ -193,18 +198,18 @@ def plot_and_save_stack(radius, profiles, fits, infos,
     x = np.arange(len(radius))[success]
     
     radius = np.asarray(compress(radius, success))
-    overexposed = np.asarray(compress(infos["Overexposed"], success))
-    radius_error = np.asarray(compress(infos["Radius error std"], success))
-    radius_range = np.asarray(compress(infos["Radius range"], success))
-    LSE = np.asarray(compress(infos["Reduced least square"], success))
-    signal_over_noise = np.asarray(compress(infos["Signal over noise"], success))
-    profiles_noise_std = compress(infos["Profiles noise std"], success)
+    overexposed = np.asarray(compress(infos.loc[:, "Overexposed"], success))
+    radius_error = np.asarray(compress(infos.loc[:, "Radius error std"], success))
+    radius_range = np.asarray(compress(infos.loc[:, "Radius range"], success))
+    LSE = np.asarray(compress(infos.loc[:, "Reduced least square"], success))
+    signal_over_noise = np.asarray(compress(infos.loc[:, "Signal over noise"], success))
+    profiles_noise_std = compress(infos.loc[:, "Profiles noise std"], success)
     profiles = compress(profiles, success)
     fits = compress(fits, success)
     
-    pixel_size = infos["Pixel size"]
+    pixel_size = infos.loc[:, "Pixel size"]
     if len(np.shape(pixel_size)) > 0:
-        pixel_size = np.asarray(compress(infos["Pixel size"], success))
+        pixel_size = np.asarray(compress(infos.loc[:, "Pixel size"], success))
     
     valid = np.logical_not(overexposed)
     plotpos = settings["KEY_STG_STACK_POSPLOT"]

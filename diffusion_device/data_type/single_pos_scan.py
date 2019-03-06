@@ -82,11 +82,12 @@ class SinglePosScan(DataType):
                 elif o != 'd':
                     raise RuntimeError(
                         'Flow direction must be up or down for scans.')
+        infos = {}
+        infos["Pixel size"] = self.metadata["KEY_MD_PIXSIZE"]
+        infos['Data'] = data
+        return infos
 
-        self.infos["Pixel size"] = self.metadata["KEY_MD_PIXSIZE"]
-        return data
-
-    def get_profiles(self, data):
+    def get_profiles(self, infos):
         """Do some data processing
 
         Parameters
@@ -106,22 +107,26 @@ class SinglePosScan(DataType):
             The profiles
         """
         channel_width_px = int(self.metadata["KEY_MD_WY"]
-                               / self.infos["Pixel size"])
-        profiles = self.scans_to_profiles(data, channel_width_px)
+                               / infos["Pixel size"])
+        profiles = self.scans_to_profiles(infos["Data"], channel_width_px)
         # Guess measurment noise from savgol filter
         fit = savgol_filter(profiles, 17, 5)
         noise_var = np.mean(np.square(profiles - fit)/fit)
-        noise = np.sqrt(noise_var * fit)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore',
+                                    "invalid value encountered in sqrt",
+                                    RuntimeWarning)
+            noise = np.sqrt(noise_var * fit)
         min_fit = np.percentile(fit, 20)
         noise[fit < min_fit] = np.sqrt(noise_var * min_fit)
-        self.infos["Profiles noise std"] = noise
-        return profiles
+        infos["Profiles noise std"] = noise
+        infos['Profiles'] = profiles
+        return infos
 
-    def process_profiles(self, profiles):
-        profiles = dp.process_profiles(
-            profiles, self.metadata, self.settings, self.outpath,
-            self.infos)
-        return profiles
+    def process_profiles(self, infos):
+        infos = dp.process_profiles(
+            infos, self.metadata, self.settings, self.outpath)
+        return infos
 
     def scans_to_profiles(self, scans, Npix, *,
                           offset_edge_idx=None):

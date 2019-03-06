@@ -30,7 +30,7 @@ from . import display_data
 from .profiles_fitting import fit_all, normalise_basis_factor
 
 
-def size_profiles(profiles, metadata, settings, infos):
+def size_profiles(infos, metadata, settings):
     """Size the profiles
 
      Parameters
@@ -54,6 +54,7 @@ def size_profiles(profiles, metadata, settings, infos):
     else:
         Rs, spectrum, the radii and corresponding spectrum
     """
+    profiles = infos["Profiles"]
     # load variables
     nspecies = settings["KEY_STG_NSPECIES"]
     zpos = metadata["KEY_MD_SCANZ"]
@@ -104,7 +105,8 @@ def size_profiles(profiles, metadata, settings, infos):
                 zpos=zpos, infos=infos, **profiles_arg_dir)[0]
 
             if np.any(infos['Fit error'] > 1e-2):
-                raise RuntimeError("The relative error is larger than 1%, "
+                raise RuntimeError("The relative error is too large "
+                                   f"({100*infos['Fit error']:.2f}%), "
                                    "please adapt the step factor.")
 
         # One free parameter
@@ -131,8 +133,9 @@ def size_profiles(profiles, metadata, settings, infos):
 
     get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings)
-
-    return r, fits
+    infos["Radius"] = r
+    infos["Fitted Profiles"] = fits
+    return infos
 
 
 def ignore_slice(ignore, pixel_size):
@@ -509,7 +512,7 @@ def rebin_profiles(profiles, rebin):
         profiles = rebin_profiles
     return profiles
         
-def process_profiles(profiles, metadata, settings, outpath, infos):
+def process_profiles(infos, metadata, settings, outpath):
     """Process profiles according to settings
 
     Parameters
@@ -524,7 +527,7 @@ def process_profiles(profiles, metadata, settings, outpath, infos):
     profiles: 2 dim floats array
         The profiles
     """
-    
+    profiles = infos["Profiles"]
     pixel_size = infos["Pixel size"]
     
     
@@ -543,5 +546,5 @@ def process_profiles(profiles, metadata, settings, outpath, infos):
     infos["Pixel size"] = pixel_size
     infos["Profiles noise std"] = rebin_profiles(
             infos["Profiles noise std"], rebin)
-    
-    return profiles
+    infos["Profiles"] = profiles
+    return infos

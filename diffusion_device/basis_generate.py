@@ -32,7 +32,7 @@ except ImportError:
 def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
                 Zgrid=None, muEoD=0, *, fullGrid=False, zpos=None,
                 Boltzmann_constant=1.38e-23, Zmirror=True, stepMuE=False,
-                step_factor=None, yboundary='Neumann', infos={}):
+                step_factor=None, yboundary='Neumann', infos=None):
     """Returns the theorical profiles for the input variables
 
     Parameters
@@ -101,7 +101,8 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
     if readingpos[idx] == 0:
         idx = 1
     error = dphi / phi[idx]
-    infos['Fit error'] = error
+    if infos is not None:
+        infos['Fit error'] = error
 
     return profilespos
 

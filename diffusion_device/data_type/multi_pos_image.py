@@ -25,7 +25,6 @@ import numpy as np
 from tifffile import imread
 from registrator.image import is_overexposed
 import tifffile
-import warnings
 import background_rm as rmbg
 import registrator.image as ir
 
@@ -56,7 +55,6 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         """
         filename = self.metadata["KEY_MD_FN"]
         data = self.load_image(filename)
-        self.infos["Overexposed"] = is_overexposed(data)
         if len(np.shape(data)) > 2:
             raise RuntimeError("Too many dimentions for single image data.")
         return data
@@ -80,43 +78,46 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         data: array
             The processed data
         """
+        overexposed = is_overexposed(raw_data)
         data, background = self.process_background(raw_data)
-        data = self.process_image(data, background)
-        self.infos["noise_var"] = self.get_noise_var(raw_data, data)
-        return data
+        infos = {}
+        data, infos = self.process_image(data, background, infos)
+        infos['Data'] = data
+        infos["Overexposed"] = overexposed
+        infos["noise_var"] = self.get_noise_var(raw_data, infos)
+        return infos
 
-    def get_noise_var(self, raw_data, data):
+    def get_noise_var(self, raw_data, infos):
         """ Get the noise corresponding to the image"""
-        var = self.rotate90(raw_data)
-        var = self.rotate_image(var, -self.infos["image_angle"])
-        
-        if "image_intensity" in self.infos:
-            var /= self.infos["image_intensity"]**2
-        
+        var, _ = self.orientate90(raw_data, self.metadata["KEY_MD_FLOWDIR"])
+        var = self.rotate_image(var, -infos["image_angle"])
+
+        if "image_intensity" in infos:
+            var /= infos["image_intensity"]**2
+
         if not self.settings["KEY_STG_IMAGE_COORD"]:
-            if "offset" in self.infos:
-                if "diffAngle" in self.infos:
+            if "offset" in infos:
+                if "diffAngle" in infos:
                     var = ir.rotate_scale_shift(
                             var,
-                            -self.infos["diffAngle"], 
-                            1 / self.infos["diffScale"],
-                            -self.infos["offset"],
+                            -infos["diffAngle"],
+                            1 / infos["diffScale"],
+                            -infos["offset"],
                             borderValue=np.nan)
                 else:
                     var = ir.shift_image(
-                            var, -self.infos["offset"], borderValue=np.nan)
-                
-        if "image_intensity_reflatten" in self.infos: 
-            var /= self.infos["image_intensity_reflatten"][0]**2
-            
-        var[np.isnan(data)] = np.nan
-        noise_var = self.get_multi_pos_scan(var)
+                            var, -infos["offset"], borderValue=np.nan)
+
+        if "image_intensity_reflatten" in infos:
+            var /= infos["image_intensity_reflatten"][0]**2
+
+        var[np.isnan(infos["Data"])] = np.nan
+        noise_var = self.get_multi_pos_scan(var, infos['Pixel size'])
         noise_var /= np.sum(np.isfinite(var), -2)
         return noise_var
-    
-    def get_multi_pos_scan(self, data):
+
+    def get_multi_pos_scan(self, data, pixel_size):
         """get_multi_pos_scan"""
-        pixel_size = self.infos["Pixel size"]
         imslice = self.settings["KEY_STG_SLICE"]
         if imslice is None:
             lin_profiles = np.nanmean(data, -2)
@@ -124,8 +125,8 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             lin_profiles = self.imageProfileSlice(
                 data, imslice[0], imslice[1], pixel_size)
         return lin_profiles
-    
-    def get_profiles(self, data):
+
+    def get_profiles(self, infos):
         """Do some data processing
 
         Parameters
@@ -144,16 +145,20 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         profiles: array
             The profiles
         """
+        data = infos['Data']
+        lin_profiles = self.get_multi_pos_scan(
+                data, infos['Pixel size'])
+        # Replace data to use super
+        infos['Data'] = lin_profiles
+        infos = super().get_profiles(infos)
+        infos['Data'] = data
+        return infos
 
-        lin_profiles = self.get_multi_pos_scan(data)
-
-        return super().get_profiles(lin_profiles)
-
-    def savedata(self, data):
+    def savedata(self, infos):
         """Save the data"""
-        tifffile.imsave(self.outpath + '_im.tif', data)
+        tifffile.imsave(self.outpath + '_im.tif', infos['Data'])
 
-    def process_image(self, image, background):
+    def process_image(self, image, background, infos):
         """
         Get the hydrodynamic radius from the images
 
@@ -193,34 +198,31 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             if not len(np.shape(background)) == 2:
                 raise RuntimeError("Incorrect background shape: "
                                    + str(np.shape(background)))
-
-        image = self.rotate90(image)
-        background =  self.rotate90(background)
-        
+        background, _ = self.orientate90(background, self.metadata["KEY_MD_FLOWDIR"])
+        image, flowdir = self.orientate90(image, self.metadata["KEY_MD_FLOWDIR"])
+        infos["flow direction"] = flowdir
         # get profiles
         if background is None:
             # Single image
-            image = self.nobg_extract_data(image)
+            image, infos = self.nobg_extract_data(image, infos)
         else:
             # images and background
-            image = self.bg_extract_data(
-                image, background)
+            image, infos = self.bg_extract_data(
+                image, background, infos)
 
-        return image
+        return image, infos
 
-    def rotate90(self, image):
+    def orientate90(self, image, flowdir):
         """ Rotate 2d or 3d image
         """
-        flowdir = self.metadata["KEY_MD_FLOWDIR"]
         if image is None:
-            return None
+            return None, None
         flowdir = np.asarray(flowdir)
         if flowdir[0] == 'l' or flowdir[0] == 'r':
             image = np.rot90(image, axes=(-2, -1))
             flowdir[flowdir == 'l'] = 'u'
             flowdir[flowdir == 'r'] = 'd'
-        self.infos["flow direction"] = flowdir
-        return image
+        return image, flowdir
 
     def imageProfileSlice(self, image, center, width, pixel_size):
         '''Get the image profile corresponding to a center and width
@@ -280,7 +282,8 @@ class MultiPosImage(MultiPosScan, ImagesFile):
 
     def straight_image_infos(self, image):
         """
-        Get the channel width, proteind offset, and origin from a straight image
+        Get the channel width, proteind offset, and origin from a
+        straight image
 
         Parameters
         ----------
@@ -304,7 +307,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
 
         return self.get_scan_centers(profiles)
 
-    def flat_image(self, image, rep_image, *, frac=.6, subtract=False):
+    def flat_image(self, image, rep_image, infos, *, frac=.6, subtract=False):
         """
         Flatten input images
 
@@ -333,9 +336,9 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         """
         channel_width = self.metadata["KEY_MD_WY"]
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
-        pixel_size = self.infos["Pixel size"]
-        centers = self.infos["Centers"]
-        
+        pixel_size = infos["Pixel size"]
+        centers = infos["Centers"]
+
         # get mask
         mask = np.ones(np.shape(rep_image)[-1])
         for i in range(number_profiles):
@@ -358,19 +361,19 @@ class MultiPosImage(MultiPosScan, ImagesFile):
 
         if np.nanmin(image) < 0:
             image -= np.nanmin(image)
-            
+
         fitted_image = rmbg.polyfit2d(image, mask=mask)
-        
+
         # Flatten
         if not subtract:
-            self.infos["image_intensity"] = fitted_image
+            infos["image_intensity"] = fitted_image
             image = image / fitted_image - 1
         else:
             image = image - fitted_image
 
-        return image
+        return image, infos
 
-    def nobg_extract_data(self, image, subtract=False):
+    def nobg_extract_data(self, image, infos, subtract=False):
         '''
         Extract profiles from image
 
@@ -393,33 +396,34 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             The four profiles
         '''
         image = np.asarray(image)
-        
+
         # Get a representative image of the stack (or the image itself)
         rep_image = self.best_image(image)
-        
+
         # Detect Angle
         angle = dp.image_angle(rep_image)
         image = self.rotate_image(image, -angle)
         rep_image = self.rotate_image(rep_image, -angle)
-        self.infos["image_angle"] = angle
-        
+        infos["image_angle"] = angle
+
         # Get channels infos
         centers, pixel_size = self.straight_image_infos(rep_image)
-        self.infos["Pixel size"] = pixel_size
-        self.infos["Centers"] = centers
-        
-        if self.settings["KEY_STG_BRIGHT_FLAT"]:
-            image = self.flat_image(image, rep_image, subtract=subtract)
+        infos["Pixel size"] = pixel_size
+        infos["Centers"] = centers
 
-        return image
+        if self.settings["KEY_STG_BRIGHT_FLAT"]:
+            image, infos = self.flat_image(
+                    image, rep_image, infos, subtract=subtract)
+
+        return image, infos
 
     def best_image(self, images):
         if len(np.shape(images)) == 2:
             return images
         return images[np.argmax(np.nanpercentile(images, 99, axis=(-2, -1)))]
 
-    def remove_curve_background_alt(self, im, bg, maskim=None, maskbg=None,
-                                    infoDict=None, reflatten=False,
+    def remove_curve_background_alt(self, im, bg, infos,
+                                    maskim=None, maskbg=None, reflatten=False,
                                     image_coord=False):
         """
         Try to flatten without good features :/
@@ -445,7 +449,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         if np.any(fbg <= 0):
             raise RuntimeError("Background mask too small")
 
-        self.infos['image_intensity'] = fim
+        infos['image_intensity'] = fim
         
         im = im / fim
         bg = bg / fbg
@@ -484,7 +488,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         if reflatten:
             data += 1
             fdata = rmbg.polyfit2d(data, 2, mask=maskbg)
-            self.infos['image_intensity_reflatten'] = fdata
+            infos['image_intensity_reflatten'] = fdata
             data /= fdata
             data -= 1
 
@@ -492,11 +496,10 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             data = np.squeeze(data)
             offsets = np.squeeze(offsets)
 
-        if infoDict is not None:
-            infoDict['offset'] = offsets
-        return data
+        infos['offset'] = offsets
+        return data, infos
 
-    def remove_bg(self, im, bg, centersOut=None):
+    def remove_bg(self, im, bg, infos, centersOut=None):
         """
         Flatten and background subtract images
 
@@ -533,17 +536,16 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             im_tmp = im
 
         # Get first flattened image
-        infoDict = {}
         if goodFeatures:
             data_tmp = rmbg.remove_curve_background(
-                im_tmp, bg, infoDict=infoDict, bgCoord=not image_coord)
+                im_tmp, bg, infoDict=infos, bgCoord=not image_coord)
         else:
-            data_tmp = self.remove_curve_background_alt(
-                im_tmp, bg, infoDict=infoDict, image_coord=image_coord)
+            data_tmp, infos = self.remove_curve_background_alt(
+                im_tmp, bg, infos, image_coord=image_coord)
 
         # Get angle
         angle = dp.image_angle(data_tmp)
-        self.infos["image_angle"] = angle
+        infos["image_angle"] = angle
 
         # rotate
         bg = self.rotate_image(bg, -angle)
@@ -563,44 +565,44 @@ class MultiPosImage(MultiPosScan, ImagesFile):
 
         if image_coord:
             mask_im = mask_data
-            offset = -infoDict['offset']
+            offset = -infos['offset']
             if goodFeatures:
                 c, s = np.cos(angle), np.sin(angle)
                 R = np.array(((c, -s), (s, c)))
                 offset = R @ offset
                 mask_bg = ir.rotate_scale_shift(
-                    mask_im, -infoDict['diffAngle'],
-                    1/infoDict['diffScale'], offset,
+                    mask_im, -infos['diffAngle'],
+                    1/infos['diffScale'], offset,
                     borderValue=0) > .5
             else:
                 mask_bg = ir.shift_image(mask_im, offset,
                                          borderValue=0) > .5
         else:
             mask_bg = mask_data
-            offset = infoDict['offset']
+            offset = infos['offset']
             if goodFeatures:
                 c, s = np.cos(angle), np.sin(angle)
                 R = np.array(((c, -s), (s, c)))
                 offset = R @ offset
                 mask_im = ir.rotate_scale_shift(
-                    mask_bg, infoDict['diffAngle'],
-                    infoDict['diffScale'], offset,
+                    mask_bg, infos['diffAngle'],
+                    infos['diffScale'], offset,
                     borderValue=0) > .5
             else:
                 mask_im = ir.shift_image(mask_bg, offset,
                                          borderValue=0) > .5
-            #give self.infos to remove_curve_background to save transformations
+            # give infos to remove_curve_background to save transformations
 
         if goodFeatures:
             # Get Intensity
             ret = rmbg.remove_curve_background(
                     im, bg, maskbg=mask_bg, maskim=mask_im,
                     bgCoord=not image_coord, reflatten=True,
-                    infoDict=self.infos)
+                    infoDict=infos)
         else:
-            ret = self.remove_curve_background_alt(
-                im, bg, mask_im, mask_bg, reflatten=True, 
-                image_coord=image_coord, infoDict=self.infos)
+            ret, infos = self.remove_curve_background_alt(
+                im, bg, infos, mask_im, mask_bg, reflatten=True,
+                image_coord=image_coord)
 
         if centersOut is not None:
             im = ret
@@ -609,7 +611,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             centersOut[:] = self.image_infos(im)['centers']
         return ret
 
-    def bg_extract_data(self, im, bg):
+    def bg_extract_data(self, im, bg, infos):
         """
         Extract diffusion profiles
 
@@ -638,11 +640,11 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         # get edges
         centers = np.empty(nchannels, dtype=int)
         # Get flattened image
-        flat_im = self.remove_bg(im, bg, centersOut=centers)
+        flat_im = self.remove_bg(im, bg, infos, centersOut=centers)
         # Get channel width
         pixel_size = (channel_width + wall_width) / np.mean(np.diff(centers))
 
-        self.infos["Pixel size"] = pixel_size
-        self.infos["Centers"] = centers
-        
-        return flat_im
+        infos["Pixel size"] = pixel_size
+        infos["Centers"] = centers
+
+        return flat_im, infos
