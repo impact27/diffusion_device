@@ -82,8 +82,8 @@ class StackMultiPosImage(MultiPosImage):
         Nchannel = self.metadata['KEY_MD_NCHANNELS']
         framesslices = slice(*self.settings["KEY_STG_STACK_FRAMESSLICES"])
         rebin = self.settings["KEY_STG_STACK_REBIN"]
-
-        index = np.arange(0, np.shape(data)[0]//rebin) * rebin
+        index = np.arange(len(data))[framesslices]
+        index = index[:(len(index)//rebin)*rebin:rebin]
 
         overexposed = [is_overexposed(d) for d in data[framesslices]]
         data = np.asarray(data[framesslices], dtype="float32")

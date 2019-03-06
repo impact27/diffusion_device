@@ -573,7 +573,7 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     N = np.min([idx_min_mono, Nb - idx_min_mono])
 
     indices = np.array(
-        [np.arange(1, N - 1), - np.arange(1, N - 1)]) + idx_min_mono
+        [np.arange(1, N), - np.arange(1, N)]) + idx_min_mono
     indices = np.moveaxis(indices, 0, -1)
 
     res_diag = res_interp_N(indices, BB, Bp, B, p, pp, Npix, vary_offset)

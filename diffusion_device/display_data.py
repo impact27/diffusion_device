@@ -208,15 +208,16 @@ def plot_and_save_stack(infos, settings, outpath=None):
     intensity = np.array([np.nanmean(p) for p in profiles])
 
     # If more than 1 analyte
-    if len(np.shape(radius)) == 3:
+    if len(np.shape(radius.iloc[0])) == 2:
         # IF spectrum
-        if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
-            Rs = radius[[np.all(np.isfinite(r)) for r in radius]][0][0] * 1e9
+        if np.shape(radius.iloc[0])[1] == settings['KEY_STG_R'][-1]:
+            Rs = radius.iloc[0][0] * 1e9
             ylim = (0, len(radius))
             xlim = (np.min(Rs), np.max(Rs))
             figure()
             im = NonUniformImage(plt.gca(), extent=(*xlim, *ylim))
-            im.set_data(Rs, np.arange(len(radius)), radius[:, 1])
+            im.set_data(Rs, np.arange(len(radius)),
+                        np.stack(radius.apply(lambda x:x[1])))
             plt.gca().images.append(im)
             plt.xlim(*xlim)
             plt.ylim(*ylim)
@@ -226,22 +227,24 @@ def plot_and_save_stack(infos, settings, outpath=None):
                 plt.savefig(outpath + '_R_fig.pdf')
         # if list
         else:
-            for i in range(np.shape(radius)[1]):
+            for i in range(np.shape(radius.iloc[0])[0]):
                 figure()
-                plt.errorbar(x[valid], radius[valid, 0, i] * 1e9,
-                             yerr=np.abs(radius_range[:, i, :].T
-                                         - radius[:, 0, i])[..., valid] * 1e9,
-                                         fmt='x', label='data')
+                y = radius.loc[valid].apply(lambda x: x[0][i]) * 1e9
+                yerr = np.abs(np.stack(
+                        radius_range.loc[valid].apply(
+                                lambda x: x[i])).T * 1e9
+                        - y.to_numpy())
+                plt.errorbar(x[valid], y, yerr=yerr, fmt='x', label='data')
                 plt.xlabel('Frame number')
                 plt.ylabel('Radius [nm]')
                 plt.title(f'Radius {i+1}')
                 if outpath is not None:
                     plt.savefig(outpath + f'_R{i+1}_fig.pdf')
             figure()
-            plot(radius[valid, 1], 'x')
+            plot(np.stack(radius.loc[valid].apply(lambda x: x[1])), 'x')
             plt.xlabel('Frame number')
             plt.ylabel('Fraction')
-            plt.legend([f'Radius{i+1}' for i in range(np.shape(radius)[1])])
+            plt.legend([f'Radius{i+1}' for i in range(np.shape(radius.iloc[0])[0])])
             if outpath is not None:
                 plt.savefig(outpath + '_fractions_fig.pdf')
 
@@ -261,6 +264,7 @@ def plot_and_save_stack(infos, settings, outpath=None):
                 fmt='x',
                 label='overexposed data')
             plt.legend()
+        plt.yscale('log')
         if outpath is not None:
             plt.savefig(outpath + '_R_fig.pdf')
 
@@ -316,59 +320,9 @@ def plot_and_save_stack(infos, settings, outpath=None):
                 "Pixel size",
                 "Profiles",
                 "Fitted Profiles"
-
-
                 ]
         infos.loc[np.logical_not(infos.loc[:, 'Error']),
                   selected_keys].to_csv(outpath + '_result.csv')
-        # with open(outpath + '_result.txt', 'wb') as f:
-        #     f.write('Reduced least square:\n'.encode())
-        #     np.savetxt(f, LSE[np.newaxis])
-        #     if np.any(overexposed):
-        #         f.write('Overexposed Frames:\n'.encode())
-        #         np.savetxt(f, overexposed[np.newaxis])
-        #     f.write('Pixel size:\n'.encode())
-        #     np.savetxt(f, pixel_size[np.newaxis])
-        #     f.write('Signal over noise:\n'.encode())
-        #     np.savetxt(f, signal_over_noise[np.newaxis])
-
-        #     if len(np.shape(radius)) == 3:
-        #         if np.shape(radius)[1] == settings['KEY_STG_R'][-1]:
-        #             f.write(f'Radii [nm]:\n'.encode())
-        #             np.savetxt(f, Rs[np.newaxis])
-        #             f.write(f'Spectrums:\n'.encode())
-        #             np.savetxt(f, radius[:, 1])
-        #             f.write('radius error:\n'.encode())
-        #             np.savetxt(f, radius_error)
-        #             f.write('radius range:\n'.encode())
-        #             np.savetxt(f, radius_range)
-        #         else:
-        #             f.write(f'Radii [nm]:\n'.encode())
-        #             np.savetxt(f, radius[:, 0])
-        #             f.write(f'Spectrums:\n'.encode())
-        #             np.savetxt(f, radius[:, 1])
-        #             f.write('radius error:\n'.encode())
-        #             np.savetxt(f, radius_error)
-        #             for i in range(np.shape(radius_range)[1]):
-        #                 f.write(f'radius range {i}:\n'.encode())
-        #                 np.savetxt(f, radius_range[:, i])
-
-        #     else:
-        #         f.write('radius:\n'.encode())
-        #         np.savetxt(f, radius[np.newaxis])
-        #         f.write('radius error:\n'.encode())
-        #         np.savetxt(f, radius_error[np.newaxis])
-        #         f.write('radius range:\n'.encode())
-        #         np.savetxt(f, radius_range)
-
-        #     for i, prof, fit in zip(x, profiles, fits):
-        #         if prof is not None and fit is not None:
-        #             f.write(f"Frame {i}\nProfiles:\n".encode())
-        #             np.savetxt(f, prof)
-        #             f.write('Fits:\n'.encode())
-        #             np.savetxt(f, fit)
-        #         else:
-        #             f.write(f"Frame {i:d}\nEmpty\n".encode())
 
     if plotpos is not None:
         for pos in plotpos:
