@@ -206,6 +206,7 @@ def plot_and_save_stack(infos, settings, outpath=None):
     plotpos = settings["KEY_STG_STACK_POSPLOT"]
 
     intensity = np.array([np.nanmean(p) for p in profiles])
+    infos.loc[success, "Mean Intensity"] = intensity
 
     # If more than 1 analyte
     if len(np.shape(radius.iloc[0])) == 2:
@@ -315,11 +316,12 @@ def plot_and_save_stack(infos, settings, outpath=None):
                 "Radius error std",
                 "Signal over noise",
                 "Reduced least square",
+                "Mean Intensity",
                 "Overexposed",
-                "Profiles noise std",
                 "Pixel size",
                 "Profiles",
-                "Fitted Profiles"
+                "Fitted Profiles",
+                "Profiles noise std",
                 ]
         infos.loc[np.logical_not(infos.loc[:, 'Error']),
                   selected_keys].to_csv(outpath + '_result.csv')
