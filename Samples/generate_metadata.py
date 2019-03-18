@@ -100,4 +100,9 @@ json_infos['Frame rate [1/s]'] = None
 # For non constant frames rate
 json_infos['Frames times [s]'] = None
 
+# Inlet channel location in multiple pos data.
+# (top, bottom, left, right)
+# For scan, use only left and right.
+json_infos['Inlet location'] = None
+
 metadata.generate_json(datapath, json_infos)

@@ -30,7 +30,7 @@ from scipy.signal import savgol_filter
 
 from .. import profile as dp
 from . import DataType
-from .scans_files import load_file
+from .scans_files import load_file, save_file
 
 
 class MultiPosScan(DataType):
@@ -63,6 +63,10 @@ class MultiPosScan(DataType):
             data = data[scan_slice[0]:scan_slice[1]]
         return data
 
+    def savedata(self, infos):
+        """Save the data"""
+        save_file(self.outpath + '_scan.csv', infos['Data'])
+
     def process_data(self, raw_data):
         """Do some data processing
 
@@ -90,6 +94,7 @@ class MultiPosScan(DataType):
         infos["Pixel size"] = pixel_size
         infos["Centers"] = centers
         infos["flow direction"] = self.metadata["KEY_MD_FLOWDIR"]
+        infos['Inlet location'] = self.metadata["KEY_MD_INLET_LOC"]
 
         # Get background
         if background_fn is None:
@@ -337,8 +342,15 @@ class MultiPosScan(DataType):
             lin_profiles, centers, flowdir, prof_npix,
             prof_npix * pixel_size, pixel_size)
 
+        # If inlet position unknown, guess
+        if infos['Inlet location'] is None:
+            if profiles[-1].max() > profiles[0].max():
+                infos['Inlet location'] = 'right'
+            else:
+                infos['Inlet location'] = 'left'
+
         # If image upside down, turn
-        if profiles[-1].max() > profiles[0].max():
+        if infos['Inlet location'] == 'right':
             profiles = profiles[::-1]
             centers = centers[::-1]
             flowdir = flowdir[::-1]

@@ -27,7 +27,7 @@ from scipy.signal import savgol_filter
 
 from .. import profile as dp
 from . import DataType
-from .scans_files import load_file
+from .scans_files import load_file, save_file
 
 class SinglePosScan(DataType):
 
@@ -52,6 +52,9 @@ class SinglePosScan(DataType):
         filename = self.metadata["KEY_MD_FN"]
         data = load_file(filename)
         return data
+
+    def savedata(self, infos):
+        save_file(self.outpath + '_scans.cvs', infos['Data'])
 
     def process_data(self, data):
         """Do some data processing

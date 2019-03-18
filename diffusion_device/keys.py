@@ -109,6 +109,12 @@ metadata.add_info("KEY_MD_FPS", "Frames times [s]", float,
                   required=False,
                   explanation="For non constant frames rate")
 
+metadata.add_info("KEY_MD_INLET_LOC", "Inlet location", str,
+                  required=False,
+                  explanation="Inlet channel location in multiple pos data.\n"
+                  "# (top, bottom, left, right)\n"
+                  '# For scan, use only left and right.')
+
 settings = ListGenerator('settings', 'SampleData/settings.json', False)
 settings.add_info("KEY_STG_R", "Radii[m] (min, max, number)", float,
                   required=False,

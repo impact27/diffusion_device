@@ -89,7 +89,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
 
     def get_noise_var(self, raw_data, infos):
         """ Get the noise corresponding to the image"""
-        var, _ = self.orientate90(raw_data, self.metadata["KEY_MD_FLOWDIR"])
+        var, *_ = self.orientate90(raw_data, self.metadata["KEY_MD_FLOWDIR"])
         var = self.rotate_image(var, -infos["image_angle"])
 
         if "image_intensity" in infos:
@@ -198,9 +198,14 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             if not len(np.shape(background)) == 2:
                 raise RuntimeError("Incorrect background shape: "
                                    + str(np.shape(background)))
-        background, _ = self.orientate90(background, self.metadata["KEY_MD_FLOWDIR"])
-        image, flowdir = self.orientate90(image, self.metadata["KEY_MD_FLOWDIR"])
+        background, *_ = self.orientate90(background,
+                                         self.metadata["KEY_MD_FLOWDIR"])
+        image, flowdir, inletpos = self.orientate90(
+                image,
+                self.metadata["KEY_MD_FLOWDIR"],
+                self.metadata["KEY_MD_INLET_LOC"])
         infos["flow direction"] = flowdir
+        infos['Inlet location'] = inletpos
         # get profiles
         if background is None:
             # Single image
@@ -212,17 +217,32 @@ class MultiPosImage(MultiPosScan, ImagesFile):
 
         return image, infos
 
-    def orientate90(self, image, flowdir):
+    def orientate90(self, image, flowdir, inlet_pos=None):
         """ Rotate 2d or 3d image
         """
         if image is None:
             return None, None
         flowdir = np.asarray(flowdir)
-        if flowdir[0] == 'l' or flowdir[0] == 'r':
+        if flowdir[0] in ['l', 'r']:
             image = np.rot90(image, axes=(-2, -1))
-            flowdir[flowdir == 'l'] = 'u'
-            flowdir[flowdir == 'r'] = 'd'
-        return image, flowdir
+            if inlet_pos is not None:
+                if inlet_pos == 'top':
+                    inlet_pos = 'left'
+                elif inlet_pos == 'bottom':
+                    inlet_pos = 'right'
+                else:
+                    raise RuntimeError(
+                        'Inlet position incompatible with flow direction!'
+                        f' {inlet_pos} and {flowdir}')
+            flowdir[flowdir == 'l'] = 'd'
+            flowdir[flowdir == 'r'] = 'u'
+
+        if inlet_pos is not None:
+            if inlet_pos not in ['right', 'left']:
+                raise RuntimeError(
+                    'Inlet position incompatible with flow direction!'
+                    f' {inlet_pos} and {flowdir}')
+        return image, flowdir, inlet_pos
 
     def imageProfileSlice(self, image, center, width, pixel_size):
         '''Get the image profile corresponding to a center and width

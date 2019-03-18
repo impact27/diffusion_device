@@ -116,11 +116,11 @@ class SinglePosImage(ImagesFile):
         for i, (im, fd) in enumerate(zip(data, flowdir)):
             if fd == 'u':
                 pass
-            elif fd == 'r':
+            elif fd == 'l':
                 im = np.rot90(im, 1)
             elif fd == 'd':
                 im = np.rot90(im, 2)
-            elif fd == 'l':
+            elif fd == 'r':
                 im = np.rot90(im, 3)
             else:
                 raise RuntimeError('Unknown orientation')

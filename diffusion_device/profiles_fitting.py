@@ -12,7 +12,7 @@ import warnings
 
 class FitResult(OptimizeResult):
     """
-    Class to hold result of fittinmg in a consistant way
+    Class to hold result of fitting in a consistant way
 
     Attributes:
     -----------
@@ -548,15 +548,18 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     radii: float
         The best radius fit
     """
+    # Fit monodisperse to get mid point
     mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
     idx_min_mono = mono_fit.arg_x
 
+    # Check shape Basis
     if len(Basis.shape) == 2:
         # add axis for pos
         Basis = Basis[:, np.newaxis]
         profiles = profiles[np.newaxis, :]
-
     # basis has phi. pos, pixel
+
+    # Compute the matrices needed for res_interp_N
     # equivalent to BB = np.einsum('jik, lik -> ijl', Basis, Basis)?
     BB = np.empty((np.shape(Basis)[1], np.shape(Basis)[0], np.shape(Basis)[0]))
     for i in range(np.shape(Basis)[-2]):
@@ -566,19 +569,20 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     B = np.einsum('jik -> ij', Basis)
     pp = np.einsum('ik, ik -> i', profiles, profiles)
     p = np.einsum('ik -> i', profiles)
-
     Nb = np.shape(Basis)[0]
     Npix = np.shape(Basis)[-1]
 
+    # Get the distance from min_mono to the wall
     N = np.min([idx_min_mono, Nb - idx_min_mono])
 
+    # Get indices for a diagonal
     indices = np.array(
         [np.arange(1, N), - np.arange(1, N)]) + idx_min_mono
     indices = np.moveaxis(indices, 0, -1)
-
+    # Compute diagonal
     res_diag = res_interp_N(indices, BB, Bp, B, p, pp, Npix, vary_offset)
-    argmin_diag = np.argmin(res_diag) + 1
 
+    # If best position is mopnodisperse, stop fit
     if np.min(res_diag) > mono_fit.residual:
         warnings.warn("Monodisperse")
         fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
@@ -589,6 +593,8 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
         fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
         return fit
 
+    # Get curve to look at (Cte XY)
+    argmin_diag = np.argmin(res_diag) + 1
     XY = np.square(argmin_diag)
     factor = np.square(argmin_diag + 1) / XY * 2
 
@@ -604,13 +610,16 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     indices = np.asarray([idx_min_mono - x, y + idx_min_mono])
     indices = np.moveaxis(indices, 0, -1)
 
+    # only select valid values
     valid = np.logical_and(indices > 0, indices < Nb - 1)
     valid = np.logical_and(valid[..., 0], valid[..., 1])
     zoom_indices = indices[valid]
 
+    # Get curve
     zoom_residual = res_interp_N(
         zoom_indices, BB, Bp, B, p, pp, Npix, vary_offset)
 
+    # Compute threshold
     minres = np.min(zoom_residual[zoom_residual > 0])
     threshold = minres + 2 * np.sqrt(minres)
 
@@ -618,21 +627,13 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
                      np.max(zoom_indices[zoom_residual < threshold], axis=0)]
     phi_range = np.interp(indices_range, np.arange(len(phi)), phi)
 
+    # Zoom twice
     for i in range(2):
         threshold = np.percentile(zoom_residual, 0.1)
         zoom_indices, zoom_valid = get_zoom_indices(
             zoom_residual, zoom_indices, idx_min_mono, Nb, threshold)
         zoom_residual = np.sum(residual_N_floating(
             zoom_indices, BB, Bp, B, p, pp, vary_offset)[0], 0)
-
-    # # Get range (use delta xi^2)
-    # minres = np.min(res[res > 0])
-    # threshold = minres + 2 * np.sqrt(minres)
-    # possible = res <= threshold
-
-    # # Get best
-    # idx = np.unravel_index(np.argmin(residual), np.shape(residual))
-    # index = indices_res[idx]
 
     # Get best
     idx = np.unravel_index(np.argmin(zoom_residual), np.shape(zoom_residual))
@@ -643,22 +644,23 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
 
     index = np.squeeze(index)
 
+    # Reaffine result?
     # min_res = minimize(res_interp_N, index, args=(BB, Bp, B, p, pp, Npix, vary_offset),
     #                     jac=jac_interp_N,
     #                     method='BFGS', options={'gtol': 1e-16, 'norm': 2})
     # index = np.sort(min_res.x)
 
+    # Finalise
     res_fit, coeff_a, coeff_b = residual_N_floating(
         index, BB, Bp, B, p, pp, Npix, vary_offset)
 
-    # C < 0 mean interpolate to the left
+    # Get left and right index for interpolation of result
     C_interp, idx_min = get_idx(index - np.floor(index),
                                 np.asarray(np.floor(index), int))
-
-    # Result
     phi_res = np.exp((1 - C_interp) * np.log(phi[idx_min[:, 0]])
                      + C_interp * np.log(phi[idx_min[:, 1]]))
 
+    # Sort if needed
     if phi_res[1] < phi_res[0]:
         coeff_a = coeff_a[np.argsort(phi_res)]
         phi_res = np.sort(phi_res)
@@ -668,15 +670,20 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     spectrum = np.zeros(Nb)
 
     for rn, i in enumerate(index):
-        i = int(i)
+        # Left
+        i = int(np.floor(i))
+        # Right()
         j = i + 1
+        # if right on the wall, then swap
         if j == Nb:
             j = Nb - 2
+        # Get local gradient
         Bl_minus_Br_square = (BB[..., i, i] + BB[..., j, j]
                               - BB[..., i, j] - BB[..., j, i])
         Bl_minus_Br_square = np.sum(coeff_a[..., rn] * Bl_minus_Br_square)
         if Bl_minus_Br_square == 0:
             raise RuntimeError("No Gradient in Basis")
+        # Compute error
         error = (np.sqrt((phi[i] - phi[j])**2
                          / Bl_minus_Br_square))
         phi_error[rn] = error
@@ -688,14 +695,106 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
                          * coeff_a[:, np.newaxis])
 
     distribution = coeff_a / np.sum(coeff_a)
-    fit = FitResult(x=phi_res, dx=phi_error, x_distribution=np.squeeze(distribution),
+    fit = FitResult(x=phi_res, dx=phi_error,
+                    x_distribution=np.squeeze(distribution),
                     basis_spectrum=spectrum, residual=np.sum(res_fit, 0),
                     success=True, status=0, interp_coeff=C_interp)
     fit.x_range = phi_range.T
     return fit
 
-# @profile
+def fit_2_fix_1(profiles, Basis, phi, phi_fix, vary_offset=False):
+    """Find the best monodisperse radius
 
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    phi:
+        MUST BE SORTED
+    Rs: 1d float
+        The test radii [m]
+
+    Returns
+    -------
+    radii: float
+        The best radius fit
+    """
+    # Fit monodisperse to get mid point
+    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
+    idx_min_mono = mono_fit.arg_x
+
+    # Check shape Basis
+    if len(Basis.shape) == 2:
+        # add axis for pos
+        Basis = Basis[:, np.newaxis]
+        profiles = profiles[np.newaxis, :]
+    # basis has phi. pos, pixel
+
+    # Compute the matrices needed for res_interp_N
+    # equivalent to BB = np.einsum('jik, lik -> ijl', Basis, Basis)?
+    BB = np.empty((np.shape(Basis)[1], np.shape(Basis)[0], np.shape(Basis)[0]))
+    for i in range(np.shape(Basis)[-2]):
+        Bi = Basis[..., i, :]
+        BB[i] = (np.tensordot(Bi, Bi, (-1, -1)))
+    Bp = np.einsum('jik, ik -> ij', Basis, profiles)
+    B = np.einsum('jik -> ij', Basis)
+    pp = np.einsum('ik, ik -> i', profiles, profiles)
+    p = np.einsum('ik -> i', profiles)
+    Nb = np.shape(Basis)[0]
+    Npix = np.shape(Basis)[-1]
+
+    # get indix for fixed phi
+    idx_fix_minus = np.sum(phi - phi_fix < 0) - 1
+    if idx_fix_minus == -1 or idx_fix_minus == len(phi) - 1:
+        raise RuntimeError('Fixed phi out of range')
+    idx_fix = ((np.log(phi_fix) - np.log(phi[idx_fix_minus]))
+               / (np.log(phi[idx_fix_minus + 1]) - np.log(phi[idx_fix_minus]))
+               + idx_fix_minus)
+    index = np.arange(len(phi))
+
+    if idx_min_mono > idx_fix:
+        # Other larger
+        idx_2 = index[phi > phi_fix]
+    else:
+        idx_2 = index[phi < phi_fix]
+
+    idx_min = None
+    for i in range(1):
+        if idx_min is not None:
+            if idx_min == 0:
+                idx_min = 1
+            elif idx_min == len(idx_2) - 1:
+                idx_min = idx_min - 1
+            idx_2 = np.lispace(idx_2[idx_min - 1], idx_2[idx_min + 1], 20)
+        # Get indices for a diagonal
+        indices = np.array(
+            [[idx_fix] * len(idx_2), idx_2])
+        indices = np.moveaxis(indices, 0, -1)
+
+        # Get curve
+        zoom_residual = res_interp_N(
+            indices, BB, Bp, B, p, pp, Npix, vary_offset)
+        idx_min = np.argmin(zoom_residual)
+
+
+    idx_res = idx_2[idx_min]
+    C_interp = index - np.floor(index)
+
+    phi_res = np.exp((1 - C_interp) * np.log(phi[int(np.floor(idx_res))])
+                     + C_interp * np.log(phi[int(np.ceil(idx_res))]))
+    raise NotImplementedError()
+    fit = FitResult(x=[phi_fix, phi_res],
+                    dx=[0, phi_error],
+                    x_distribution=np.squeeze(distribution),
+                    basis_spectrum=spectrum,
+                    residual=np.sum(res_fit, 0),
+                    success=True, status=0, interp_coeff=C_interp)
+    fit.x_range = phi_range.T
+    return fit
 
 def fit_2(profiles, Basis, phi):
     """Find the best monodisperse radius
