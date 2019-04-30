@@ -110,4 +110,4 @@ class DataType():
 
     def plot_and_save(self, infos):
         """plot_and_save"""
-        display_data.plot_and_save(infos, self.outpath)
+        display_data.plot_and_save(infos, self.settings, self.outpath)

@@ -50,7 +50,7 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
 
 
 def plot_single(radius, profiles, fits, lse, pixel_size,
-                signal_noise, radius_range, prefix=''):
+                signal_noise, radius_range, prefix='', plot_error=False):
     # =========================================================================
     # Fit
     # =========================================================================
@@ -75,17 +75,26 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
     plot(X, dp.get_fax(profiles), 'C0', label="Profiles")
+    plt.xlabel('Position [$\mu$m]')
+    plt.ylabel('Normalised amplitude')
     if fits is not None:
         plot(X, dp.get_fax(fits), 'C1', label="Fits")
         plt.fill_between(X, dp.get_fax(fits - signal_noise),
-                         dp.get_fax(fits + signal_noise), color="C1", alpha=0.5)
+                         dp.get_fax(fits + signal_noise),
+                         color="C1", alpha=0.5)
+        if plot_error:
+            plt.twinx()
+            square_difference = np.square((fits - profiles) / signal_noise)
+            plt.plot([0], [0], 'C0', label="Profiles")
+            plt.plot([0], [0], 'C1', label="Fits")
+            plt.plot(X, dp.get_fax(square_difference), 'C2',
+                 label="Square error")
+            plt.ylabel('Square error')
 
-    plt.xlabel('Position [$\mu$m]')
-    plt.ylabel('Normalised amplitude')
     plt.legend()
 
 
-def plot_and_save(infos, outpath=None):
+def plot_and_save(infos, settings, outpath=None):
     """Plot the sizing data
 
     Parameters
@@ -128,7 +137,8 @@ def plot_and_save(infos, outpath=None):
                             for r, rng in zip(Rs * 1e9, np.asarray(radius_range)*1e9)]))
 
     plot_single(radius, profiles, fits, lse, pixel_size,
-                infos["Profiles noise std"], radius_range)
+                infos["Profiles noise std"], radius_range,
+                plot_error=settings['KEY_STG_PLOT_ERROR'])
 
     # ==========================================================================
     # Save
@@ -338,7 +348,8 @@ def plot_and_save_stack(infos, settings, outpath=None):
 
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
                         pixs, profiles_noise_std[pos],
-                        radius_range[pos], prefix=f'{pos}: ')
+                        radius_range[pos], prefix=f'{pos}: ',
+                        plot_error=settings['KEY_STG_PLOT_ERROR'])
 
             if outpath is not None:
                 plt.savefig(outpath + '_{}_fig.pdf'.format(pos))

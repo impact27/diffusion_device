@@ -79,4 +79,7 @@ json_infos['Use Image Coordinates'] = True
 # Decrease the number of images by rebinning
 json_infos['Rebin stack'] = 1
 
+# Plot the square error as a function of position
+json_infos['Plot Square Error'] = True
+
 settings.generate_json(datapath, json_infos)

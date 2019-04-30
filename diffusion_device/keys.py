@@ -212,6 +212,11 @@ settings.add_info("KEY_STG_STACK_REBIN", "Rebin stack", int,
                   default=1,
                   explanation="Decrease the number of images by rebinning")
 
+settings.add_info("KEY_STG_PLOT_ERROR", "Plot Square Error", bool,
+                  required=False,
+                  default=True,
+                  explanation="Plot the square error as a function of position")
+
 
 # settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
 #                  required=False,
