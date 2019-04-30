@@ -217,6 +217,12 @@ settings.add_info("KEY_STG_PLOT_ERROR", "Plot Square Error", bool,
                   default=True,
                   explanation="Plot the square error as a function of position")
 
+settings.add_info("KEY_STG_FIT_SQUARE", "Fit square of signal", bool,
+                  required=False,
+                  default=False,
+                  explanation="Fit square of signal to give more importance to high intensity")
+
+
 
 # settings.add_info("KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
 #                  required=False,

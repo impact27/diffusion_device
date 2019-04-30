@@ -82,7 +82,8 @@ def size_profiles(infos, metadata, settings):
     
     # Get best fit
     fit = fit_all(fit_profiles, fit_Basis, test_radii, nspecies=nspecies,
-                  prof_noise=fit_noise, vary_offset=vary_offset)
+                  prof_noise=fit_noise, vary_offset=vary_offset,
+                  fit_square=settings["KEY_STG_FIT_SQUARE"])
 
     infos["Radius error std"] = fit.dx
     infos["Radius range"] = fit.x_range

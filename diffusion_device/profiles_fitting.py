@@ -35,7 +35,7 @@ class FitResult(OptimizeResult):
 
 
 def fit_all(profiles, Basis, phi, *, nspecies=1,
-            prof_noise, vary_offset=False):
+            prof_noise, vary_offset=False, fit_square=False):
     """Find the best radius for monodisperse/polydisperse solutions
 
     Parameters
@@ -64,21 +64,24 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
     profiles = profiles / prof_noise
     Basis = Basis / prof_noise
 
+    if fit_square:
+        profiles = np.square(profiles)
+        Basis = np.square(Basis)
+
     if nspecies == 1 and phi is not None:
         return fit_monodisperse(profiles, Basis, phi, vary_offset)
 
-    elif nspecies == 2:
+    if nspecies == 2:
         return fit_2_alt(profiles, Basis, phi, vary_offset)
         # return fit_2(profiles, Basis, phi)
 
-    elif nspecies > 0:
+    if nspecies > 0:
         return fit_N(profiles, Basis, nspecies, phi)
 
-    elif nspecies == 0:
+    if nspecies == 0:
         return fit_polydisperse(profiles, Basis, phi)
 
-    else:
-        raise RuntimeError('Number of species negative!')
+    raise RuntimeError('Number of species negative!')
 
 
 def normalise_basis_factor(Basis, profiles, vary_offset):

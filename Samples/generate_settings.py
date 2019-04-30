@@ -82,4 +82,7 @@ json_infos['Rebin stack'] = 1
 # Plot the square error as a function of position
 json_infos['Plot Square Error'] = True
 
+# Fit square of signal to give more importance to high intensity
+json_infos['Fit square of signal'] = False
+
 settings.generate_json(datapath, json_infos)
