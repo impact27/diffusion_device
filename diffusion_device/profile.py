@@ -69,6 +69,7 @@ def size_profiles(infos, metadata, settings):
 
     profiles = np.asarray(profiles)
     fits = np.zeros_like(profiles) * np.nan
+    radius_error = np.zeros_like(profiles) * np.nan
 
     fit_init, fit_profiles, fit_readingpos, fit_index, fit_noise= get_fit_data(
         settings, profiles, readingpos, profile_slice, infos, fits, prof_noise)
@@ -87,6 +88,7 @@ def size_profiles(infos, metadata, settings):
 
     infos["Radius error std"] = fit.dx
     infos["Radius range"] = fit.x_range
+    infos["Radius error x"] = None
 
     if nspecies == 1:
         # Get resulting r
@@ -109,6 +111,10 @@ def size_profiles(infos, metadata, settings):
                 raise RuntimeError("The relative error is too large "
                                    f"({100*infos['Fit error']:.2f}%), "
                                    "please adapt the step factor.")
+            # Get error on fit
+            radius_error[fit_index, ..., profile_slice] = \
+                fit.phi_background_error
+            infos["Radius error x"] = radius_error
 
         # One free parameter
         Mfreepar = 1

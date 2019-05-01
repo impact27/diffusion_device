@@ -50,7 +50,8 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
 
 
 def plot_single(radius, profiles, fits, lse, pixel_size,
-                signal_noise, radius_range, prefix='', plot_error=False):
+                signal_noise, radius_range, prefix='', plot_error=False,
+                radius_error_x=None):
     # =========================================================================
     # Fit
     # =========================================================================
@@ -84,12 +85,18 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
                          color="C1", alpha=0.5)
         if plot_error:
             plt.twinx()
-            square_difference = np.square((fits - profiles) / signal_noise)
             plt.plot([0], [0], 'C0', label="Profiles")
             plt.plot([0], [0], 'C1', label="Fits")
-            plt.plot(X, dp.get_fax(square_difference), 'C2',
-                 label="Square error")
-            plt.ylabel('Square error')
+            if radius_error_x is not None:
+                Y = dp.get_fax(radius_error_x) * 1e9
+                plt.fill_between(X, np.zeros_like(Y), Y, color='C2', alpha=0.4,
+                     label="Radius error")
+                plt.ylabel('Radius error / nm')
+            else:
+                square_difference = np.square((fits - profiles) / signal_noise)
+                plt.plot(X, dp.get_fax(square_difference), 'C2',
+                     label="Square error")
+                plt.ylabel('Square error')
 
     plt.legend()
 
@@ -138,7 +145,8 @@ def plot_and_save(infos, settings, outpath=None):
 
     plot_single(radius, profiles, fits, lse, pixel_size,
                 infos["Profiles noise std"], radius_range,
-                plot_error=settings['KEY_STG_PLOT_ERROR'])
+                plot_error=settings['KEY_STG_PLOT_ERROR'],
+                radius_error_x=infos["Radius error x"])
 
     # ==========================================================================
     # Save
@@ -349,7 +357,8 @@ def plot_and_save_stack(infos, settings, outpath=None):
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
                         pixs, profiles_noise_std[pos],
                         radius_range[pos], prefix=f'{pos}: ',
-                        plot_error=settings['KEY_STG_PLOT_ERROR'])
+                        plot_error=settings['KEY_STG_PLOT_ERROR'],
+                        radius_error_x=infos.at[pos, "Radius error x"])
 
             if outpath is not None:
                 plt.savefig(outpath + '_{}_fig.pdf'.format(pos))
