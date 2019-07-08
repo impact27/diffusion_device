@@ -195,6 +195,14 @@ metadata.add_info(
     "# (top, bottom, left, right)\n"
     '# For scan, use only left and right.')
 
+metadata.add_info(
+    "KEY_MD_BRIGHTWALL", "Bright wall?", bool,
+    required=False,
+    explanation="For scans: Is the wall brighter than the channel background?",
+    default=False,
+    )
+
+
 settings = ListGenerator('settings', 'SampleData/settings.json', False)
 
 settings.add_info(

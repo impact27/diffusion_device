@@ -97,11 +97,13 @@ class MultiPosScan(DataType):
         infos['Inlet location'] = self.metadata["KEY_MD_INLET_LOC"]
 
         # Get background
-        if background_fn is None:
+        if background_fn is None and not self.metadata["KEY_MD_BRIGHTWALL"]:
             data = self.flatten_scan(raw_data, infos)
-        else:
+        elif background_fn is not None:
             bg = self.load_data(background_fn)
             data = self.remove_scan_background(raw_data, bg, infos)
+        else:
+            data = raw_data
 
         infos["noise_var"] = self.get_noise_var(raw_data, infos)
         infos['Data'] = data
@@ -259,7 +261,7 @@ class MultiPosScan(DataType):
         """Get centers from a single scan"""
 
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
-        # brightwalls = True
+        brightwalls = self.metadata["KEY_MD_BRIGHTWALL"]
 
         profiles = profiles - np.nanmin(profiles)
         profiles[np.isnan(profiles)] = 0
@@ -285,11 +287,43 @@ class MultiPosScan(DataType):
             maxs > 3 / 2 * filter_width,
             maxs < len(fprof) - 3 / 2 * filter_width)]
 
-        # if brightwalls:
-        #     maxs = maxs[::2]
-        # else:
-        # Select the maximum intensity
-        maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
+        if brightwalls:
+            expected_dist = (
+                self.metadata["KEY_MD_WALLWIDTH"] + self.metadata["KEY_MD_WY"]
+                ) / self.metadata["KEY_MD_PIXSIZE"]
+            distances = np.diff(maxs) / expected_dist
+            idx = 0
+            # make sure all walls and peaks are detected
+            # We expect 0.5 everywhere
+            while idx < len(distances):
+                if distances[idx] > 0.75:
+                    # missed one?
+                    med = (maxs[idx] + maxs[idx + 1]) // 2
+                    maxs = np.insert(maxs, idx + 1, med)
+                    distances = np.diff(maxs) / expected_dist
+
+                idx = idx + 1
+            maxs = maxs[::2]
+
+            while idx < len(distances):
+                if distances[idx] < 0.75:
+                    # Maybe a wall was detected
+                    if distances[idx] + distances[idx + 1] < 1.3:
+                        maxs = np.delete(maxs, idx + 1)
+                        distances = np.diff(maxs) / expected_dist
+                        # Reprocess this one
+                        idx = idx - 1
+                elif distances[idx] > 1.8:
+                    # missed one?
+                    med = (maxs[idx] + maxs[idx + 1]) // 2
+                    maxs = np.append(maxs, idx + 1, med)
+                    distances = np.diff(maxs) / expected_dist
+
+                idx = idx + 1
+
+        else:
+            # Select the maximum intensity
+            maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
 
         # Sort and check number
         maxs = sorted(maxs)
@@ -383,41 +417,63 @@ class MultiPosScan(DataType):
                 np.abs(np.mean(np.diff(centers)))
             prof_npix = int(np.round(channel_width / pixel_size))
 
-        outmask = np.all(
-            np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
-                   - centers[np.newaxis]) > .55 * prof_npix, axis=1)
-        outmask = np.logical_and(outmask, np.isfinite(lin_profiles))
-        outmask = np.logical_and(outmask, np.isfinite(infos["noise_var"]))
+        if self.metadata["KEY_MD_BRIGHTWALL"]:
+            inmask = np.any(
+                np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
+                       - centers[np.newaxis]) < .45 * prof_npix, axis=1)
+            inmask = np.logical_and(inmask, np.isfinite(lin_profiles))
+            inmask = np.logical_and(inmask, np.isfinite(infos["noise_var"]))
 
-        lbl, n = label(outmask)
-        wall_var = np.zeros(n)
-        lin_var_list = np.zeros(n)
+            noise_var = infos["noise_var"]
 
-        for i in np.arange(n):
-            mask = lbl == i + 1
-            background = lin_profiles[mask]
-            window = 31
-            if len(background) < 3:
-                wall_var[i] = np.sum(np.square(background
-                                               - np.median(background)))
-            else:
-                if len(background) < window:
-                    window = 2 * (len(background) // 2) - 1
-                wall_var[i] = np.sum(np.square(
-                    background
-                    - savgol_filter(background, window, window // 6)))
-            lin_var_list[i] = np.sum(infos["noise_var"][mask])
+            filter_width = prof_npix / 100
+            if filter_width < 3:
+                filter_width = 3
 
-        noise = infos["noise_var"] / np.sum(lin_var_list) * np.sum(wall_var)
+            fprof = gfilter(lin_profiles, filter_width)
+            fnoise_var = gfilter(noise_var, filter_width)
+
+            var = gfilter(np.square(lin_profiles - fprof) / fprof,
+                          filter_width)
+            var_factor = np.mean(var[inmask])
+
+            noise = var_factor * fnoise_var
+            min_fprof = np.percentile(fprof, 20)
+            noise[fprof < min_fprof] = var_factor * min_fprof
+
+        else:
+            outmask = np.all(
+                np.abs(np.arange(len(lin_profiles))[:, np.newaxis]
+                       - centers[np.newaxis]) > .55 * prof_npix, axis=1)
+            outmask = np.logical_and(outmask, np.isfinite(lin_profiles))
+            outmask = np.logical_and(outmask, np.isfinite(infos["noise_var"]))
+    
+            lbl, n = label(outmask)
+            wall_var = np.zeros(n)
+            lin_var_list = np.zeros(n)
+    
+            for i in np.arange(n):
+                mask = lbl == i + 1
+                background = lin_profiles[mask]
+                window = 31
+                if len(background) < 3:
+                    wall_var[i] = np.sum(np.square(background
+                                                   - np.median(background)))
+                else:
+                    if len(background) < window:
+                        window = 2 * (len(background) // 2) - 1
+                    wall_var[i] = np.sum(np.square(
+                        background
+                        - savgol_filter(background, window, window // 6)))
+                lin_var_list[i] = np.sum(infos["noise_var"][mask])
+    
+            noise = infos["noise_var"] / np.sum(lin_var_list) * np.sum(wall_var)
+            min_var = np.sum(wall_var) / np.sum(outmask)
+            noise[noise < min_var] = min_var
+
         noise, __ = self.interpolate_profiles(
             noise, centers, infos["flow direction"],
             prof_npix, channel_width, infos["Pixel size"])
-
-        min_var = np.sum(wall_var) / np.sum(outmask)
-        noise[noise < min_var] = min_var
-        # if True:
-        #     noise_std = noise_std * 0
-        #      + np.sqrt(np.sum(wall_var) / np.sum(outmask))
         return np.sqrt(noise)
 
     def align_profiles(self, infos):

@@ -63,7 +63,7 @@ def size_profiles(infos, metadata, settings):
     profile_slice = ignore_slice(
         settings["KEY_STG_IGNORE"], infos["Pixel size"])
     prof_noise = infos["Profiles noise std"]
-    
+
     readingpos = get_reading_position(metadata, settings, len(profiles))
     profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
 
@@ -80,7 +80,7 @@ def size_profiles(infos, metadata, settings):
                         zpos=zpos, infos=infos,
                         **profiles_arg_dir)
     fit_Basis = Basis[..., profile_slice]
-    
+
     # Get best fit
     fit = fit_all(fit_profiles, fit_Basis, test_radii, nspecies=nspecies,
                   prof_noise=fit_noise, vary_offset=vary_offset,
@@ -199,12 +199,12 @@ def get_profiles_arg_dir(metadata, settings):
         'step_factor': settings["KEY_STG_DXFACTOR"]}
 
 
-def get_fit_data(settings, profiles, readingpos, profile_slice, 
+def get_fit_data(settings, profiles, readingpos, profile_slice,
                  infos, fits, prof_noise):
     """get_fit_data"""
-    
+
     initmode = settings["KEY_STG_POS0FILTER"]
-    
+
     # Select fit index
     fit_index = settings["KEY_STG_FITPOS"]
     if fit_index is not None:
@@ -246,8 +246,8 @@ def get_fit_data(settings, profiles, readingpos, profile_slice,
     if np.max(fit_init[profile_slice]) < threshold:
         raise RuntimeError("signal to noise too low")
 
-    return (fit_init, fit_profiles[..., profile_slice], 
-        fit_readingpos, fit_index, fit_noise)
+    return (fit_init, fit_profiles[..., profile_slice],
+            fit_readingpos, fit_index, fit_noise)
 
 
 def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
@@ -510,9 +510,10 @@ def get_fax(profiles):
     return np.ravel(np.concatenate(
         (profiles, np.zeros((np.shape(profiles)[0], 1)) * np.nan), axis=1))
 
+
 def rebin_profiles(profiles, rebin):
     """rebin profiles"""
-    
+
     if rebin > 1:
         rebin_profiles = np.zeros(
             (np.shape(profiles)[0], np.shape(profiles)[1] // rebin))
@@ -522,7 +523,8 @@ def rebin_profiles(profiles, rebin):
                 profiles[i], kern, mode='valid')[::rebin]
         profiles = rebin_profiles
     return profiles
-        
+
+
 def process_profiles(infos, metadata, settings, outpath):
     """Process profiles according to settings
 
@@ -540,8 +542,7 @@ def process_profiles(infos, metadata, settings, outpath):
     """
     profiles = infos["Profiles"]
     pixel_size = infos["Pixel size"]
-    
-    
+
     rebin = settings["KEY_STG_REBIN"]
     profiles = rebin_profiles(profiles, rebin)
     pixel_size *= rebin
@@ -556,6 +557,6 @@ def process_profiles(infos, metadata, settings, outpath):
 
     infos["Pixel size"] = pixel_size
     infos["Profiles noise std"] = rebin_profiles(
-            infos["Profiles noise std"], rebin)
+            infos["Profiles noise std"], rebin) / np.sqrt(rebin)
     infos["Profiles"] = profiles
     return infos

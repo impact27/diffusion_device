@@ -75,14 +75,14 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
 
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
-    plot(X, dp.get_fax(profiles), 'C0', label="Profiles")
+    plot(X, dp.get_fax(profiles), 'C0', label="Profiles", zorder=10)
     plt.xlabel('Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
     if fits is not None:
-        plot(X, dp.get_fax(fits), 'C1', label="Fits")
+        plot(X, dp.get_fax(fits), 'C1', label="Fits", zorder=12)
         plt.fill_between(X, dp.get_fax(fits - signal_noise),
                          dp.get_fax(fits + signal_noise),
-                         color="C1", alpha=0.5)
+                         color="C1", alpha=0.5, zorder=11)
         if plot_error:
             plt.twinx()
             plt.plot([0], [0], 'C0', label="Profiles")
@@ -90,12 +90,12 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
             if radius_error_x is not None:
                 Y = dp.get_fax(radius_error_x) * 1e9
                 plt.fill_between(X, np.zeros_like(Y), Y, color='C2', alpha=0.4,
-                     label="Radius error")
+                     label="Radius error", zorder=9)
                 plt.ylabel('Radius error / nm')
             else:
                 square_difference = np.square((fits - profiles) / signal_noise)
                 plt.plot(X, dp.get_fax(square_difference), 'C2',
-                     label="Square error")
+                     label="Square error", zorder=9)
                 plt.ylabel('Square error')
 
     plt.legend()

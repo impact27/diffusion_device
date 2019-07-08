@@ -113,4 +113,7 @@ json_infos['Frames times [s]'] = None
 # For scan, use only left and right.
 json_infos['Inlet location'] = None
 
+# For scans: Is the wall brighter than the channel background?
+json_infos['Bright wall?'] = False
+
 metadata.generate_json(datapath, json_infos)

@@ -114,7 +114,7 @@ class SinglePosScan(DataType):
         profiles = self.scans_to_profiles(infos["Data"], channel_width_px)
         # Guess measurment noise from savgol filter
         fit = savgol_filter(profiles, 17, 5)
-        noise_var = np.mean(np.square(profiles - fit)/fit)
+        noise_var = np.mean(np.square(profiles - fit) / fit)
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore',
                                     "invalid value encountered in sqrt",
