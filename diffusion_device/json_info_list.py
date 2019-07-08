@@ -183,6 +183,8 @@ class ListGenerator():
                        + ']')
         elif isinstance(value, (float)):
             value = floatstr(value)
+        elif isinstance(value, (dict)):
+            value = repr(value)
         else:
             value = repr(value)
         return value

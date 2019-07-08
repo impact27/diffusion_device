@@ -211,9 +211,13 @@ def get_fit_data(settings, profiles, readingpos, profile_slice,
         fit_index = np.sort(fit_index)
     else:
         fit_index = np.arange(len(profiles))
-    fit_profiles = profiles[fit_index]
+
+    # Put the index in order
     fit_readingpos = readingpos[fit_index]
-        
+    fit_index = fit_index[np.argsort(fit_readingpos)]
+    fit_readingpos = np.sort(fit_readingpos)
+    fit_profiles = profiles[fit_index]
+
     # If we have a different noise for each point
     if len(np.shape(prof_noise)) > 0:
         fit_noise = prof_noise[fit_index]

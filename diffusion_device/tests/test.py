@@ -44,8 +44,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(folder,
                                   'test_data/exp1_z2_x2_metadata.json')
         tempdir = "Test_tempdir"
-        infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(infos['Radius'], 3e-9)
         self.assertLess(infos['Radius'], 4e-9)
@@ -57,8 +56,7 @@ class TestImage(TestCase):
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
         try:
-            infos = \
-                full_fit(settingsfn, metadatafn, tempdir)
+            infos = full_fit(settingsfn, metadatafn, tempdir)
         except RuntimeError as e:
             if e.args[0] != "Monodisperse":
                 raise
@@ -75,8 +73,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/UVim300ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         Rs, spectrum = infos['Radius']
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
@@ -88,8 +85,7 @@ class TestImage(TestCase):
         metadatafn = os.path.join(
             folder, 'test_data/Brightim900ulph_Metadata.json')
         tempdir = "Test_tempdir"
-        infos = \
-            full_fit(settingsfn, metadatafn, tempdir)
+        infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
         self.assertGreater(infos['Radius'], .2e-9)
         self.assertLess(infos['Radius'], 1e-9)

@@ -14,6 +14,16 @@
         "Repeat  0Point11_0000.dat",
         "Repeat  0Point12_0000.dat"
     ],
+    "Scan file structure": {
+        "delimiter": ",",
+        "skiprows": 22,
+        "index": [
+            [
+                null, null
+            ]
+        ],
+        "transpose": false
+    },
     "Wz[m]": 2.5e-05,
     "Wy[m]": 0.0003,
     "Q[ulph]": 160,

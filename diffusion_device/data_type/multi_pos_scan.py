@@ -55,7 +55,7 @@ class MultiPosScan(DataType):
         """
         if filename is None:
             filename = self.metadata["KEY_MD_FN"]
-        data = load_file(filename)
+        data = load_file(filename, **self.metadata["KEY_MD_SCAN_STRUCT"])
 
         # Apply scan slice
         scan_slice = self.settings["KEY_SET_SCAN_SLICE"]
@@ -110,7 +110,7 @@ class MultiPosScan(DataType):
     def flatten_scan(self, data, infos):
         """flatten_scan"""
         out_mask = self.get_out_mask(data, infos)
-        data -= np.nanmean(data[out_mask])
+        data = data - np.nanmean(data[out_mask])
         return data
 
     def get_channel_mask(self, data, infos):
@@ -259,26 +259,36 @@ class MultiPosScan(DataType):
         """Get centers from a single scan"""
 
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
+        # brightwalls = True
 
         profiles = profiles - np.nanmin(profiles)
         profiles[np.isnan(profiles)] = 0
 
         # Filter heavely and get position of the centers as a first approx.
-        filter_width = len(profiles) / ((number_profiles * 2 + 1) * 3)
+        filter_width = len(profiles) / ((number_profiles * 2 + 1) * 3 * 2)
         Hfiltered = gfilter(profiles, filter_width)
         maxs = np.where(maximum_filter1d(
             Hfiltered, int(filter_width)) == Hfiltered)[0]
 
-        # Filter lightly and get 2nd derivative
-        fprof = gfilter(profiles, 3)
+        # Filter lightly
+        soft_width = filter_width / 50
+        if soft_width < 3:
+            soft_width = 3
+        fprof = gfilter(profiles, soft_width)
+
         # If max negatuve, not a max
         maxs = maxs[profiles[maxs] > 0]
         # If filter reduces int by 90%, probably a wall
-        maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .9]
+        maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
         # Remove sides
         maxs = maxs[np.logical_and(
             maxs > 3 / 2 * filter_width,
             maxs < len(fprof) - 3 / 2 * filter_width)]
+
+        # if brightwalls:
+        #     maxs = maxs[::2]
+        # else:
+        # Select the maximum intensity
         maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
 
         # Sort and check number

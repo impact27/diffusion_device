@@ -6,10 +6,18 @@ datapath = 'SampleData/UVim300ulph.tif'
 json_infos = {}
 
 # Data Type
-# One of "single_pos_scan", "multi_pos_scan", "single_pos_image", "multi_pos_image", "stack_multi_pos_image"
+# One of "single_pos_scan", "multi_pos_scan", "single_pos_image", 
+# multi_pos_image", "stack_multi_pos_image"
 json_infos['Type of data'] = 'multi_pos_image'
 
-# Location of the data file(s). If None, will take the last path part of datapath.
+# delimiter is the delimiter to separate values in file (None for space)
+# skiprows is the number of rows to skip
+# index are the index to select. List of tuple given to slice().
+# transpose is only needed for 'single_pos_scan'. Should transpose?
+json_infos['Scan file structure'] = {'delimiter': None, 'skiprows': 1, 'index': ((None, None), (1, None)), 'transpose': False}
+
+# Location of the data file(s).
+# If None, will take the last path part of datapath.
 json_infos['Image file name'] = None
 
 # Background file, relative to the image file. None means no background
@@ -39,7 +47,7 @@ json_infos['Wall Width [m]'] = 100e-6
 # Number of channels in a file
 json_infos['Number of channels in a file'] = 4
 
-# Flow [ulph]. If None, is taken from the image_filename. !!!Check!!!
+# Flow [ulph].
 json_infos['Q[ulph]'] = 300
 
 # Reading position at the middle of the image [m]

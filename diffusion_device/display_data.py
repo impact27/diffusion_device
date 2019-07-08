@@ -278,7 +278,7 @@ def plot_and_save_stack(infos, settings, outpath=None):
         if np.any(overexposed):
             plt.errorbar(x[overexposed], radius[overexposed] * 1e9,
                          yerr=np.abs(
-                radius_range.T - radius
+                np.stack(radius_range.to_numpy()).T - radius.to_numpy()
             )[..., overexposed] * 1e9,
                 fmt='x',
                 label='overexposed data')

@@ -78,10 +78,10 @@ def getprofiles(Cinit, Q, Radii, readingpos, Wy, Wz, viscosity, temperature,
         The list of profiles for the 12 positions at the required radii
     """
 
-    D = get_D(Radii, viscosity, temperature, muEoD, stepMuE,
-              Boltzmann_constant)
-    phi, beta, mu_prime_E = get_unitless_parameters(Q, D, readingpos, Wy, Wz,
-                                                    muEoD)
+    D = get_D(
+        Radii, viscosity, temperature, muEoD, stepMuE, Boltzmann_constant)
+    phi, beta, mu_prime_E = get_unitless_parameters(
+        Q, D, readingpos, Wy, Wz, muEoD)
     if zpos is not None:
         zpos = zpos/Wz
 

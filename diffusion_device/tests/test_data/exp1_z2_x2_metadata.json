@@ -1,5 +1,19 @@
 {
     "Image file name": "exp1_z2_x2.csv",
+    "Scan file structure": {
+        "delimiter": ",",
+        "skiprows": 1,
+        "index": [
+            [
+                null, null
+            ],
+            [
+                1,
+                null
+            ]
+        ],
+        "transpose": true
+    },
     "Background file name": "exp1_z2_x2_bg.csv",
     "Image exposition time [s]": 10e-3,
     "Background image exposition time [s]": 10e-3,

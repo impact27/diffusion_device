@@ -50,7 +50,7 @@ class SinglePosScan(DataType):
             the image
         """
         filename = self.metadata["KEY_MD_FN"]
-        data = load_file(filename)
+        data = load_file(filename, **self.metadata["KEY_MD_SCAN_STRUCT"])
         return data
 
     def savedata(self, infos):
