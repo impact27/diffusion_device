@@ -191,9 +191,16 @@ def interpolate_1pos(arg_cent, arg_side, M_diag, M_udiag, b):
         / Bl_minus_Br_square)
     return coeff_basis, Bl_minus_Br_square
 
+
 def error_on_fit_monodisperse(profiles, basis, phi, fit):
     """Estimate the error on fit in the monodisperse case"""
-    idx_a, idx_b = np.argwhere(fit.basis_spectrum)
+    idx = np.argwhere(fit.basis_spectrum)
+    if len(idx) == 2:
+        idx_a, idx_b = idx
+    elif len(idx) == 1:
+        idx_a, idx_b = idx[0], idx[0] + 1
+    else:
+        raise RuntimeError('Wut?')
     dbasis = ((basis[idx_b] - basis[idx_a])
               / (phi[idx_b] - phi[idx_a])[0])
     fits = np.sum(basis * fit.basis_spectrum[:, np.newaxis, np.newaxis],
@@ -202,6 +209,7 @@ def error_on_fit_monodisperse(profiles, basis, phi, fit):
     error_phi = (background * dbasis
                  / np.mean(np.square(dbasis)))
     return error_phi
+
 
 def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
     """Find the best monodisperse radius
@@ -255,7 +263,10 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
         arg_phi = arg_cent - coeff_basis
 
     if np.abs(coeff_basis) > 3:
-        raise RuntimeError("Interpolation failed: out of bounds")
+        warnings.warn("Interpolation failed: not smooth enough.")
+        coeff_basis = 0
+        arg_phi = arg_cent
+
 
     best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
                       + coeff_basis * np.log(phi[arg_side]))
@@ -309,9 +320,9 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
                     x_range=phiRange,
                     interp_coeff=coeff_basis, basis_spectrum=spectrum,
                     residual=residual, arg_x=arg_phi, success=True)
-    
-    phi_background_error = error_on_fit_monodisperse(profiles, Basis, phi, fit)    
-    fit.phi_background_error=phi_background_error
+
+    phi_background_error = error_on_fit_monodisperse(profiles, Basis, phi, fit)
+    fit.phi_background_error = phi_background_error
 
     return fit
 
