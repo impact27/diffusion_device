@@ -284,6 +284,8 @@ def get_unitless_profiles(Cinit, phi, beta,
         dphi_max = np.min(np.abs(np.diff(phi))) / 20
         if not dphi_max > 0:
             raise RuntimeError('dphi too small!')
+        dphi_max_alt = 1e-2 * np.min(phi)  # max 1% error
+        dphi_max = np.min([dphi_max, dphi_max_alt])
 
     # get step matrix
     Fdic = step_matrix_from_dic(

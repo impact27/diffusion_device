@@ -107,10 +107,11 @@ def size_profiles(infos, metadata, settings):
                 fit_init, Radii=[r], readingpos=fit_readingpos,
                 zpos=zpos, infos=infos, **profiles_arg_dir)[0]
 
-            if np.any(infos['Fit error'] > 2e-2):
+            if np.any(infos['Fit error'] > 1e-2):
                 raise RuntimeError("The relative error is too large "
                                    f"({100*infos['Fit error']:.2f}%), "
-                                   "please adapt the step factor.")
+                                   "please adapt the step factor."
+                                   "Make sure the radii is in log.")
             # Get error on fit
             radius_error[fit_index, ..., profile_slice] = \
                 fit.phi_background_error
