@@ -113,6 +113,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     plt.legend()
 
     if save_prefix:
+        plt.tight_layout()
         plt.savefig(save_prefix + '_fig.pdf')
 
 
