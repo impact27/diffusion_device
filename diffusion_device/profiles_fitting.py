@@ -192,22 +192,36 @@ def interpolate_1pos(arg_cent, arg_side, M_diag, M_udiag, b):
     return coeff_basis, Bl_minus_Br_square
 
 
-def error_on_fit_monodisperse(profiles, basis, phi, fit):
+def error_on_fit_monodisperse(profiles, basis, phi, spectrum, arg_fit):
     """Estimate the error on fit in the monodisperse case"""
-    idx = np.argwhere(fit.basis_spectrum)
-    if len(idx) == 2:
-        idx_a, idx_b = idx
-    elif len(idx) == 1:
-        idx_a, idx_b = idx[0], idx[0] + 1
-    else:
-        raise RuntimeError('Wut?')
+    idx_a, idx_b = np.sort(arg_fit)
     dbasis = ((basis[idx_b] - basis[idx_a])
-              / (phi[idx_b] - phi[idx_a])[0])
-    fits = np.sum(basis * fit.basis_spectrum[:, np.newaxis, np.newaxis],
+              / (phi[idx_b] - phi[idx_a]))
+    fits = np.sum(basis * spectrum[:, np.newaxis, np.newaxis],
                   axis=0)
     background = (profiles - fits)
     error_phi = (background * dbasis
                  / np.mean(np.square(dbasis)))
+    return error_phi
+
+
+def error_on_fit(profiles, basis, phi, spectrum, arg_fits):
+    """Estimate the error on fit in the monodisperse case"""
+    dbasis = np.zeros((len(arg_fits), *np.shape(basis)[1:]))
+    for i, arg_fit in enumerate(arg_fits):
+        idx_a, idx_b = np.sort(arg_fit)
+        dbasis[i] = ((basis[idx_b] - basis[idx_a])
+                      / (phi[idx_b] - phi[idx_a]))
+
+    fits = np.sum(basis * spectrum[:, np.newaxis, np.newaxis],
+                  axis=0)
+    background = (profiles - fits)
+
+    M = np.mean(dbasis[np.newaxis] * dbasis[:, np.newaxis], axis=(2, 3))
+
+    error_phi = np.tensordot(np.linalg.inv(M), background * dbasis,
+                             axes=([0], [0]))
+
     return error_phi
 
 
@@ -321,7 +335,8 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
                     interp_coeff=coeff_basis, basis_spectrum=spectrum,
                     residual=residual, arg_x=arg_phi, success=True)
 
-    phi_background_error = error_on_fit_monodisperse(profiles, Basis, phi, fit)
+    phi_background_error = error_on_fit_monodisperse(
+        profiles, Basis, phi, spectrum, (arg_cent, arg_side))
     fit.phi_background_error = phi_background_error
 
     return fit
@@ -728,6 +743,11 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
                     basis_spectrum=spectrum, residual=np.sum(res_fit, 0),
                     success=True, status=0, interp_coeff=C_interp)
     fit.x_range = phi_range.T
+
+    phi_background_error = error_on_fit(
+        profiles, Basis, phi, spectrum, idx_min)
+    fit.phi_background_error = phi_background_error
+
     return fit
 
 def fit_2_fix_1(profiles, Basis, phi, phi_fix, vary_offset=False):
@@ -952,6 +972,11 @@ def fit_2(profiles, Basis, phi):
                     basis_spectrum=spectrum, residual=min_res.fun,
                     success=True, status=0, interp_coeff=C_interp)
     fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
+
+    phi_background_error = error_on_fit(
+        profiles, Basis, phi, spectrum, idx_min)
+    fit.phi_background_error = phi_background_error
+
     return fit
 
 
@@ -1114,6 +1139,11 @@ def fit_N(profiles, Basis, nspecies, phi):
     fit = FitResult(x=phi[idx], dx=radius_error, x_distribution=C[bestidx],
                     basis_spectrum=spectrum, residual=np.min(res))
     fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
+
+    phi_background_error = error_on_fit(
+        profiles, Basis, phi, spectrum, idx)
+    fit.phi_background_error = phi_background_error
+
     return fit
 
 

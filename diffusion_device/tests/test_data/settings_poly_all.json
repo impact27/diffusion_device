@@ -1,8 +1,8 @@
 {
-    "Radii[m] (min, max, step)": [
+    "Radii[m] (min, max, number)": [
         5e-10,
         1e-08,
-        1e-10
+        100
     ],
     "Ignore Edge[m]": 20e-6,
     "Number of species to fit": 0

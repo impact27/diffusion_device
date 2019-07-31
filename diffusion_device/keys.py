@@ -223,7 +223,7 @@ settings.add_info(
 settings.add_info(
     "KEY_STG_RLOG", "Radii in log", bool,
     required=False,
-    default=False)
+    default=True)
 
 settings.add_info(
     "KEY_STG_NSPECIES", "Number of species to fit", int,

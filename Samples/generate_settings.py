@@ -12,7 +12,7 @@ json_infos['Radii[m] (min, max, number)'] = [
     1000]
 
 # Radii in log
-json_infos['Radii in log'] = False
+json_infos['Radii in log'] = True
 
 # Number of species to fit
 json_infos['Number of species to fit'] = 1

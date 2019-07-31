@@ -1,8 +1,8 @@
 {
-    "Radii[m] (min, max, step)": [
+    "Radii[m] (min, max, number)": [
         1e-10,
         1e-08,
-        1e-10
+        100
     ],
     "Ignore Edge[m]": 10e-06,
     "First Position Filter": "none",

@@ -69,7 +69,6 @@ def size_profiles(infos, metadata, settings):
 
     profiles = np.asarray(profiles)
     fits = np.zeros_like(profiles) * np.nan
-    radius_error = np.zeros_like(profiles) * np.nan
 
     fit_init, fit_profiles, fit_readingpos, fit_index, fit_noise= get_fit_data(
         settings, profiles, readingpos, profile_slice, infos, fits, prof_noise)
@@ -90,7 +89,16 @@ def size_profiles(infos, metadata, settings):
     infos["Radius range"] = fit.x_range
     infos["Radius error x"] = None
 
+
+
+
     if nspecies == 1:
+
+        radius_error = np.zeros(np.shape(profiles)) * np.nan
+        radius_error[fit_index, ..., profile_slice] = \
+            fit.phi_background_error
+        infos["Radius error x"] = radius_error
+
         # Get resulting r
         r = fit.x
         if r < np.min(test_radii):
@@ -112,15 +120,18 @@ def size_profiles(infos, metadata, settings):
                                    f"({100*infos['Fit error']:.2f}%), "
                                    "please adapt the step factor."
                                    "Make sure the radii is in log.")
-            # Get error on fit
-            radius_error[fit_index, ..., profile_slice] = \
-                fit.phi_background_error
-            infos["Radius error x"] = radius_error
 
         # One free parameter
         Mfreepar = 1
 
     else:
+
+        # Get error on fit
+        if hasattr(fit, 'phi_background_error'):
+            radius_error = np.zeros((nspecies, *np.shape(profiles))) * np.nan
+            radius_error[:, fit_index, ..., profile_slice] = \
+                fit.phi_background_error
+            infos["Radius error x"] = radius_error
 
         # fill data if needed
         fits[fit_index] = np.sum(
@@ -160,6 +171,8 @@ def ignore_slice(ignore, pixel_size):
 def get_test_radii(settings):
     """Get test radii"""
     if settings["KEY_STG_RLOG"]:
+        if settings["KEY_STG_R"] is None:
+            raise RuntimeError("Please use the number of steps.")
         rmin, rmax, Nr = settings["KEY_STG_R"]
         test_radii = np.exp(np.linspace(np.log(rmin), np.log(rmax), Nr))
     else:

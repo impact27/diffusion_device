@@ -29,7 +29,6 @@ import os
 from matplotlib.image import NonUniformImage
 import shutil
 import re
-import pandas as pd
 from . import profile as dp
 
 
@@ -40,10 +39,11 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
     plot(X, dp.get_fax(profiles), label="data")
     plot(X, dp.get_fax(filts), label="filtered")
 
-    plt.xlabel('Position [$\mu$m]')
+    plt.xlabel(r'Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
     plt.title(
-        "Savitzky-Golay: w{}, o{}".format(profiles_filter[0], profiles_filter[1]))
+        "Savitzky-Golay: w{}, o{}".format(
+            profiles_filter[0], profiles_filter[1]))
     plt.legend()
     if outpath is not None:
         plt.savefig(outpath + '_filt_fig.pdf')
@@ -55,6 +55,14 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     # =========================================================================
     # Fit
     # =========================================================================
+    if plot_error and radius_error_x is not None and np.ndim(radius_range) > 1:
+        N = len(radius)
+        for i in range(N):
+            plot_single(
+                radius[i], profiles, fits, lse, pixel_size,
+                signal_noise, radius_range[i], f"({i + 1}/{N})" + prefix,
+                plot_error, radius_error_x[i])
+        return
 
     if len(np.shape(radius)) > 0:
         title = (prefix + 'LSE = {:.3f}, pixel = {:.3f} um'.format(
@@ -76,7 +84,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
 
     plot(X, dp.get_fax(profiles), 'C0', label="Profiles", zorder=10)
-    plt.xlabel('Position [$\mu$m]')
+    plt.xlabel(r'Position [$\mu$m]')
     plt.ylabel('Normalised amplitude')
     if fits is not None:
         plot(X, dp.get_fax(fits), 'C1', label="Fits", zorder=12)
@@ -90,12 +98,12 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
             if radius_error_x is not None:
                 Y = dp.get_fax(radius_error_x) * 1e9
                 plt.fill_between(X, np.zeros_like(Y), Y, color='C2', alpha=0.4,
-                     label="Radius error", zorder=9)
+                                 label="Radius error", zorder=9)
                 plt.ylabel('Radius error / nm')
             else:
                 square_difference = np.square((fits - profiles) / signal_noise)
                 plt.plot(X, dp.get_fax(square_difference), 'C2',
-                     label="Square error", zorder=9)
+                         label="Square error", zorder=9)
                 plt.ylabel('Square error')
 
     plt.legend()
@@ -129,28 +137,32 @@ def plot_and_save(infos, settings, outpath=None):
     radius_error = infos["Radius error std"]
     radius_range = infos["Radius range"]
     signal_over_noise = infos["Signal over noise"]
+    spectrum = 1
 
     if len(np.shape(radius)) > 0:
-        Rs, spectrum = radius
+        radius, spectrum = radius
         figure()
-        plt.errorbar(Rs * 1e9, spectrum, 
-                     xerr=np.transpose(np.abs(radius_range - Rs[:, np.newaxis])) * 1e9,
-                     fmt='x')
+        plt.errorbar(
+            radius * 1e9, spectrum,
+            xerr=np.transpose(
+                np.abs(radius_range - radius[:, np.newaxis])) * 1e9,
+            fmt='x')
         plt.xlabel("Radius [nm]")
         plt.ylabel("Coefficient")
         if outpath is not None:
             plt.savefig(outpath + '_rSpectrum_fig.pdf')
         plt.title('; '.join([f"r= {r:.2f} [{rng[0]:.2f}; {rng[1]:.2f}]nm"
-                            for r, rng in zip(Rs * 1e9, np.asarray(radius_range)*1e9)]))
+                             for r, rng in zip(radius * 1e9,
+                                               np.asarray(radius_range)*1e9)]))
 
     plot_single(radius, profiles, fits, lse, pixel_size,
                 infos["Profiles noise std"], radius_range,
                 plot_error=settings['KEY_STG_PLOT_ERROR'],
                 radius_error_x=infos["Radius error x"])
 
-    # ==========================================================================
+    # =========================================================================
     # Save
-    # ==========================================================================
+    # =========================================================================
 
     if outpath is not None:
         plt.savefig(outpath + '_fig.pdf')
@@ -162,9 +174,9 @@ def plot_and_save(infos, settings, outpath=None):
                 signal_over_noise).encode())
             if len(np.shape(radius)) > 0:
                 f.write("radius:\n".encode())
-                np.savetxt(f, radius[0])
+                np.savetxt(f, radius)
                 f.write("Spectrum:\n".encode())
-                np.savetxt(f, radius[1])
+                np.savetxt(f, spectrum)
                 f.write("Radius error std:\n".encode())
                 np.savetxt(f, radius_error)
 
@@ -236,7 +248,7 @@ def plot_and_save_stack(infos, settings, outpath=None):
             figure()
             im = NonUniformImage(plt.gca(), extent=(*xlim, *ylim))
             im.set_data(Rs, np.arange(len(radius)),
-                        np.stack(radius.apply(lambda x:x[1])))
+                        np.stack(radius.apply(lambda x: x[1])))
             plt.gca().images.append(im)
             plt.xlim(*xlim)
             plt.ylim(*ylim)
