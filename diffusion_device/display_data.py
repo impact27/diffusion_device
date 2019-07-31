@@ -51,17 +51,21 @@ def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
 
 def plot_single(radius, profiles, fits, lse, pixel_size,
                 signal_noise, radius_range, prefix='', plot_error=False,
-                radius_error_x=None):
+                radius_error_x=None, save_prefix=None):
     # =========================================================================
     # Fit
     # =========================================================================
     if plot_error and radius_error_x is not None and np.ndim(radius_range) > 1:
         N = len(radius)
         for i in range(N):
+            save_p = None
+            if save_prefix:
+                save_p = save_prefix + f'_{i}'
             plot_single(
                 radius[i], profiles, fits, lse, pixel_size,
                 signal_noise, radius_range[i], f"({i + 1}/{N})" + prefix,
-                plot_error, radius_error_x[i])
+                plot_error, radius_error_x[i],
+                save_prefix=save_p)
         return
 
     if len(np.shape(radius)) > 0:
@@ -108,6 +112,9 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
 
     plt.legend()
 
+    if save_prefix:
+        plt.savefig(save_prefix + '_fig.pdf')
+
 
 def plot_and_save(infos, settings, outpath=None):
     """Plot the sizing data
@@ -147,6 +154,7 @@ def plot_and_save(infos, settings, outpath=None):
             xerr=np.transpose(
                 np.abs(radius_range - radius[:, np.newaxis])) * 1e9,
             fmt='x')
+        plt.xscale('log')
         plt.xlabel("Radius [nm]")
         plt.ylabel("Coefficient")
         if outpath is not None:
@@ -158,14 +166,14 @@ def plot_and_save(infos, settings, outpath=None):
     plot_single(radius, profiles, fits, lse, pixel_size,
                 infos["Profiles noise std"], radius_range,
                 plot_error=settings['KEY_STG_PLOT_ERROR'],
-                radius_error_x=infos["Radius error x"])
+                radius_error_x=infos["Radius error x"],
+                save_prefix=outpath)
 
     # =========================================================================
     # Save
     # =========================================================================
 
     if outpath is not None:
-        plt.savefig(outpath + '_fig.pdf')
         with open(outpath + '_result.txt', 'wb') as f:
             f.write("Reduced least square: {:f}\n".format(lse).encode())
             f.write("Apparent pixel size: {:f} um\n".format(pixel_size *
@@ -370,10 +378,8 @@ def plot_and_save_stack(infos, settings, outpath=None):
                         pixs, profiles_noise_std[pos],
                         radius_range[pos], prefix=f'{pos}: ',
                         plot_error=settings['KEY_STG_PLOT_ERROR'],
-                        radius_error_x=infos.at[pos, "Radius error x"])
-
-            if outpath is not None:
-                plt.savefig(outpath + '_{}_fig.pdf'.format(pos))
+                        radius_error_x=infos.at[pos, "Radius error x"],
+                        save_prefix = outpath + '_{}'.format(pos))
 
 
 def prepare_output(outpath, settingsfn, metadatafn):
