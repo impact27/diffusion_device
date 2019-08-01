@@ -496,12 +496,14 @@ class MultiPosScan(DataType):
 
         new_centers = np.array(centers, dtype=float)
         for i, (cent, fd) in enumerate(zip(centers, flowdir)):
+            p1 = profiles[i, profile_slice]
+            p2 = fits[i, profile_slice]
 
             # Get diff between profile and fit
-            diff = dp.center(np.correlate(
-                profiles[i, profile_slice],
-                fits[i, profile_slice],
-                mode='full')) - len(profiles[i, profile_slice]) + 1
+            diff = (dp.center(
+                np.correlate(p1 - np.mean(p1), p2 - np.mean(p2), mode='full'))
+                - len(profiles[i, profile_slice]) + 1)
+
             if not np.isnan(diff):
                 diff *= rebin
                 switch = self.should_switch(fd)

@@ -470,7 +470,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             raise RuntimeError("Background mask too small")
 
         infos['image_intensity'] = fim
-        
+
         im = im / fim
         bg = bg / fbg
 
@@ -486,7 +486,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             im = im[np.newaxis]
 
         data = np.zeros_like(im)
-        offsets= np.zeros((len(im), 2))
+        offsets = np.zeros((len(im), 2))
 
         for i, image in enumerate(im):
             image_copy = np.copy(image)
