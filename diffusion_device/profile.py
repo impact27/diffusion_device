@@ -89,9 +89,6 @@ def size_profiles(infos, metadata, settings):
     infos["Radius range"] = fit.x_range
     infos["Radius error x"] = None
 
-
-
-
     if nspecies == 1:
 
         radius_error = np.zeros(np.shape(profiles)) * np.nan

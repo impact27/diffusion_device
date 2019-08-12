@@ -623,6 +623,10 @@ def fit_2_alt(profiles, Basis, phi, vary_offset=False):
     indices = np.array(
         [np.arange(1, N), - np.arange(1, N)]) + idx_min_mono
     indices = np.moveaxis(indices, 0, -1)
+    # Get valid indices
+    valid = np.all(indices < np.shape(Basis)[0] - 1, axis=1)
+    valid = np.logical_and(valid, np.all(indices > 0, axis=1))
+    indices = indices[valid]
     # Compute diagonal
     res_diag = res_interp_N(indices, BB, Bp, B, p, pp, Npix, vary_offset)
 
