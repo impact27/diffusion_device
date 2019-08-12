@@ -210,8 +210,9 @@ def error_on_fit(profiles, basis, phi, spectrum, arg_fits):
     dbasis = np.zeros((len(arg_fits), *np.shape(basis)[1:]))
     for i, arg_fit in enumerate(arg_fits):
         idx_a, idx_b = np.sort(arg_fit)
-        dbasis[i] = ((basis[idx_b] - basis[idx_a])
-                      / (phi[idx_b] - phi[idx_a]))
+        dbasis[i] = (
+            ((basis[idx_b] - basis[idx_a]) / (phi[idx_b] - phi[idx_a]))
+            * np.sum(spectrum[[idx_a, idx_b]]))
 
     fits = np.sum(basis * spectrum[:, np.newaxis, np.newaxis],
                   axis=0)
