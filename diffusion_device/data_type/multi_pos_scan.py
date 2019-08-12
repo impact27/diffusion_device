@@ -280,12 +280,14 @@ class MultiPosScan(DataType):
 
         # If max negatuve, not a max
         maxs = maxs[profiles[maxs] > 0]
-        # If filter reduces int by 90%, probably a wall
-        maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
-        # Remove sides
-        maxs = maxs[np.logical_and(
-            maxs > 3 / 2 * filter_width,
-            maxs < len(fprof) - 3 / 2 * filter_width)]
+        # If we have enough pixels
+        if filter_width > 6:
+            # If filter reduces int by 90%, probably a wall
+            maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
+            # Remove sides
+            maxs = maxs[np.logical_and(
+                maxs > 3 / 2 * filter_width,
+                maxs < len(fprof) - 3 / 2 * filter_width)]
 
         if brightwalls:
             expected_dist = (
@@ -303,23 +305,18 @@ class MultiPosScan(DataType):
                     distances = np.diff(maxs) / expected_dist
 
                 idx = idx + 1
-            maxs = maxs[::2]
-
-            while idx < len(distances):
-                if distances[idx] < 0.75:
-                    # Maybe a wall was detected
-                    if distances[idx] + distances[idx + 1] < 1.3:
-                        maxs = np.delete(maxs, idx + 1)
-                        distances = np.diff(maxs) / expected_dist
-                        # Reprocess this one
-                        idx = idx - 1
-                elif distances[idx] > 1.8:
-                    # missed one?
-                    med = (maxs[idx] + maxs[idx + 1]) // 2
-                    maxs = np.append(maxs, idx + 1, med)
-                    distances = np.diff(maxs) / expected_dist
-
-                idx = idx + 1
+            if len(maxs) == 2 * number_profiles + 1:
+                maxs = maxs[1::2]
+            elif len(maxs) == 2 * number_profiles:
+                # One of the walls is missing, guess which one:
+                left = np.polyfit(np.arange(number_profiles), maxs[1::2], 1)[1]
+                right = np.polyfit(np.arange(number_profiles), maxs[::2], 1)[1]
+                if left > right:
+                    maxs = maxs[1::2]
+                else:
+                    maxs = maxs[::2]
+            elif len(maxs) == 2 * number_profiles - 1:
+                maxs = maxs[::2]
 
         else:
             # Select the maximum intensity
@@ -433,9 +430,10 @@ class MultiPosScan(DataType):
             fprof = gfilter(lin_profiles, filter_width)
             fnoise_var = gfilter(noise_var, filter_width)
 
-            var = gfilter(np.square(lin_profiles - fprof) / fprof,
-                          filter_width)
-            var_factor = np.mean(var[inmask])
+            var = np.square(gfilter(
+                lin_profiles - fprof, filter_width)) / fprof
+
+            var_factor = np.median(var[inmask])
 
             noise = var_factor * fnoise_var
             min_fprof = np.percentile(fprof, 20)
