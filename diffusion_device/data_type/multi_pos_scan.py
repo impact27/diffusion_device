@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from scipy.ndimage.measurements import label
 from scipy import interpolate
-from scipy.ndimage.filters import maximum_filter1d
+from scipy.ndimage.filters import maximum_filter1d, minimum_filter1d, median_filter
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
 from scipy.signal import savgol_filter
 
@@ -262,9 +262,227 @@ class MultiPosScan(DataType):
 
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
         brightwalls = self.metadata["KEY_MD_BRIGHTWALL"]
+        wall_width_m = self.metadata["KEY_MD_WALLWIDTH"]
+        channel_width_m = self.metadata["KEY_MD_WY"]
+        pix_size_init = self.metadata["KEY_MD_PIXSIZE"]
 
-        profiles = profiles - np.nanmin(profiles)
+        n_pixel_estimated = (
+            ((wall_width_m + channel_width_m) * number_profiles - wall_width_m)
+            / pix_size_init)
+
+        def plot_pixel_size_helper():
+            import matplotlib.pyplot as plt
+            expected_distance = ((wall_width_m + channel_width_m)
+                                 * (number_profiles - 1))
+            plt.figure()
+            plt.plot(profiles)
+            plt.title('First peak to last peak distance = {:.2f}um'.format(
+                expected_distance * 1e6))
+            plt.xlabel('Position [px]')
+            plt.show()
+
+
+        if n_pixel_estimated < len(profiles) / 2:
+            plot_pixel_size_helper()
+            raise RuntimeError(
+                'The channels are expected to cover less than half the image. '
+                'Check pixel size or crop the image.')
+
+        if n_pixel_estimated > len(profiles):
+            plot_pixel_size_helper()
+            raise RuntimeError(
+                'The channels are expected to cover more than the image. '
+                'Check pixel size and verify the image is not cropped.')
+
+        if number_profiles < 3:
+            raise RuntimeError('Need at least 3 profiles.')
+
+        # Subrtact min, remove nans
+        profiles = profiles - np.nanmin(profiles[1:-1])
+        profiles[profiles < 0] = 0
         profiles[np.isnan(profiles)] = 0
+
+        if brightwalls:
+            centers, pix_size = self.find_center_brightwall(profiles)
+        else:
+            centers, pix_size = self.find_center_by_mask(profiles)
+        return self.correlate_profiles(profiles, centers, pix_size)
+
+    def find_center_by_mask(self, profiles):
+        """Find the center and pixel sixe by estimating the mass."""
+        number_profiles = self.metadata["KEY_MD_NCHANNELS"]
+        wall_width_m = self.metadata["KEY_MD_WALLWIDTH"]
+        channel_width_m = self.metadata["KEY_MD_WY"]
+        pix_size_init = self.metadata["KEY_MD_PIXSIZE"]
+
+        def find_channels(profiles, pix_size):
+            """
+            Try to find the channels by correlating a mask of the channels
+            with the profiles
+            """
+            wall_width = wall_width_m / pix_size
+            channel_width = channel_width_m / pix_size
+
+            # Remove dust, bright peaks (10% median filter)
+            small_filter_width = int(round(channel_width / 5))
+            if small_filter_width > 3:
+                profiles = median_filter(profiles, small_filter_width)
+
+            # Create channel mask
+            channel_mask = np.zeros(int(round(number_profiles * channel_width
+                                      + (number_profiles) * wall_width)))
+            offset_start = int(round(wall_width)) // 2
+            for i in range(number_profiles):
+                left = (offset_start
+                        + i * int(round(wall_width + channel_width)))
+                right = left + int(round(channel_width))
+                channel_mask[left:right] = 1
+            channel_mask = channel_mask > 0
+            walls_mask = np.logical_not(channel_mask)
+
+            channels_locator = gfilter(channel_mask * 1., channel_width / 4)
+            channels_locator[walls_mask] = 0
+            channels_locator /= np.sum(channels_locator)
+            walls_locator = gfilter(walls_mask * 1., wall_width / 4)
+            walls_locator[channel_mask] = 0
+            walls_locator /= np.sum(walls_locator)
+
+            cprofiles = np.zeros(len(profiles) + 2 * offset_start)
+            cprofiles[offset_start:-offset_start] = profiles
+
+            if len(channels_locator) > len(cprofiles):
+                raise RuntimeError(
+                    'The width is not enough to contain the channels with'
+                    ' the given pixel size.')
+
+            channels_corr = np.correlate(cprofiles, channels_locator)
+
+
+            # Remove the effect from the padding
+            ones_profiles = np.zeros(len(profiles) + 2 * offset_start)
+            ones_profiles[offset_start:-offset_start] = 1
+
+            walls_corr = (np.correlate(cprofiles, walls_locator)
+                          / np.correlate(ones_profiles, walls_locator))
+
+            arg = np.argmax(channels_corr / walls_corr)
+            # from matplotlib.pyplot import figure, plot, show
+            # figure()
+            # plot(cprofiles / np.sum(cprofiles))
+            # plot(arg + np.arange(len(mask)), mask / np.sum(mask))
+            # show()
+
+            return arg, np.max(channels_corr / walls_corr)
+
+        # Try pixel size between 0.7 and 1.4 times what the user thinks is true
+        pix_size = pix_size_init
+        pix_list = np.logspace(-0.5, 0.5, 100, base=2) * pix_size
+        result = []
+        for pix_size in pix_list:
+            try:
+                result.append([pix_size, find_channels(profiles, pix_size)[1]])
+            except RuntimeError:
+                pass
+        result = np.asarray(result)
+        result[:, 1] = gfilter(result[:, 1], 3)
+        pix_size = self.subpixel_find_extrema(
+            result[:, 0], result[:, 1], 'max')
+        left_arg, _ = find_channels(profiles, pix_size)
+
+        centers_distance = ((self.metadata["KEY_MD_WALLWIDTH"]
+                             + self.metadata["KEY_MD_WY"]) / pix_size)
+        channel_width = self.metadata["KEY_MD_WY"] / pix_size
+        centers = (left_arg + channel_width / 2
+                   + np.arange(number_profiles) * centers_distance)
+
+        return centers, pix_size
+
+    def correlate_profiles(self, profiles, centers, pix_size):
+        """Realign the profiles from a first approximation."""
+        number_profiles = self.metadata["KEY_MD_NCHANNELS"]
+        channel_width = self.metadata["KEY_MD_WY"] / pix_size
+        wall_width = self.metadata["KEY_MD_WALLWIDTH"] / pix_size
+
+        # Remove dust, bright peaks (10% median filter)
+        small_filter_width = int(round(channel_width / 10))
+        if small_filter_width > 3:
+            profiles = median_filter(profiles, small_filter_width)
+
+        centers_distance = np.mean(np.abs(np.diff(centers)))
+        # Correct the centers by correlating the profiles
+        margin = centers_distance / 2 * 1.2
+        wall_margin = int(wall_width)
+        extended_profiles = np.ones(len(profiles) + 2 * wall_margin)
+        extended_profiles *= np.percentile(
+            profiles, wall_width / channel_width)
+        extended_profiles[wall_margin:-wall_margin] = profiles
+        number_pixel = len(extended_profiles)
+        pixels_x = np.arange(number_pixel) - wall_margin
+
+        pos = np.zeros(len(centers) - 1)
+        for i in range(len(centers) - 1):
+
+            mask1 = np.abs(pixels_x - centers[i]) < margin
+            mask2 = np.abs(pixels_x - centers[i + 1]) < 2 * margin
+            p1 = extended_profiles[mask1][::-1]
+            p2 = extended_profiles[mask2]
+            right1 = pixels_x[number_pixel - np.argmax(mask1[::-1])]
+            left2 = pixels_x[np.argmax(mask2)]
+            corr = np.correlate(p2, p1)
+            pos_corr = np.arange(len(corr)) + left2 + right1
+            mask_expected = (
+                np.abs(pos_corr - (centers[i] + centers[i+1])) < margin / 2)
+            arg_max = self.subpixel_find_extrema(
+                pos_corr, corr, 'max', mask_expected = mask_expected)
+            pos_symmetry = arg_max / 2
+            pos[i] = pos_symmetry
+
+        centers_distance = np.mean(np.diff(pos))
+
+        pix_size = ((self.metadata["KEY_MD_WALLWIDTH"]
+                     + self.metadata["KEY_MD_WY"]) / centers_distance)
+
+        offset = np.mean(
+            pos - np.arange(number_profiles - 1) * centers_distance)
+
+        centers = (offset - centers_distance / 2
+                   + np.arange(number_profiles) * centers_distance)
+
+        return centers, pix_size
+
+    def subpixel_find_extrema(self, x, y, mode='min', r=2, mask_expected=None):
+        """Find the maximum with subpixel accuracy, ignoring sides."""
+
+        if mode == 'min':
+            get_arg = np.argmin
+            extrema_filter = minimum_filter1d
+        elif mode == 'max':
+            get_arg = np.argmax
+            extrema_filter = maximum_filter1d
+        else:
+            raise RuntimeError()
+
+        arg_extrema = np.ravel(np.where(extrema_filter(y, int(r)) == y)[0])
+        # Remove extremas
+        arg_extrema = arg_extrema[arg_extrema != 0]
+        arg_extrema = arg_extrema[arg_extrema != len(y)]
+        if mask_expected is not None:
+            # Search in the expected positions first
+            filter_mask = np.in1d(
+                arg_extrema, np.ravel(np.argwhere(mask_expected)))
+            if np.any(filter_mask):
+                arg_extrema = arg_extrema[filter_mask]
+
+        best_arg = arg_extrema[get_arg(y[arg_extrema])]
+
+        polyfit = np.polyfit(x[best_arg - r: best_arg + r + 1],
+                             y[best_arg - r: best_arg + r + 1],
+                             2)
+        return - polyfit[1] / (2 * polyfit[0])
+
+    def find_center_brightwall(self, profiles):
+        """Find center of brightwalls assuming a central injection."""
+        number_profiles = self.metadata["KEY_MD_NCHANNELS"]
 
         # Filter heavely and get position of the centers as a first approx.
         filter_width = len(profiles) / ((number_profiles * 2 + 1) * 3 * 2)
@@ -278,61 +496,51 @@ class MultiPosScan(DataType):
             soft_width = 3
         fprof = gfilter(profiles, soft_width)
 
-        # If max negatuve, not a max
+        # If max negative, not a max
         maxs = maxs[profiles[maxs] > 0]
         # If we have enough pixels
         if filter_width > 6:
             # If filter reduces int by 90%, probably a wall
-            maxs = maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5]
+            maxs = (maxs[(profiles[maxs] - fprof[maxs]) / profiles[maxs] < .5])
             # Remove sides
             maxs = maxs[np.logical_and(
                 maxs > 3 / 2 * filter_width,
                 maxs < len(fprof) - 3 / 2 * filter_width)]
 
-        if brightwalls:
-            expected_dist = (
-                self.metadata["KEY_MD_WALLWIDTH"] + self.metadata["KEY_MD_WY"]
-                ) / self.metadata["KEY_MD_PIXSIZE"]
-            distances = np.diff(maxs) / expected_dist
-            idx = 0
-            # make sure all walls and peaks are detected
-            # We expect 0.5 everywhere
-            while idx < len(distances):
-                if distances[idx] > 0.75:
-                    # missed one?
-                    med = (maxs[idx] + maxs[idx + 1]) // 2
-                    maxs = np.insert(maxs, idx + 1, med)
-                    distances = np.diff(maxs) / expected_dist
+        expected_dist = (
+            self.metadata["KEY_MD_WALLWIDTH"] + self.metadata["KEY_MD_WY"]
+            ) / self.metadata["KEY_MD_PIXSIZE"]
+        distances = np.diff(maxs) / expected_dist
+        idx = 0
+        # make sure all walls and peaks are detected
+        # We expect 0.5 everywhere
+        while idx < len(distances):
+            if distances[idx] > 0.75:
+                # missed one?
+                med = (maxs[idx] + maxs[idx + 1]) // 2
+                maxs = np.insert(maxs, idx + 1, med)
+                distances = np.diff(maxs) / expected_dist
 
-                idx = idx + 1
-            if len(maxs) == 2 * number_profiles + 1:
+            idx = idx + 1
+        if len(maxs) == 2 * number_profiles + 1:
+            maxs = maxs[1::2]
+        elif len(maxs) == 2 * number_profiles:
+            # One of the walls is missing, guess which one:
+            left = np.polyfit(np.arange(number_profiles), maxs[1::2], 1)[1]
+            right = np.polyfit(np.arange(number_profiles), maxs[::2], 1)[1]
+            if left > right:
                 maxs = maxs[1::2]
-            elif len(maxs) == 2 * number_profiles:
-                # One of the walls is missing, guess which one:
-                left = np.polyfit(np.arange(number_profiles), maxs[1::2], 1)[1]
-                right = np.polyfit(np.arange(number_profiles), maxs[::2], 1)[1]
-                if left > right:
-                    maxs = maxs[1::2]
-                else:
-                    maxs = maxs[::2]
-            elif len(maxs) == 2 * number_profiles - 1:
+            else:
                 maxs = maxs[::2]
-
-        else:
-            # Select the maximum intensity
-            maxs = maxs[np.argsort(fprof[maxs])[- number_profiles:]][::-1]
+        elif len(maxs) == 2 * number_profiles - 1:
+            maxs = maxs[::2]
 
         # Sort and check number
         maxs = sorted(maxs)
         if len(maxs) != number_profiles:
             raise RuntimeError("Can't find the center of the channels!")
 
-        centers, pixel_size = self.max_to_center(maxs)
-
-    #    from matplotlib.pyplot import figure, show, plot, imshow, title
-    #    plot(profiles); plot(centers, np.zeros(len(centers)), 'x'); show()
-
-        return centers, pixel_size
+        return self.max_to_center(maxs)
 
     def should_switch(self, flow_direction):
         if flow_direction == 'u' or flow_direction == 'up':
@@ -427,17 +635,23 @@ class MultiPosScan(DataType):
             if filter_width < 3:
                 filter_width = 3
 
-            fprof = gfilter(lin_profiles, filter_width)
-            fnoise_var = gfilter(noise_var, filter_width)
+            lbl, n = label(inmask)
+            fprof = lin_profiles.copy()
 
-            var = np.square(gfilter(
-                lin_profiles - fprof, filter_width)) / fprof
+            var = lin_profiles.copy()
+
+            for i in range(1, n+1):
+                mask = lbl == i
+                fprof[mask] = gfilter(lin_profiles[mask], filter_width)
+                var[mask] = np.square(gfilter(lin_profiles[mask] - fprof[mask],
+                   filter_width)) / np.abs(fprof[mask])
 
             var_factor = np.median(var[inmask])
 
+            fnoise_var = gfilter(noise_var, filter_width)
+            fnoise_var[np.isnan(fnoise_var)] = np.nanmedian(fnoise_var)
             noise = var_factor * fnoise_var
-            min_fprof = np.percentile(fprof, 20)
-            noise[fprof < min_fprof] = var_factor * min_fprof
+            # noise[fprof < 0] = 0
 
         else:
             outmask = np.all(
