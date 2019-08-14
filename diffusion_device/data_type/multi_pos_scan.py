@@ -115,12 +115,13 @@ class MultiPosScan(DataType):
         data = data - np.nanmean(data[out_mask])
         return data
 
-    def get_channel_mask(self, data, infos):
+    def get_channel_mask(self, data, infos, centers=None):
         """get_channel_mask"""
 
         channel_width = self.metadata["KEY_MD_WY"]
         pixel_size = infos["Pixel size"]
-        centers = infos["Centers"]
+        if centers is None:
+            centers = infos["Centers"]
 
         X = np.arange(len(data))
         channel_mask = np.any(np.abs(
@@ -710,11 +711,13 @@ class MultiPosScan(DataType):
         for i, (cent, fd) in enumerate(zip(centers, flowdir)):
             p1 = profiles[i, profile_slice]
             p2 = fits[i, profile_slice]
-
+            margin = len(p1) // 2
             # Get diff between profile and fit
             diff = (dp.center(
-                np.correlate(p1 - np.mean(p1), p2 - np.mean(p2), mode='full'))
-                - len(profiles[i, profile_slice]) + 1)
+                np.correlate(p1 - np.mean(p1),
+                             p2 - np.mean(p2),
+                             mode='full')[margin:-margin])
+                - len(p1) + 1 + margin)
 
             if not np.isnan(diff):
                 diff *= rebin

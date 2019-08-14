@@ -126,11 +126,23 @@ class TestImage(TestCase):
         self.assertGreater(infos['Radius'], 2e-9)
         self.assertLess(infos['Radius'], 4e-9)
 
-    def test_scans_confocal(self):
+    def test_scans_confocal_10pM(self):
         settingsfn = os.path.join(
             folder, 'test_data/settings.json')
         metadatafn = os.path.join(
             folder, 'test_data/10pM_RNAseA488_20mM_Pi_200uM_EDTA_pH8_0p1%_Tween_400uW_-100ulh_200_steps_10s_9_steps_metadata.json')
+        tempdir = "Test_tempdir"
+        infos = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(infos['Radius'], 1e-9)
+        self.assertLess(infos['Radius'], 3e-9)
+
+    def test_scans_confocal_100pM(self):
+        settingsfn = os.path.join(
+            folder, 'test_data/settings.json')
+        metadatafn = os.path.join(
+            folder, 'test_data/100pM_RNAseA488_20mM_Pi_200uM_EDTA_pH8_0p1%_Tween_400uW_-100ulh_200_steps_5s_5_steps_metadata.json')
         tempdir = "Test_tempdir"
         infos = \
             full_fit(settingsfn, metadatafn, tempdir)
