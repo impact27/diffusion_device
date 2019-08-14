@@ -1,0 +1,50 @@
+{
+    "Type of data": "multi_pos_scan",
+    "Scan file structure": {
+        "delimiter": ",",
+        "skiprows": 0,
+        "index": [
+            [
+                0,
+                199
+            ],
+            [
+                1,
+                2
+            ]
+        ],
+        "transpose": false
+    },
+    "Image file name": "100pM_RNAseA488_20mM_Pi_200uM_EDTA_pH8_0p1%_Tween_400uW_-100ulh_200_steps_5s_5_steps.csv",
+    "Image exposition time [s]": 1,
+    "Background image exposition time [s]": 1,
+    "Wz[m]": 23.5e-6,
+    "Wy[m]": 225e-6,
+    "Wall Width [m]": 50e-6,
+    "Number of channels in a file": 4,
+    "Q[ulph]": 100,
+    "Read Positions [m]": [
+        1e-3,
+        16e-3,
+        40e-3,
+        80e-3
+    ],
+    "Pixel Size [m]": 5.5e-6,
+    "Date [YYYYMMDD]": "YYYYMMDD",
+    "Analyte informations": "XXX",
+    "Buffer informations": "XXXX",
+    "Device informations": "Georg diffusion device with marker channel (based on d6.0 from Therese)",
+    "Z position of scans [m]": 11.75e-6,
+    "Flow direction (u, d, l, r)": [
+        "d",
+        "u",
+        "d",
+        "u"
+    ],
+    "Operator": "Georg",
+    "Success [1-3]": 3,
+    "Temperature [K]": 295,
+    "Viscosity [Pa s]": 1e-3,
+    "Inlet location": "left",
+    "Bright wall?": true
+}

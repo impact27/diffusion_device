@@ -125,7 +125,19 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(infos['Radius'], 2e-9)
         self.assertLess(infos['Radius'], 4e-9)
-        
+
+    def test_scans_confocal(self):
+        settingsfn = os.path.join(
+            folder, 'test_data/settings.json')
+        metadatafn = os.path.join(
+            folder, 'test_data/10pM_RNAseA488_20mM_Pi_200uM_EDTA_pH8_0p1%_Tween_400uW_-100ulh_200_steps_10s_9_steps_metadata.json')
+        tempdir = "Test_tempdir"
+        infos = \
+            full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(infos['Radius'], 1e-9)
+        self.assertLess(infos['Radius'], 3e-9)
+
     def test_will(self):
         settingsfn = os.path.join(
             folder, 'test_data/will_stg/settings.json')
@@ -200,7 +212,7 @@ class TestImage(TestCase):
 
         self.assertLess(np.max(np.abs(
             (prof-prof2)/np.max(prof[:-3]))[:-2]), .1)
-        
+
     def test_scan(self):
         settingsfn = os.path.join(
             folder, 'test_data/martin/martin_settings.json')
@@ -215,7 +227,7 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(np.min(infos['Radius']), 1e-9)
         self.assertLess(np.max(infos['Radius']), 3e-9)
-        
+
     def test_mobility(self):
         settingsfn = os.path.join(
             folder, 'test_data/tom_mobility_r/settings.json')
@@ -224,6 +236,5 @@ class TestImage(TestCase):
         tempdir = "Test_tempdir"
         infos = full_fit(settingsfn, metadatafn, tempdir)
         shutil.rmtree(tempdir)
-        self.assertGreater(infos['Radius'][0], 3e-9)
+        self.assertGreater(infos['Radius'][0], 2.5e-9)
         self.assertLess(infos['Radius'][0], 4e-9)
-        
