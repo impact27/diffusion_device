@@ -366,11 +366,18 @@ class MultiPosScan(DataType):
             walls_corr = (np.correlate(cprofiles, walls_locator)
                           / np.correlate(ones_profiles, walls_locator))
 
-            arg = np.argmax(channels_corr / walls_corr)
-            # from matplotlib.pyplot import figure, plot, show
+            arg = np.argmax(channels_corr)
+            # from matplotlib.pyplot import figure, plot, show, twinx, ylim
+            # figure()
+            # plot(channels_corr)
+            # twinx()
+            # plot(walls_corr)
+            # plot([arg, arg], ylim())
+            # twinx()
+            # plot((channels_corr / walls_corr), 'C3')
             # figure()
             # plot(cprofiles / np.sum(cprofiles))
-            # plot(arg + np.arange(len(mask)), mask / np.sum(mask))
+            # plot(arg + np.arange(len(channels_locator)), channels_locator / np.sum(channels_locator))
             # show()
 
             return arg, np.max(channels_corr / walls_corr)
