@@ -721,8 +721,8 @@ class MultiPosScan(DataType):
             margin = len(p1) // 2
             # Get diff between profile and fit
             diff = (dp.center(
-                np.correlate(p1 - np.mean(p1),
-                             p2 - np.mean(p2),
+                np.correlate(p1 - np.min(p1),
+                             p2 - np.min(p2),
                              mode='full')[margin:-margin])
                 - len(p1) + 1 + margin)
 
