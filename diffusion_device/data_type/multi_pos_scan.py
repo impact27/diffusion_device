@@ -436,12 +436,12 @@ class MultiPosScan(DataType):
             p2 = extended_profiles[mask2]
             right1 = pixels_x[number_pixel - np.argmax(mask1[::-1])]
             left2 = pixels_x[np.argmax(mask2)]
-            corr = np.correlate(p2, p1)
+            corr = dp.sliding_least_square(p2, p1)
             pos_corr = np.arange(len(corr)) + left2 + right1
             mask_expected = (
                 np.abs(pos_corr - (centers[i] + centers[i+1])) < margin / 2)
             arg_max = self.subpixel_find_extrema(
-                pos_corr, corr, 'max', mask_expected = mask_expected)
+                pos_corr, corr, 'min', mask_expected = mask_expected)
             pos_symmetry = arg_max / 2
             pos[i] = pos_symmetry
 
@@ -707,41 +707,57 @@ class MultiPosScan(DataType):
         profiles = infos['Profiles']
         lin_profiles = infos['Data']
 
+        number_profiles = len(centers)
         prof_npix = np.shape(profiles)[1] * rebin
 
         infos_tmp = dp.size_profiles(infos.copy(), self.metadata, self.settings)
         fits = infos_tmp['Fitted Profiles']
-
         profile_slice = dp.ignore_slice(ignore, pixel_size)
 
         new_centers = np.array(centers, dtype=float)
+        channel_distance_px = (channel_width + wall_width) / pixel_size
+
+        binned_lin_profiles = dp.rebin_profiles(lin_profiles, rebin)
+        half_dist = (prof_npix - 1) / 2
+
         for i, (cent, fd) in enumerate(zip(centers, flowdir)):
-            p1 = profiles[i, profile_slice]
-            p2 = fits[i, profile_slice]
-            margin = len(p1) // 2
-            # Get diff between profile and fit
-            diff = (dp.center(
-                np.correlate(p1 - np.min(p1),
-                             p2 - np.min(p2),
-                             mode='full')[margin:-margin])
-                - len(p1) + 1 + margin)
+            # Get data
+            amin = int(cent / rebin - channel_distance_px)
+            amax = int(cent / rebin + channel_distance_px)
+            if amin < 0:
+                amin = 0
+            data_slice = slice(amin, amax)
+            p1 = binned_lin_profiles[data_slice]
 
-            if not np.isnan(diff):
-                diff *= rebin
-                switch = self.should_switch(fd)
+            # Get fits
+            p2 = fits[i]
+            left_lim = (prof_npix // 2 + profile_slice.start) // 2
+            right_lim = (prof_npix // 2 + profile_slice.stop) // 2
+            p2[:profile_slice.start] = np.mean(p2[profile_slice.start:left_lim])
+            p2[profile_slice.stop:] = np.mean(p2[right_lim:profile_slice.stop])
+            switch = self.should_switch(fd)
+            if switch:
+                p2 = p2[::-1]
 
-                if switch:
-                    diff *= -1
+            # Find pos channel
+            lse = dp.sliding_least_square(p1, p2)
+            pos = data_slice.start + half_dist + np.arange(len(lse))
+            pos *= rebin
+            new_centers[i] = self.subpixel_find_extrema(pos, lse, 'min')
 
-                new_centers[i] = cent + diff
 
-        meandist = np.mean(np.diff((new_centers[1:] + new_centers[:-1]) / 2))
+        meandist = np.median(np.diff(new_centers))
+        origin = np.median(new_centers - np.arange(number_profiles) * meandist)
+        new_centers = origin + np.arange(number_profiles) * meandist
         pixel_size = np.abs((channel_width + wall_width) / meandist)
+        from matplotlib.pyplot import plot, show
+        plot(np.diff(centers)); plot(np.diff(new_centers)); show()
+        # res = (new_centers - np.min(new_centers) + meandist / 2) % meandist
+        # offset = (np.mean(res[::2]) - np.mean(res[1::2])) / 2
 
-        res = (new_centers - np.min(new_centers) + meandist / 2) % meandist
-        offset = (np.mean(res[::2]) - np.mean(res[1::2])) / 2
+        # new_centers -= offset * (-1)**np.arange(len(profiles))
 
-        new_centers -= offset * (-1)**np.arange(len(profiles))
+        infos["Data pixel size"] = pixel_size
 
         new_profiles, pixel_size = self.interpolate_profiles(
             lin_profiles, new_centers, flowdir,

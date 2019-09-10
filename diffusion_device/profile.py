@@ -570,3 +570,11 @@ def process_profiles(infos, metadata, settings, outpath):
             infos["Profiles noise std"], rebin) / np.sqrt(rebin)
     infos["Profiles"] = profiles
     return infos
+
+def sliding_least_square(p1, p2):
+    """Compute the sliding least square between p1 and p2."""
+    lse = (np.correlate(p1**2, np.ones_like(p2))
+           + np.correlate(np.ones_like(p1), p2**2)
+            - 2 * np.correlate(p1, p2))
+    return lse
+
