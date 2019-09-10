@@ -43,8 +43,6 @@ def size_profiles(infos, metadata, settings):
         The metadata
     settings: dict
         The settings
-    zpos: float, default None
-        Z position of the profile. None for mean
 
     Returns
     -------
@@ -57,7 +55,6 @@ def size_profiles(infos, metadata, settings):
     profiles = infos["Profiles"]
     # load variables
     nspecies = settings["KEY_STG_NSPECIES"]
-    zpos = metadata["KEY_MD_SCANZ"]
     vary_offset = settings["KEY_STG_VARY_OFFSET"]
     test_radii = get_test_radii(settings)
     profile_slice = ignore_slice(
@@ -76,7 +73,7 @@ def size_profiles(infos, metadata, settings):
     # Get basis function
     Basis = getprofiles(fit_init, Radii=test_radii,
                         readingpos=fit_readingpos,
-                        zpos=zpos, infos=infos,
+                        infos=infos,
                         **profiles_arg_dir)
     fit_Basis = Basis[..., profile_slice]
 
@@ -110,7 +107,7 @@ def size_profiles(infos, metadata, settings):
         if not np.isnan(r):
             fits[fit_index] = getprofiles(
                 fit_init, Radii=[r], readingpos=fit_readingpos,
-                zpos=zpos, infos=infos, **profiles_arg_dir)[0]
+                infos=infos, **profiles_arg_dir)[0]
 
             if np.any(infos['Fit error'] > 1e-2):
                 raise RuntimeError("The relative error is too large "
@@ -207,7 +204,9 @@ def get_profiles_arg_dir(metadata, settings):
         'temperature': metadata["KEY_MD_T"],
         'viscosity': metadata["KEY_MD_ETA"],
         'Zgrid': settings["KEY_STG_ZGRID"],
-        'step_factor': settings["KEY_STG_DXFACTOR"]}
+        'step_factor': settings["KEY_STG_DXFACTOR"],
+        'zpos': metadata["KEY_MD_SCANZ"],
+        }
 
 
 def get_fit_data(settings, profiles, readingpos, profile_slice,
