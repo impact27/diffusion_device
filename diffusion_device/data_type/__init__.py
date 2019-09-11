@@ -45,8 +45,16 @@ class DataType():
             self.savedata(infos)
 
         infos = self.get_profiles(infos)
-        infos = self.process_profiles(infos)
-        infos = self.size_profiles(infos)
+        try:
+            infos = self.process_profiles(infos)
+            infos = self.size_profiles(infos)
+        except RuntimeError:
+            import matplotlib.pyplot as plt
+            import numpy as np
+            plt.figure()
+            plt.plot(np.ravel(infos["Profiles"]))
+            plt.xlabel("Diffusion direction --->")
+            raise
 
         if self.outpath is not None:
             self.plot_and_save(infos)
