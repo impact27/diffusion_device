@@ -84,7 +84,7 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
     raise RuntimeError('Number of species negative!')
 
 
-def normalise_basis_factor(Basis, profiles, vary_offset):
+def normalise_basis_factor(Basis, profiles, vary_offset=False):
     """Normalise basis so they correspond to profiles
 
     Parameters
@@ -134,8 +134,6 @@ def normalise_basis(basis, profiles, vary_offset):
     """
     fact_a, fact_b = normalise_basis_factor(basis, profiles, vary_offset)
     return basis * fact_a[..., np.newaxis] + np.array(fact_b)[..., np.newaxis]
-
-# @profile
 
 
 def get_matrices(profiles, Basis, fullM=True):

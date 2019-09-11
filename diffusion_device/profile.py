@@ -52,27 +52,24 @@ def size_profiles(infos, metadata, settings):
     else:
         Rs, spectrum, the radii and corresponding spectrum
     """
-    profiles = infos["Profiles"]
     # load variables
+    profiles = infos["Profiles"]
     nspecies = settings["KEY_STG_NSPECIES"]
     vary_offset = settings["KEY_STG_VARY_OFFSET"]
     test_radii = get_test_radii(settings)
     profile_slice = ignore_slice(
         settings["KEY_STG_IGNORE"], infos["Pixel size"])
-    prof_noise = infos["Profiles noise std"]
 
-    readingpos = get_reading_position(metadata, settings, len(profiles))
-    profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
-
-    profiles = np.asarray(profiles)
-    fits = np.zeros_like(profiles) * np.nan
-
-    fit_init, fit_profiles, fit_readingpos, fit_index, fit_noise= get_fit_data(
-        settings, profiles, readingpos, profile_slice, infos, fits, prof_noise)
+    fit_index, readingpos = get_fit_index_and_pos(settings, metadata)
+    fit_init, fit_profiles, fit_noise = get_fit_data(
+        settings, fit_index, infos)
+    # Separate the first profile
+    fit_index = fit_index[1:]
 
     # Get basis function
+    profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
     Basis = getprofiles(fit_init, Radii=test_radii,
-                        readingpos=fit_readingpos,
+                        readingpos=readingpos,
                         infos=infos,
                         **profiles_arg_dir)
     fit_Basis = Basis[..., profile_slice]
@@ -84,71 +81,106 @@ def size_profiles(infos, metadata, settings):
 
     infos["Radius error std"] = fit.dx
     infos["Radius range"] = fit.x_range
-    infos["Radius error x"] = None
 
+    phi_background_error = getattr(fit, 'phi_background_error', None)
+    radius = (fit.x, fit.x_distribution)
+
+    if phi_background_error is not None:
+        # Get error on fit
+        radius_error = np.zeros((nspecies, *np.shape(profiles))) * np.nan
+        radius_error[:, fit_index, ..., profile_slice] = \
+            phi_background_error
+    else:
+        radius_error = None
+
+    Mfreepar = 1
     if nspecies == 1:
-
-        radius_error = np.zeros(np.shape(profiles)) * np.nan
-        radius_error[fit_index, ..., profile_slice] = \
-            fit.phi_background_error
-        infos["Radius error x"] = radius_error
-
-        # Get resulting r
-        r = fit.x
-        if r < np.min(test_radii):
+        radius = radius[0]
+        if radius < np.min(test_radii):
             raise RuntimeError(
                 'The test radius are too big! ({} < {})'.format(
-                    r, np.min(test_radii)))
-        if r > np.max(test_radii):
+                    radius, np.min(test_radii)))
+        if radius > np.max(test_radii):
             raise RuntimeError(
                 'The test radius are too small! ({} > {})'.format(
-                    r, np.max(test_radii)))
-        # fill data if needed
-        if not np.isnan(r):
-            fits[fit_index] = getprofiles(
-                fit_init, Radii=[r], readingpos=fit_readingpos,
-                infos=infos, **profiles_arg_dir)[0]
-
-            if np.any(infos['Fit error'] > 1e-2):
-                raise RuntimeError("The relative error is too large "
-                                   f"({100*infos['Fit error']:.2f}%), "
-                                   "please adapt the step factor."
-                                   "Make sure the radii is in log.")
-
-        # One free parameter
-        Mfreepar = 1
-
+                    radius, np.max(test_radii)))
+        if np.any(infos['Fit error'] > 1e-2):
+            raise RuntimeError("The relative error is too large "
+                               f"({100*infos['Fit error']:.2f}%), "
+                               "please adapt the step factor."
+                               "Make sure the radii is in log.")
+        radius_error = radius_error[0]
     else:
+        # TODO: fix nspecies == 0
+        if nspecies != 0:
+            # 2n-1 free parameter
+            Mfreepar = 2 * nspecies - 1
 
-        # Get error on fit
-        if hasattr(fit, 'phi_background_error'):
-            radius_error = np.zeros((nspecies, *np.shape(profiles))) * np.nan
-            radius_error[:, fit_index, ..., profile_slice] = \
-                fit.phi_background_error
-            infos["Radius error x"] = radius_error
+    infos["Radius"] = radius
+    infos["Radius error x"] = radius_error
 
-        # fill data if needed
-        fits[fit_index] = np.sum(
-            fit.basis_spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
-
-        r = (fit.x, fit.x_distribution)
-
-        # 2n-1 free parameter
-        Mfreepar = 2 * nspecies - 1
-        if nspecies == 0:
-            Mfreepar = 1  # TODO: fix that
-
-    fact_a, fact_b = normalise_basis_factor(
-            fits[fit_index][:, ..., profile_slice],
-            fit_profiles, vary_offset)
-    fits[fit_index] = fact_a[..., np.newaxis] * \
-        fits[fit_index] + np.array(fact_b)[..., np.newaxis]
+    fits = get_fits(fit_init, infos, metadata, settings)
 
     get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
                   infos, settings)
-    infos["Radius"] = r
+
     infos["Fitted Profiles"] = fits
     return infos
+
+
+def get_fits(init, infos, metadata, settings):
+    """Size the profiles
+
+     Parameters
+    ----------
+    init_profile: 1d array
+        init profile
+    metadata: dict
+        The metadata
+    settings: dict
+        The settings
+    """
+    # load variables
+    profiles = infos["Profiles"]
+    nspecies = settings["KEY_STG_NSPECIES"]
+    vary_offset = settings["KEY_STG_VARY_OFFSET"]
+    profile_slice = ignore_slice(
+        settings["KEY_STG_IGNORE"], infos["Pixel size"])
+
+    fit_index, readingpos = get_fit_index_and_pos(settings, metadata)
+
+    fit_init_index = fit_index[0]
+    fit_index = fit_index[1:]
+
+    # Get basis function
+    profiles_arg_dir = get_profiles_arg_dir(metadata, settings)
+
+    fits = np.zeros_like(profiles) * np.nan
+    fits[fit_init_index] = init
+    radius = infos["Radius"]
+    if nspecies == 1:
+        # fill data if needed
+        if not np.isnan(radius):
+            fits[fit_index] = getprofiles(
+                init, Radii=[radius], readingpos=readingpos,
+                infos=infos, **profiles_arg_dir)[0]
+    else:
+        radii, radii_spectrum = radius
+        Basis = getprofiles(
+                init, Radii=radii, readingpos=readingpos,
+                infos=infos, **profiles_arg_dir)[0]
+        # fill data if needed
+        fits[fit_index] = np.sum(
+            radii_spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
+
+    # Normalise fits
+    fact_a, fact_b = normalise_basis_factor(
+            fits[fit_index, ..., profile_slice],
+            profiles[fit_index, ..., profile_slice], vary_offset)
+    fits[fit_index] = fact_a[..., np.newaxis] * \
+        fits[fit_index] + np.array(fact_b)[..., np.newaxis]
+
+    return fits
 
 
 def ignore_slice(ignore, pixel_size):
@@ -181,13 +213,10 @@ def get_test_radii(settings):
     return test_radii
 
 
-def get_reading_position(metadata, settings, nprofiles):
+def get_reading_position(metadata, settings):
     """get_reading_position"""
     readingpos = np.asarray(metadata["KEY_MD_RPOS"])
     imslice = settings["KEY_STG_SLICE"]
-    if len(readingpos) != nprofiles:
-        raise RuntimeError(
-            "Number of profiles and reading positions mismatching.")
     if imslice is not None:
         shift = np.resize([1, -1], len(readingpos)) * imslice[0]
         readingpos = readingpos + shift
@@ -209,55 +238,51 @@ def get_profiles_arg_dir(metadata, settings):
         }
 
 
-def get_fit_data(settings, profiles, readingpos, profile_slice,
-                 infos, fits, prof_noise):
-    """get_fit_data"""
-
-    initmode = settings["KEY_STG_POS0FILTER"]
-
+def get_fit_index_and_pos(settings, metadata):
+    """Get fit index and reading position"""
     # Select fit index
     fit_index = settings["KEY_STG_FITPOS"]
+    readingpos = get_reading_position(metadata, settings)
     if fit_index is not None:
         fit_index = np.sort(fit_index)
     else:
-        fit_index = np.arange(len(profiles))
+        fit_index = np.arange(len(readingpos))
 
     # Put the index in order
     fit_readingpos = readingpos[fit_index]
     fit_index = fit_index[np.argsort(fit_readingpos)]
     fit_readingpos = np.sort(fit_readingpos)
-    fit_profiles = profiles[fit_index]
+    # First reading pos is initial profile
+    fit_readingpos = fit_readingpos[1:] - fit_readingpos[0]
+    return fit_index, fit_readingpos
 
+
+def get_fit_data(settings, fit_index, infos):
+    """get_fit_data"""
+    profiles = infos["Profiles"]
+    fit_profiles = profiles[fit_index]
+    profile_slice = ignore_slice(
+        settings["KEY_STG_IGNORE"], infos["Pixel size"])
+    prof_noise = infos["Profiles noise std"]
     # If we have a different noise for each point
     if len(np.shape(prof_noise)) > 0:
         fit_noise = prof_noise[fit_index]
-        if initmode != 'synthetic':
-            fit_noise = fit_noise[1:]
+        fit_noise = fit_noise[1:]
         fit_noise = fit_noise[..., profile_slice]
     else:
         fit_noise = prof_noise
 
-    # Process init mode
-    if initmode == 'synthetic':
-        fit_init = synthetic_init(fit_profiles[0], profile_slice)
-    else:
-        fit_init_index = fit_index[0]
-        fit_index = fit_index[1:]
-        # treat init profile
-        fit_init = init_process(fit_profiles[0], initmode, profile_slice)
-
-        fits[fit_init_index] = fit_init
-        # First reading pos is initial profile
-        fit_readingpos = fit_readingpos[1:] - fit_readingpos[0]
-        fit_profiles = fit_profiles[1:]
+    # treat init profile
+    initmode = settings["KEY_STG_POS0FILTER"]
+    fit_init = init_process(fit_profiles[0], initmode, profile_slice)
+    fit_profiles = fit_profiles[1:][..., profile_slice]
 
     # Check if init is large enough
     threshold = 3 * np.median(infos["Profiles noise std"])
     if np.max(fit_init[profile_slice]) < threshold:
         raise RuntimeError("signal to noise too low")
 
-    return (fit_init, fit_profiles[..., profile_slice],
-            fit_readingpos, fit_index, fit_noise)
+    return fit_init, fit_profiles, fit_noise
 
 
 def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
@@ -275,16 +300,6 @@ def get_fit_infos(profiles, fit_profiles, fits, profile_slice, Mfreepar,
     ratio = infos["Reduced least square"] / infos["Signal over noise"]
     if settings["KEY_STG_LSE_THRESHOLD"] and ratio > 1:
         raise RuntimeError("Least square error too large")
-
-
-def synthetic_init(prof0, profile_slice):
-    """Generates a synthetic profile that is 1/11 of the channel"""
-    N = len(prof0)
-    init = np.zeros_like(prof0)
-    x = np.arange(N) - center(prof0)
-    init[np.abs(x) < 1 / 22 * N] = 1
-    init *= np.sum(prof0[profile_slice], -1) / np.sum(init[profile_slice], -1)
-    return init
 
 
 def center(prof, subtract_mean=False):
