@@ -538,6 +538,10 @@ def get_fax(profiles):
 
 def rebin_profiles(profiles, rebin):
     """rebin profiles"""
+    remove_axis = False
+    if profiles.ndim == 1:
+        profiles = profiles[np.newaxis]
+        remove_axis = True
 
     if rebin > 1:
         rebin_profiles = np.zeros(
@@ -547,6 +551,8 @@ def rebin_profiles(profiles, rebin):
             rebin_profiles[i] = np.convolve(
                 profiles[i], kern, mode='valid')[::rebin]
         profiles = rebin_profiles
+    if remove_axis:
+        profiles = profiles[0]
     return profiles
 
 

@@ -226,11 +226,9 @@ class MultiPosScan(DataType):
             infos, self.metadata, self.settings,
             self.outpath)
 
-        infos = self.align_profiles(infos)
-
-        infos = dp.process_profiles(
-            infos, self.metadata, self.settings,
-            self.outpath)
+        # 2 alignment pass
+        for i in range(2):
+            infos = self.align_profiles(infos)
 
         return infos
 
@@ -251,11 +249,8 @@ class MultiPosScan(DataType):
         centers[::2] += (dist_even - meandist) / 2
         centers[1::2] += (dist_odd - meandist) / 2
 
-        # Get evenly spaced centers
-        start = np.mean(centers - np.arange(number_profiles) * meandist)
-        centers = start + np.arange(number_profiles) * meandist
-
         pixel_size = np.abs((wall_width + channel_width) / meandist)
+
         return centers, pixel_size
 
     def get_scan_centers(self, profiles):
@@ -483,10 +478,19 @@ class MultiPosScan(DataType):
 
         best_arg = arg_extrema[get_arg(y[arg_extrema])]
 
-        polyfit = np.polyfit(x[best_arg - r: best_arg + r + 1],
-                             y[best_arg - r: best_arg + r + 1],
-                             2)
-        return - polyfit[1] / (2 * polyfit[0])
+        amin = best_arg - r
+        if amin < 0:
+            amin = 0
+        amax = best_arg + r + 1
+
+        polyfit = np.polyfit(x[amin: amax], y[amin: amax], 2)
+        result = - polyfit[1] / (2 * polyfit[0])
+        # Avoid wild extrapolation
+        if result < np.min(x):
+            result = np.min(x)
+        elif result > np.max(x):
+            result = np.max(x)
+        return result
 
     def find_center_brightwall(self, profiles):
         """Find center of brightwalls assuming a central injection."""
@@ -548,7 +552,12 @@ class MultiPosScan(DataType):
         if len(maxs) != number_profiles:
             raise RuntimeError("Can't find the center of the channels!")
 
-        return self.max_to_center(maxs)
+        centers, pixel_size = self.max_to_center(maxs)
+        # Get evenly spaced centers
+        meandist = np.mean(np.diff(centers))
+        start = np.mean(centers - np.arange(number_profiles) * meandist)
+        centers = start + np.arange(number_profiles) * meandist
+        return centers, pixel_size
 
     def should_switch(self, flow_direction):
         if flow_direction == 'u' or flow_direction == 'up':
@@ -697,6 +706,9 @@ class MultiPosScan(DataType):
         return np.sqrt(noise)
 
     def align_profiles(self, infos):
+        """
+        realign profiles from the fit.
+        """
         ignore = self.settings["KEY_STG_IGNORE"]
         rebin = self.settings["KEY_STG_REBIN"]
         pixel_size = infos["Pixel size"]
@@ -706,24 +718,56 @@ class MultiPosScan(DataType):
         wall_width = self.metadata["KEY_MD_WALLWIDTH"]
         profiles = infos['Profiles']
         lin_profiles = infos['Data']
+        brightwalls = self.metadata["KEY_MD_BRIGHTWALL"]
 
-        number_profiles = len(centers)
-        prof_npix = np.shape(profiles)[1] * rebin
-
-        infos_tmp = dp.size_profiles(infos.copy(), self.metadata, self.settings)
-        fits = infos_tmp['Fitted Profiles']
         profile_slice = dp.ignore_slice(ignore, pixel_size)
+        number_profiles = len(centers)
+        prof_npix = np.shape(profiles)[1]
+
+        infos_tmp = dp.size_profiles(infos.copy(),
+                                     self.metadata, self.settings)
+
+        def edges_prof(prof):
+            start, stop = profile_slice.start, profile_slice.stop
+            if start:
+                prof[:start] = prof[start]
+            if stop:
+                prof[stop:] = prof[stop - 1]
+            return prof
+
+        # Move 20%
+        offset_distance = np.shape(profiles)[1] // 5
+        if offset_distance < 2:
+            offset_distance = 2
+        offsets = np.arange(-offset_distance, offset_distance + 1)
+        errors = np.zeros(np.shape(offsets))
+        for idx, offset in enumerate(offsets):
+            init = np.roll(profiles[0], offset)
+            if offset > 0:
+                init[:offset] = init[offset]
+            elif offset < 0:
+                init[offset:] = init[offset - 1]
+            fits = dp.get_fits(edges_prof(init), infos_tmp,
+                               self.metadata, self.settings)
+            errors[idx] = np.mean(np.square(profiles - fits)[1:, profile_slice])
+
+        offset = self.subpixel_find_extrema(offsets, errors, 'min')
+        init, _ = self.interpolate_profiles(
+            lin_profiles, centers[:1] - offset, flowdir,
+            prof_npix * rebin, channel_width, pixel_size / rebin)
+        init = edges_prof(dp.rebin_profiles(init, rebin)[0])
+
+        fits = dp.get_fits(init, infos_tmp, self.metadata, self.settings)
 
         new_centers = np.array(centers, dtype=float)
         channel_distance_px = (channel_width + wall_width) / pixel_size
 
         binned_lin_profiles = dp.rebin_profiles(lin_profiles, rebin)
-        half_dist = (prof_npix - 1) / 2
 
-        for i, (cent, fd) in enumerate(zip(centers, flowdir)):
+        for i, (cent, fd) in enumerate(zip(centers/ rebin, flowdir)):
             # Get data
-            amin = int(cent / rebin - channel_distance_px)
-            amax = int(cent / rebin + channel_distance_px)
+            amin = int(cent - channel_distance_px)
+            amax = int(cent + channel_distance_px)
             if amin < 0:
                 amin = 0
             data_slice = slice(amin, amax)
@@ -731,41 +775,41 @@ class MultiPosScan(DataType):
 
             # Get fits
             p2 = fits[i]
-            left_lim = (prof_npix // 2 + profile_slice.start) // 2
-            right_lim = (prof_npix // 2 + profile_slice.stop) // 2
-            p2[:profile_slice.start] = np.mean(p2[profile_slice.start:left_lim])
-            p2[profile_slice.stop:] = np.mean(p2[right_lim:profile_slice.stop])
             switch = self.should_switch(fd)
             if switch:
                 p2 = p2[::-1]
+            if brightwalls:
+                p2 = p2[profile_slice]
+            half_dist = (len(p2) - 1) / 2
 
             # Find pos channel
             lse = dp.sliding_least_square(p1, p2)
             pos = data_slice.start + half_dist + np.arange(len(lse))
-            pos *= rebin
             new_centers[i] = self.subpixel_find_extrema(pos, lse, 'min')
 
+        new_centers *= rebin
+        # Recenter the centers
+        aligned_centers, pixel_size = self.max_to_center(new_centers)
+        # Reuse the correct order
+        if (np.sign(np.mean(np.diff(aligned_centers)))
+                != np.sign(np.mean(np.diff(new_centers)))):
+            aligned_centers = aligned_centers[::-1]
+        new_centers = aligned_centers
 
-        meandist = np.median(np.diff(new_centers))
-        origin = np.median(new_centers - np.arange(number_profiles) * meandist)
-        new_centers = origin + np.arange(number_profiles) * meandist
-        pixel_size = np.abs((channel_width + wall_width) / meandist)
-        from matplotlib.pyplot import plot, show
-        plot(np.diff(centers)); plot(np.diff(new_centers)); show()
-        # res = (new_centers - np.min(new_centers) + meandist / 2) % meandist
-        # offset = (np.mean(res[::2]) - np.mean(res[1::2])) / 2
-
-        # new_centers -= offset * (-1)**np.arange(len(profiles))
-
-        infos["Data pixel size"] = pixel_size
-
+        # Get the new profiles
         new_profiles, pixel_size = self.interpolate_profiles(
             lin_profiles, new_centers, flowdir,
-            prof_npix, channel_width, pixel_size)
+            prof_npix * rebin, channel_width, pixel_size)
 
         infos["Centers"] = new_centers
         infos["Pixel size"] = pixel_size
         infos["Profiles noise std"] = self.get_noise(
-            infos, prof_npix=prof_npix)
+            infos, prof_npix=prof_npix * rebin)
         infos['Profiles'] = new_profiles
+
+        # Process profiles to bin
+        infos = dp.process_profiles(
+            infos, self.metadata, self.settings,
+            self.outpath)
+
         return infos
