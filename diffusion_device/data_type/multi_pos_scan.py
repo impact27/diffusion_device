@@ -582,7 +582,16 @@ class MultiPosScan(DataType):
             finterp = interpolate.interp1d(X * old_pixel_size, lin_profiles)
 
             Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
-            p = finterp(Xc * new_pixel_size)
+            try:
+                p = finterp(Xc * new_pixel_size)
+            except ValueError:
+                # out of bound error
+                import matplotlib.pyplot as plt
+                plt.figure()
+                plt.plot(X * old_pixel_size, lin_profiles)
+                plt.plot(Xc * new_pixel_size, np.zeros_like(Xc))
+                plt.title('Expected channel position.')
+                raise
 
             if self.should_switch(fd):
                 p = p[::-1]
