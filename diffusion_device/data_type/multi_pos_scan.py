@@ -24,7 +24,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from scipy.ndimage.measurements import label
 from scipy import interpolate
-from scipy.ndimage.filters import maximum_filter1d, minimum_filter1d, median_filter
+from scipy.ndimage.filters import (maximum_filter1d,
+                                   minimum_filter1d,
+                                   median_filter)
 from scipy.ndimage.filters import gaussian_filter1d as gfilter
 from scipy.signal import savgol_filter
 
@@ -237,7 +239,6 @@ class MultiPosScan(DataType):
         channel_width = self.metadata["KEY_MD_WY"]
         wall_width = self.metadata["KEY_MD_WALLWIDTH"]
 
-        number_profiles = len(maxs)
         # Get distances
         dist = np.abs(np.diff(maxs))
         dist_even = np.mean(dist[::2])
@@ -276,7 +277,6 @@ class MultiPosScan(DataType):
                 expected_distance * 1e6))
             plt.xlabel('Position [px]')
             plt.show()
-
 
         if n_pixel_estimated < len(profiles) / 2:
             plot_pixel_size_helper()
@@ -325,8 +325,9 @@ class MultiPosScan(DataType):
                 profiles = median_filter(profiles, small_filter_width)
 
             # Create channel mask
-            channel_mask = np.zeros(int(round(number_profiles * channel_width
-                                      + (number_profiles) * wall_width)))
+            channel_mask = np.zeros(
+                int(round(number_profiles * channel_width
+                          + (number_profiles) * wall_width)))
             offset_start = int(round(wall_width)) // 2
             for i in range(number_profiles):
                 left = (offset_start
@@ -353,7 +354,6 @@ class MultiPosScan(DataType):
 
             channels_corr = np.correlate(cprofiles, channels_locator)
 
-
             # Remove the effect from the padding
             ones_profiles = np.zeros(len(profiles) + 2 * offset_start)
             ones_profiles[offset_start:-offset_start] = 1
@@ -372,7 +372,8 @@ class MultiPosScan(DataType):
             # plot((channels_corr / walls_corr), 'C3')
             # figure()
             # plot(cprofiles / np.sum(cprofiles))
-            # plot(arg + np.arange(len(channels_locator)), channels_locator / np.sum(channels_locator))
+            # plot(arg + np.arange(len(channels_locator)),
+            #      channels_locator / np.sum(channels_locator))
             # show()
 
             return arg, np.max(channels_corr / walls_corr)
@@ -436,7 +437,7 @@ class MultiPosScan(DataType):
             mask_expected = (
                 np.abs(pos_corr - (centers[i] + centers[i+1])) < margin / 2)
             arg_max = self.subpixel_find_extrema(
-                pos_corr, corr, 'min', mask_expected = mask_expected)
+                pos_corr, corr, 'min', mask_expected=mask_expected)
             pos_symmetry = arg_max / 2
             pos[i] = pos_symmetry
 
@@ -669,8 +670,9 @@ class MultiPosScan(DataType):
             for i in range(1, n+1):
                 mask = lbl == i
                 fprof[mask] = gfilter(lin_profiles[mask], filter_width)
-                var[mask] = np.square(gfilter(lin_profiles[mask] - fprof[mask],
-                   filter_width)) / np.abs(fprof[mask])
+                var[mask] = np.square(gfilter(
+                    lin_profiles[mask] - fprof[mask],
+                    filter_width)) / np.abs(fprof[mask])
 
             var_factor = np.median(var[inmask])
 
@@ -685,11 +687,11 @@ class MultiPosScan(DataType):
                        - centers[np.newaxis]) > .55 * prof_npix, axis=1)
             outmask = np.logical_and(outmask, np.isfinite(lin_profiles))
             outmask = np.logical_and(outmask, np.isfinite(infos["noise_var"]))
-    
+
             lbl, n = label(outmask)
             wall_var = np.zeros(n)
             lin_var_list = np.zeros(n)
-    
+
             for i in np.arange(n):
                 mask = lbl == i + 1
                 background = lin_profiles[mask]
@@ -704,8 +706,9 @@ class MultiPosScan(DataType):
                         background
                         - savgol_filter(background, window, window // 6)))
                 lin_var_list[i] = np.sum(infos["noise_var"][mask])
-    
-            noise = infos["noise_var"] / np.sum(lin_var_list) * np.sum(wall_var)
+
+            noise = (infos["noise_var"] / np.sum(lin_var_list)
+                     * np.sum(wall_var))
             min_var = np.sum(wall_var) / np.sum(outmask)
             noise[noise < min_var] = min_var
 
@@ -730,7 +733,7 @@ class MultiPosScan(DataType):
         brightwalls = self.metadata["KEY_MD_BRIGHTWALL"]
 
         profile_slice = dp.ignore_slice(ignore, pixel_size)
-        number_profiles = len(centers)
+
         prof_npix = np.shape(profiles)[1]
 
         infos_tmp = dp.size_profiles(infos.copy(),
@@ -773,7 +776,7 @@ class MultiPosScan(DataType):
 
         binned_lin_profiles = dp.rebin_profiles(lin_profiles, rebin)
 
-        for i, (cent, fd) in enumerate(zip(centers/ rebin, flowdir)):
+        for i, (cent, fd) in enumerate(zip(centers / rebin, flowdir)):
             # Get data
             amin = int(cent - channel_distance_px)
             amax = int(cent + channel_distance_px)
