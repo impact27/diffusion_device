@@ -59,6 +59,13 @@ metadata.add_info(
       " (Not chip related)"))
 
 metadata.add_info(
+    "KEY_MD_OPTIC_SUBTRACT", "Subtract optics background", bool,
+    required=False,
+    default=False,
+    explanation=(
+      "Should the optics background be subtracted instead of divided."))
+
+metadata.add_info(
     "KEY_MD_EXP", "Image exposition time [s]", float,
     required=False,
     example=1)

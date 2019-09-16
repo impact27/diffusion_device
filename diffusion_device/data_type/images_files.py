@@ -155,8 +155,10 @@ class ImagesFile(DataType):
         if len(np.shape(factor)) == 1:
             factor = factor[:, np.newaxis, np.newaxis]
 
-        images = images - (optics - np.median(optics)) / factor
-
+        if self.metadata["KEY_MD_OPTIC_SUBTRACT"]:
+            images = images - (optics - np.median(optics)) / factor
+        else:
+            images /= optics
         return images
 
     def clip_border(self, images):

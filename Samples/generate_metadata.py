@@ -26,6 +26,9 @@ json_infos['Background file name'] = 'UVbg.tif'
 # image file to remove the background coming from the optics (Not chip related)
 json_infos['Optics background file name'] = None
 
+# Should the optics background be subtracted instead of divided.
+json_infos['Subtract optics background'] = False
+
 # Image exposition time [s]
 json_infos['Image exposition time [s]'] = 1
 
