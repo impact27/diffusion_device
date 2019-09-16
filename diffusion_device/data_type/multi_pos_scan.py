@@ -761,7 +761,8 @@ class MultiPosScan(DataType):
                 init[offset:] = init[offset - 1]
             fits = dp.get_fits(edges_prof(init), infos_tmp,
                                self.metadata, self.settings)
-            errors[idx] = np.mean(np.square(profiles - fits)[1:, profile_slice])
+            errors[idx] = np.nanmean(np.square(
+                profiles - fits)[1:, profile_slice])
 
         offset = self.subpixel_find_extrema(offsets, errors, 'min')
         init, _ = self.interpolate_profiles(
@@ -787,6 +788,9 @@ class MultiPosScan(DataType):
 
             # Get fits
             p2 = fits[i]
+            if np.all(np.isnan(p2)):
+                new_centers[i] = cent
+                continue
             switch = self.should_switch(fd)
             if switch:
                 p2 = p2[::-1]
