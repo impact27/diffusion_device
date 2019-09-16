@@ -240,7 +240,7 @@ class MultiPosScan(DataType):
         wall_width = self.metadata["KEY_MD_WALLWIDTH"]
 
         # Get distances
-        dist = np.abs(np.diff(maxs))
+        dist = np.diff(maxs)
         dist_even = np.mean(dist[::2])
         dist_odd = np.mean(dist[1::2])
         meandist = 1 / 2 * (dist_even + dist_odd)
