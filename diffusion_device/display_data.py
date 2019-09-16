@@ -30,6 +30,7 @@ from matplotlib.image import NonUniformImage
 import shutil
 import re
 from . import profile as dp
+from scipy.ndimage.filters import gaussian_filter1d
 
 
 def save_plot_filt(profiles, filts, pixel_size, profiles_filter, outpath=None):
@@ -100,7 +101,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
             plt.plot([0], [0], 'C0', label="Profiles")
             plt.plot([0], [0], 'C1', label="Fits")
             if radius_error_x is not None:
-                Y = dp.get_fax(radius_error_x) * 1e9
+                Y = dp.get_fax(gaussian_filter1d(radius_error_x, 4)) * 1e9
                 plt.fill_between(X, np.zeros_like(Y), Y, color='C2', alpha=0.4,
                                  label="Radius error", zorder=9)
                 plt.ylabel('Radius error / nm')
