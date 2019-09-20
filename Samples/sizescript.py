@@ -7,6 +7,7 @@ Created on Thu Aug 10 12:27:04 2017
 
 from diffusion_device import process_data
 from glob import glob
+import matplotlib.pyplot as plt
 
 # Where should the results be saved
 outpath = 'output'
@@ -24,5 +25,9 @@ if len(metadatas) == 0:
 
 for sfn in settings:
     for mfn in metadatas:
+        print('Processing new file:')
+        print('Metadata file: ', mfn)
+        print('Settings file: ', sfn)
         # Call function
         process_data.full_fit(sfn, mfn, outpath)
+        plt.show()
