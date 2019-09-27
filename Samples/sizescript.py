@@ -30,4 +30,4 @@ for sfn in settings:
         print('Settings file: ', sfn)
         # Call function
         process_data.full_fit(sfn, mfn, outpath)
-        plt.show()
+        plt.show(blocking=False)
