@@ -370,6 +370,15 @@ settings.add_info(
         "Fit square of signal to give more importance to high intensity")
     )
 
+settings.add_info(
+    "KEY_ALIGN_BACKGROUND", "Align background", bool,
+    required=False,
+    default=True,
+    explanation=(
+        "Should the background be aligned.")
+    )
+
+
 # settings.add_info(
 #    "KEY_STG_SUB1PCT", "subtract 1 percentile", bool,
 #    required=False,

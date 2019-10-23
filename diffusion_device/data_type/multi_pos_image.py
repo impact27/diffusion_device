@@ -547,6 +547,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         # Get settings
         goodFeatures = self.settings["KEY_STG_GOODFEATURES"]
         image_coord = self.settings["KEY_STG_IMAGE_COORD"]
+        align_background = self.settings["KEY_ALIGN_BACKGROUND"]
         channel_width = self.metadata["KEY_MD_WY"]
 
         # Get brightest image if stack
@@ -556,7 +557,12 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             im_tmp = im
 
         # Get first flattened image
-        if goodFeatures:
+        if not align_background:
+            data_tmp = im_tmp - bg
+            infos['offset'] = np.zeros(2)
+            infos['diffAngle'] = 0
+            infos['diffScale'] = 1
+        elif goodFeatures:
             data_tmp = rmbg.remove_curve_background(
                 im_tmp, bg, infoDict=infos, bgCoord=not image_coord)
         else:
@@ -613,7 +619,9 @@ class MultiPosImage(MultiPosScan, ImagesFile):
                                          borderValue=0) > .5
             # give infos to remove_curve_background to save transformations
 
-        if goodFeatures:
+        if not align_background:
+            ret = im - bg
+        elif goodFeatures:
             # Get Intensity
             ret = rmbg.remove_curve_background(
                     im, bg, maskbg=mask_bg, maskim=mask_im,
