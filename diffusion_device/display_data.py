@@ -405,7 +405,13 @@ def prepare_output(outpath, settingsfn, metadatafn):
     base_name = None
     if outpath is not None:
         settings_name = os.path.splitext(os.path.basename(settingsfn))[0]
-        metadata_name = os.path.splitext(os.path.basename(metadatafn))[0]
+        try:
+            commonpath = os.path.commonpath([settingsfn, metadatafn])
+            metadata_name = os.path.splitext(
+                os.path.relpath(metadatafn, commonpath))[0]
+        except ValueError:
+            metadata_name = os.path.splitext(os.path.basename(metadatafn))[0]
+
         if re.match("metadata$", metadata_name, re.IGNORECASE):
             metadata_name = os.path.basename(os.path.dirname(metadatafn))
         if re.match(".+metadata$", metadata_name, re.IGNORECASE):
@@ -416,8 +422,9 @@ def prepare_output(outpath, settingsfn, metadatafn):
             outpath,
             settings_name)
 
-        if not os.path.exists(newoutpath):
-            os.makedirs(newoutpath)
+        folder_path = os.path.join(newoutpath, os.path.dirname(metadatafn))
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
         shutil.copy(
             settingsfn,
             os.path.join(
