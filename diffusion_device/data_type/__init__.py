@@ -45,6 +45,7 @@ class DataType():
             self.savedata(infos)
 
         infos = self.get_profiles(infos)
+        self.plot_wide_profiles(infos)
         try:
             infos = self.process_profiles(infos)
             infos = self.size_profiles(infos)
@@ -69,7 +70,7 @@ class DataType():
         data: array
             the image
         """
-        assert(False)
+        raise NotImplementedError
 
     def process_data(self, data):
         """Do some data processing
@@ -105,7 +106,7 @@ class DataType():
         profiles: array
             The profiles
         """
-        assert(False)
+        raise NotImplementedError
 
     def process_profiles(self, infos):
         """process_profiles"""
@@ -119,3 +120,8 @@ class DataType():
     def plot_and_save(self, infos):
         """plot_and_save"""
         display_data.plot_and_save(infos, self.settings, self.outpath)
+
+    def plot_wide_profiles(self, infos):
+        """Print the profiles."""
+        display_data.plot_wide_profiles(infos, self.metadata,
+                                        self.settings, self.outpath)

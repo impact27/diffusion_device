@@ -111,7 +111,8 @@ class SinglePosScan(DataType):
         """
         channel_width_px = int(self.metadata["KEY_MD_WY"]
                                / infos["Pixel size"])
-        profiles = self.scans_to_profiles(infos["Data"], channel_width_px)
+        profiles, wide_profiles = self.scans_to_profiles(
+            infos["Data"], channel_width_px, infos["Pixel size"])
         # Guess measurment noise from savgol filter
         fit = savgol_filter(profiles, 17, 5)
         noise_var = np.mean(np.square(profiles - fit) / fit)
@@ -124,6 +125,7 @@ class SinglePosScan(DataType):
         noise[fit < min_fit] = np.sqrt(noise_var * min_fit)
         infos["Profiles noise std"] = noise
         infos['Profiles'] = profiles
+        infos['Wide Profiles'] = wide_profiles
         return infos
 
     def process_profiles(self, infos):
@@ -131,7 +133,7 @@ class SinglePosScan(DataType):
             infos, self.metadata, self.settings, self.outpath)
         return infos
 
-    def scans_to_profiles(self, scans, Npix, *,
+    def scans_to_profiles(self, scans, Npix, pixel_size, *,
                           offset_edge_idx=None):
         """Extract profiles from scans
 
@@ -169,6 +171,7 @@ class SinglePosScan(DataType):
                 edgeside = -1
 
         # For each scan
+        wide_profiles = []
         for i, s in enumerate(scans):
             # Get the mid point
             if offset_edge_idx is None:
@@ -178,6 +181,7 @@ class SinglePosScan(DataType):
                     mid = dp.center(s) - edgeside * offset
                 else:
                     mid = self.get_edge(s) + edgeside * Npix / 2
+            X = np.arange(len(s)) - mid
             # First position
             amin = int(mid - Npix / 2)
             # If pixels missings:
@@ -186,13 +190,17 @@ class SinglePosScan(DataType):
                               RuntimeWarning)
                 while amin > len(s) - Npix:
                     s = np.append(s, s[-1])
+                    X = np.append(X, X[-1] + 1)
                 while amin < 0:
                     amin += 1
                     s = np.append(s[0], s)
+                    X = np.append(X[0] - 1, X)
             # Get profile
             profiles[i] = s[amin:amin + Npix]
+            wide_mask = np.abs(X) < Npix
+            wide_profiles.append((X[wide_mask] * pixel_size, s[wide_mask]))
 
-        return profiles
+        return profiles, wide_profiles
 
     def get_edge(self, profile):
         """Get the largest edge in the profile

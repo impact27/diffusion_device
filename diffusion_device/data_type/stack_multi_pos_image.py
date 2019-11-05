@@ -259,6 +259,11 @@ class StackMultiPosImage(MultiPosImage):
         display_data.plot_and_save_stack(
             infos, self.settings, self.outpath)
 
+    def plot_wide_profiles(self, infos):
+        """Print the profiles."""
+        display_data.plot_wide_profiles_stack(
+            infos, self.metadata, self.settings, self.outpath)
+
     def process_profiles(self, infos):
         for i in infos.index[np.logical_not(infos.loc[:, 'Error'])]:
             infos_i = dp.process_profiles(

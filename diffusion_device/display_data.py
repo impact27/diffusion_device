@@ -351,18 +351,18 @@ def plot_and_save_stack(infos, settings, outpath=None):
 
     if outpath is not None:
         selected_keys = [
-                "Radius",
-                "Radius range",
-                "Radius error std",
-                "Signal over noise",
-                "Reduced least square",
-                "Mean Intensity",
-                "Overexposed",
-                "Pixel size",
-                "Profiles",
-                "Fitted Profiles",
-                "Profiles noise std",
-                ]
+            "Radius",
+            "Radius range",
+            "Radius error std",
+            "Signal over noise",
+            "Reduced least square",
+            "Mean Intensity",
+            "Overexposed",
+            "Pixel size",
+            "Profiles",
+            "Fitted Profiles",
+            "Profiles noise std",
+            ]
         infos.loc[np.logical_not(infos.loc[:, 'Error']),
                   selected_keys].to_csv(outpath + '_result.csv')
 
@@ -413,16 +413,19 @@ def prepare_output(outpath, settingsfn, metadatafn):
             metadata_name = os.path.splitext(os.path.basename(metadatafn))[0]
 
         if re.match("metadata$", metadata_name, re.IGNORECASE):
+            """We can not just use metadata as a metadata name."""
             metadata_name = os.path.basename(os.path.dirname(metadatafn))
         if re.match(".+metadata$", metadata_name, re.IGNORECASE):
+            """Remove the superfluous metadata at the end"""
             metadata_name = metadata_name[:-8]
         if len(metadata_name) > 0 and metadata_name[-1] == '_':
+            """Remove trailing _"""
             metadata_name = metadata_name[:-1]
         newoutpath = os.path.join(
             outpath,
             settings_name)
 
-        folder_path = os.path.join(newoutpath, os.path.dirname(metadatafn))
+        folder_path = os.path.join(newoutpath, os.path.dirname(metadata_name))
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         shutil.copy(
@@ -436,3 +439,36 @@ def prepare_output(outpath, settingsfn, metadatafn):
             newoutpath,
             metadata_name)
     return base_name
+
+
+def plot_wide_profiles(infos, metadata, settings, save_prefix=None):
+    """Print the profiles to check if they are correctly placed."""
+    channel_width = metadata["KEY_MD_WY"]
+    plt.figure()
+    for (X, prof) in infos["Wide Profiles"]:
+        plt.plot(X * 1e6, prof)
+    ylim = plt.ylim()
+    plt.plot(np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--')
+    plt.plot(-np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--')
+    plt.xlabel('Position [um]')
+    plt.title("Walls")
+    if save_prefix:
+        plt.tight_layout()
+        plt.savefig(save_prefix + '_walls.pdf')
+
+
+def plot_wide_profiles_stack(infos, metadata, settings, save_prefix=None):
+    """Print the profiles to check if they are correctly placed."""
+    plotpos = settings["KEY_STG_STACK_POSPLOT"]
+
+    if plotpos is None:
+        return
+    for pos in plotpos:
+        prefix = None
+        if save_prefix:
+            prefix = save_prefix + f"_{pos}"
+        if pos not in infos["Wide Profiles"]:
+            continue
+        inf = {"Wide Profiles": infos["Wide Profiles"][pos]}
+        plot_wide_profiles(inf, metadata, settings, prefix)
+        plt.title(f'{pos}: Walls')

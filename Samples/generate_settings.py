@@ -85,4 +85,7 @@ json_infos['Plot Square Error'] = True
 # Fit square of signal to give more importance to high intensity
 json_infos['Fit square of signal'] = False
 
+# Should the background be aligned.
+json_infos['Align background'] = True
+
 settings.generate_json(datapath, json_infos)

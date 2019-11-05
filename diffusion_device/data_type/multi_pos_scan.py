@@ -222,7 +222,7 @@ class MultiPosScan(DataType):
         profiles: array
             The profiles
         """
-        infos["Profiles"] = self.extract_profiles(infos)
+        self.extract_profiles(infos)
 
         infos = dp.process_profiles(
             infos, self.metadata, self.settings,
@@ -572,15 +572,21 @@ class MultiPosScan(DataType):
 
     def interpolate_profiles(self, lin_profiles, centers, flowdir, prof_npix,
                              prof_width, old_pixel_size):
+        """Interpolates profiles from lin_profile."""
         new_pixel_size = prof_width / prof_npix
         nchannels = len(centers)
         profiles = np.empty((nchannels, prof_npix), dtype=float)
 
+        wide_profiles = []
         # Extract profiles
         for i, (cent, fd) in enumerate(zip(centers, flowdir)):
 
             X = np.arange(len(lin_profiles)) - cent
             finterp = interpolate.interp1d(X * old_pixel_size, lin_profiles)
+
+            mask_wide = np.abs(X) < prof_npix
+            wide_X = X[mask_wide] * old_pixel_size
+            wide_p = lin_profiles[mask_wide]
 
             Xc = np.arange(prof_npix) - (prof_npix - 1) / 2
             try:
@@ -596,9 +602,11 @@ class MultiPosScan(DataType):
 
             if self.should_switch(fd):
                 p = p[::-1]
+                wide_X = -wide_X
 
             profiles[i] = p
-        return profiles, new_pixel_size
+            wide_profiles.append((wide_X, wide_p))
+        return profiles, new_pixel_size, wide_profiles
 
     def extract_profiles(self, infos):
         """Extract profiles from a single scan"""
@@ -614,7 +622,7 @@ class MultiPosScan(DataType):
                 np.max(centers) + prof_npix / 2 > len(lin_profiles)):
             raise RuntimeError('Channel not fully contained in the image')
 
-        profiles, pixel_size = self.interpolate_profiles(
+        profiles, pixel_size, *_ = self.interpolate_profiles(
             lin_profiles, centers, flowdir, prof_npix,
             prof_npix * pixel_size, pixel_size)
 
@@ -636,7 +644,7 @@ class MultiPosScan(DataType):
         infos["Pixel size"] = pixel_size
         infos["Profiles noise std"] = self.get_noise(
             infos, prof_npix=prof_npix)
-        return profiles
+        infos["Profiles"] = profiles
 
     def get_noise(self, infos, prof_npix=None):
         """get_noise"""
@@ -712,7 +720,7 @@ class MultiPosScan(DataType):
             min_var = np.sum(wall_var) / np.sum(outmask)
             noise[noise < min_var] = min_var
 
-        noise, __ = self.interpolate_profiles(
+        noise, *_ = self.interpolate_profiles(
             noise, centers, infos["flow direction"],
             prof_npix, channel_width, infos["Pixel size"])
         return np.sqrt(noise)
@@ -765,7 +773,7 @@ class MultiPosScan(DataType):
                 profiles - fits)[1:, profile_slice])
 
         offset = self.subpixel_find_extrema(offsets, errors, 'min')
-        init, _ = self.interpolate_profiles(
+        init, *_ = self.interpolate_profiles(
             lin_profiles, centers[:1] - offset, flowdir,
             prof_npix * rebin, channel_width, pixel_size / rebin)
         init = edges_prof(dp.rebin_profiles(init, rebin)[0])
@@ -813,7 +821,7 @@ class MultiPosScan(DataType):
         new_centers = aligned_centers
 
         # Get the new profiles
-        new_profiles, pixel_size = self.interpolate_profiles(
+        new_profiles, pixel_size, wide_profiles = self.interpolate_profiles(
             lin_profiles, new_centers, flowdir,
             prof_npix * rebin, channel_width, pixel_size)
 
@@ -822,6 +830,7 @@ class MultiPosScan(DataType):
         infos["Profiles noise std"] = self.get_noise(
             infos, prof_npix=prof_npix * rebin)
         infos['Profiles'] = new_profiles
+        infos["Wide Profiles"] = wide_profiles
 
         # Process profiles to bin
         infos = dp.process_profiles(
