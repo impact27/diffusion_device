@@ -445,8 +445,9 @@ def plot_wide_profiles(infos, metadata, settings, save_prefix=None):
     """Print the profiles to check if they are correctly placed."""
     channel_width = metadata["KEY_MD_WY"]
     plt.figure()
-    for (X, prof) in infos["Wide Profiles"]:
-        plt.plot(X * 1e6, prof)
+    N = len(infos["Wide Profiles"])
+    for idx, (X, prof) in enumerate(infos["Wide Profiles"]):
+        plt.plot(X * 1e6, prof, c=plt.cm.viridis(idx / (N - 1)))
     ylim = plt.ylim()
     plt.plot(np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--')
     plt.plot(-np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--')
