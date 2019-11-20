@@ -168,7 +168,7 @@ def get_fits(init, infos, metadata, settings):
         radii, radii_spectrum = radius
         Basis = getprofiles(
                 init, Radii=radii, readingpos=readingpos,
-                infos=infos, **profiles_arg_dir)[0]
+                infos=infos, **profiles_arg_dir)
         # fill data if needed
         fits[fit_index] = np.sum(
             radii_spectrum[:, np.newaxis, np.newaxis] * Basis, axis=0)
