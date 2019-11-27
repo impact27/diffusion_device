@@ -72,6 +72,7 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
         return fit_monodisperse(profiles, Basis, phi, vary_offset)
 
     if nspecies == 2:
+        return fit_N_better(profiles, Basis, nspecies, phi, vary_offset)
         return fit_2(profiles, Basis, phi, vary_offset)
 
     if nspecies > 0:
@@ -394,17 +395,24 @@ def interpolate_sum_matrices(index, sum_matrices, derivative=False):
 
         return interp_BB, interp_Bp, interp_B
 
-    # For derivative, use di = 1
-    BidBj = ((BB[i_idx_f, j_idx_c] -
-              BB[i_idx_f, j_idx_f]) * (1 - C_i) +
-             (BB[i_idx_c, j_idx_c] -
-              BB[i_idx_c, j_idx_f]) * C_i)
+    # Derivative index is d. The index are packed in dij order
+    # Create delta functions with the correct shape
+    Ns = np.shape(index)[0]
+    delta_di = np.eye(Ns)[:, :, np.newaxis]
+    delta_dj = np.eye(Ns)[:, np.newaxis]
+    delta_di.shape = (*np.shape(delta_di), *np.ones(len(np.shape(index)), int))
+    delta_dj.shape = (*np.shape(delta_dj), *np.ones(len(np.shape(index)), int))
 
-    dBip = Bp[index_ceil] - Bp[index_floor]
+    # axis are dij...k
+    dBB = (((BB[i_idx_c, j_idx_f] - BB[i_idx_f, j_idx_f]) * (1 - C_j) +
+            (BB[i_idx_c, j_idx_c] - BB[i_idx_f, j_idx_c]) * C_j) * delta_di +
+           ((BB[i_idx_f, j_idx_c] - BB[i_idx_f, j_idx_f]) * (1 - C_i) +
+            (BB[i_idx_c, j_idx_c] - BB[i_idx_c, j_idx_f]) * C_i) * delta_dj)
 
-    dBi = B[index_ceil] - B[index_floor]
-
-    return BidBj, dBip, dBi
+    # axis are d...k
+    dBp = Bp[index_ceil] - Bp[index_floor]
+    dB = B[index_ceil] - B[index_floor]
+    return dBB, dBp, dB
 
 
 def myinverse(M):
@@ -465,19 +473,21 @@ def jac_interp_N(index, sum_matrices, vary_offset=False):
     __, coeff_a, coeff_b = residual_N_floating(
         index, sum_matrices, vary_offset)
 
-    BdB_ijk, dBp_ik, dB_ik = interpolate_sum_matrices(
+    dBB_dijk, dBp_dk, dB_dk = interpolate_sum_matrices(
         index, sum_matrices, derivative=True)
 
-    dres = (np.einsum('i..., j..., ij...k -> i...', coeff_a, coeff_a, BdB_ijk)
-            + np.einsum('i..., l..., li...k -> i...', coeff_a, coeff_a, BdB_ijk)
-            - 2 * np.einsum('i..., i...k -> i...', coeff_a, dBp_ik)
-            + 2 * np.einsum('i..., ...k, i...k -> i...', coeff_a, coeff_b, dB_ik))
+    dres = (
+        np.einsum('i..., j..., dij...k -> d...', coeff_a, coeff_a, dBB_dijk)
+        - 2 * np.einsum('d..., d...k -> d...', coeff_a, dBp_dk)
+        + 2 * np.einsum('d..., ...k, d...k -> d...', coeff_a, coeff_b, dB_dk))
 
     return dres
 
 
 def res_interp_N(index, sum_matrices, vary_offset=False):
     """Compute the residual for two spicies"""
+    from matplotlib.pyplot import show, plot
+    plot(*index, 'x')
     try:
         return residual_N_floating(index, sum_matrices, vary_offset)[0]
     except Exception:
@@ -696,6 +706,45 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     fit.phi_background_error = phi_background_error
 
     return fit
+
+def fit_N_better(profiles, Basis, nspecies, phi, vary_offset):
+    """Find the best N-disperse radius
+
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    nspecies: int
+        Number of species to fit.
+
+    Returns
+    -------
+    spectrum: 1d array
+        The best radius fit spectrum
+    """
+    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
+    idx_min_mono = mono_fit.arg_x
+
+    sum_matrices = get_sum_matrices(profiles, Basis)
+    C0 = np.ones(nspecies) * idx_min_mono
+    C0[0] += 3
+    C0[1] -= 3
+
+    res_interp_N(C0, sum_matrices, vary_offset)
+    # res = basinhopping(res_interp_N, C0, disp=True,
+    #                    minimizer_kwargs={'args': (sum_matrices, vary_offset),
+    #                                      # 'jac': jac_interp_N,
+    #                                      })
+    min_res = minimize(res_interp_N, C0, args=(sum_matrices, vary_offset),
+                    jac=jac_interp_N,
+                   )
+    print(min_res.jac)
+    jac_interp_N(min_res.x, sum_matrices, vary_offset)
+    a = 0
 
 
 def res_polydisperse(C, M, b, psquare):
