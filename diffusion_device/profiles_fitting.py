@@ -283,7 +283,6 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
         coeff_basis = 0
         arg_phi = arg_cent
 
-
     best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
                       + coeff_basis * np.log(phi[arg_side]))
 
@@ -353,96 +352,135 @@ def get_idx(C_interp, idx):
     return C_interp, idx
 
 
-def get_matrices_interp_N(index, BB, Bp, B=None):
-    """Get interpolated matrices and vector"""
-    interp_coeff = index - np.floor(index)
+def interpolate_sum_matrices(index, sum_matrices, derivative=False):
+    """
+    Get interpolated matrices and vector
+
+    Returned shape is:
+        BB: Npart, Npart, (index.shape[:-1]), Npos
+        Bp and B: Npart, (index.shape[:-1]), Npos
+    """
+    # Put the particle axis first as it is not present in all matrix
+    index = np.rollaxis(index, -1)
+    # Get the interpolation part
+    # Add an axis for the position at the end
+    interp_coeff = (index - np.floor(index))[..., np.newaxis]
+    # i and j are symmetrical
+    C_i = interp_coeff[:, np.newaxis]
+    C_j = interp_coeff[np.newaxis]
+
+    # Get floor and ceiling index to apply to the sum matrices
     index_floor = np.array(np.floor(index), int)
     index_ceil = np.array(np.ceil(index), int)
+    i_idx_f = index_floor[:, np.newaxis]
+    j_idx_f = index_floor[np.newaxis]
+    i_idx_c = index_ceil[:, np.newaxis]
+    j_idx_c = index_ceil[np.newaxis]
 
-    # i and j are symmetrical
-    C_i = interp_coeff[..., np.newaxis]
-    C_j = interp_coeff[..., np.newaxis, :]
-    i_idx_f = index_floor[..., np.newaxis]
-    j_idx_f = index_floor[..., np.newaxis, :]
-    i_idx_c = index_ceil[..., np.newaxis]
-    j_idx_c = index_ceil[..., np.newaxis, :]
+    BB, Bp, B = [sum_matrices[key] for key in ['BB', 'Bp', 'B']]
 
-    # Simply interpolate BB matrix between neigboring index
-    BiBi = ((BB[..., i_idx_f, j_idx_f] * (1 - C_j) +
-             BB[..., i_idx_f, j_idx_c] * C_j) * (1 - C_i) +
-            (BB[..., i_idx_c, j_idx_f] * (1 - C_j) +
-             BB[..., i_idx_c, j_idx_c] * C_j) * C_i)
+    if not derivative:
+        # Simply interpolate BB matrix between neigboring index
+        interp_BB = ((BB[i_idx_f, j_idx_f] * (1 - C_j) +
+                      BB[i_idx_f, j_idx_c] * C_j) * (1 - C_i) +
+                     (BB[i_idx_c, j_idx_f] * (1 - C_j) +
+                      BB[i_idx_c, j_idx_c] * C_j) * C_i)
 
-    # Same for Bp
-    Bip = (1 - interp_coeff) * Bp[..., index_floor] + \
-        interp_coeff * Bp[..., index_ceil]
-    if B is None:
-        return BiBi, Bip
+        interp_Bp = ((1 - interp_coeff) * Bp[index_floor]
+                     + interp_coeff * Bp[index_ceil])
 
-    # Same for B
-    Bi = (1 - interp_coeff) * B[..., index_floor] + \
-        interp_coeff * B[..., index_ceil]
+        interp_B = ((1 - interp_coeff) * B[index_floor]
+                    + interp_coeff * B[index_ceil])
 
-    return BiBi, Bip, Bi
+        return interp_BB, interp_Bp, interp_B
+
+    # For derivative, use di = 1
+    BidBj = ((BB[i_idx_f, j_idx_c] -
+              BB[i_idx_f, j_idx_f]) * (1 - C_i) +
+             (BB[i_idx_c, j_idx_c] -
+              BB[i_idx_c, j_idx_f]) * C_i)
+
+    dBip = Bp[index_ceil] - Bp[index_floor]
+
+    dBi = B[index_ceil] - B[index_floor]
+
+    return BidBj, dBip, dBi
 
 
 def myinverse(M):
     """Inverse or set to nan if det(M) = 0"""
     Mm1 = np.ones_like(M) * np.nan
-    mask = np.linalg.det(M) != 0
-    Mm1[mask] = np.linalg.inv(M[mask])
+    # Transpose as axis 0 and 1 must be at the end
+    # The double precision is ~ 1e16. Remove unreasonable values (close to 0)
+    mask = np.abs(np.linalg.det(M.T) / np.max(M, axis=(0, 1))**2) > 1e-12
+    Mm1.T[mask] = np.linalg.inv(M.T[mask])
     return Mm1
 
 
-def residual_N_floating(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
+def residual_N_floating(index, sum_matrices, vary_offset=False):
     """
     Compute the residual and ratio for two spicies.
 
     Fit = sum(ai * Bi + bi)
     """
-    BiBik, Bipk, Bik = get_matrices_interp_N(index, BB, Bp, B)
-    BiBi = np.sum(BiBik, axis=0)
-    Bip = np.sum(Bipk, axis=0)
-    if len(np.shape(p)) > 0:
-        scalar_shape = (len(pp), *np.ones(len(np.shape(index)), int))
-        full_p = np.reshape(p, scalar_shape)
+    N_index = len(index)
+    BB_ijk, Bp_ik, B_ik = interpolate_sum_matrices(index, sum_matrices)
+    pp, p, Npix = [sum_matrices[key] for key in ['pp', 'p', '1']]
+    BB_ij = np.sum(BB_ijk, axis=-1)
+    Bp_i = np.sum(Bp_ik, axis=-1)
 
     if not vary_offset:
-        BiBim1 = myinverse(BiBi)
-        coeff_a = (BiBim1 @ Bip[..., np.newaxis])[..., 0]
-        coeff_b = np.zeros((p.shape[0], *coeff_a.shape[:-1]))
+        BB_ij_m1 = myinverse(BB_ij)
+        coeff_a = np.einsum('ij..., j... -> i...', BB_ij_m1, Bp_i)
+        coeff_b = np.zeros((N_index, len(p)))
     else:
-        covBiBi = np.sum(BiBik - 1 / Npix * (
-            Bik[..., np.newaxis] * Bik[..., np.newaxis, :]), axis=0)
-        covBip = np.sum(Bipk - 1 / Npix * (Bik * full_p), axis=0)
+        cov_BB_ij = np.sum(BB_ijk - 1 / Npix * B_ik[:, np.newaxis] * B_ik,
+                           axis=-1)
+        cov_Bp_i = np.sum(Bp_ik - 1 / Npix * (B_ik * p), axis=-1)
 
-        covBiBim1 = myinverse(covBiBi)
-        coeff_a = (covBiBim1 @ covBip[..., np.newaxis])[..., 0]
-        coeff_b = 1 / Npix * np.sum(
-            full_p - Bipk * coeff_a[np.newaxis], axis=(0, -1))
+        cov_BB_ij_m1 = myinverse(cov_BB_ij)
+        coeff_a = np.einsum('ij..., j... -> i...', cov_BB_ij_m1, cov_Bp_i)
+        coeff_b = 1 / Npix * (
+            p - np.einsum('i...k, i... -> ...k', B_ik, coeff_a))
     # Can not have negative values
     coeff_a[coeff_a < 0] = 0
 
-    residual = ((coeff_a[..., np.newaxis, :] @ BiBi @ coeff_a[..., np.newaxis]
-                    )[..., 0, 0]
-                - 2 * np.sum(coeff_a * Bip, axis=-1)
+    residual = (np.einsum('i..., ij..., j... -> ...', coeff_a, BB_ij, coeff_a)
+                - 2 * np.einsum('i..., i... -> ...', coeff_a, Bp_i)
                 + np.sum(pp))
     if vary_offset:
         residual += (
-            np.sum(coeff_b, axis=0)**2 * Npix
-            + 2 * np.sum(coeff_a * np.sum(
-                coeff_b[..., np.newaxis] * Bik, axis=0), axis=-1)
-            - 2 * np.sum(coeff_b * p[..., np.newaxis], axis=0))
+            Npix * np.sum(coeff_b**2, axis=-1)
+            + 2 * np.einsum('i..., ...k, i...k -> ...', coeff_a, coeff_b, B_ik)
+            - 2 * np.sum(coeff_b * p, axis=-1))
 
-    return residual, coeff_a, coeff_b.T
+    return residual, coeff_a, coeff_b
 
 
-def res_interp_N(index, BB, Bp, B, p, pp, Npix, vary_offset=False):
+def jac_interp_N(index, sum_matrices, vary_offset=False):
+    """Jacobian function of res_interp_2"""
+    # if np.min(index) < 0 or np.max(index) > len(Bp) - 1:
+    #     return index * np.nan
+
+    __, coeff_a, coeff_b = residual_N_floating(
+        index, sum_matrices, vary_offset)
+
+    BdB_ijk, dBp_ik, dB_ik = interpolate_sum_matrices(
+        index, sum_matrices, derivative=True)
+
+    dres = (np.einsum('i..., j..., ij...k -> i...', coeff_a, coeff_a, BdB_ijk)
+            + np.einsum('i..., l..., li...k -> i...', coeff_a, coeff_a, BdB_ijk)
+            - 2 * np.einsum('i..., i...k -> i...', coeff_a, dBp_ik)
+            + 2 * np.einsum('i..., ...k, i...k -> i...', coeff_a, coeff_b, dB_ik))
+
+    return dres
+
+
+def res_interp_N(index, sum_matrices, vary_offset=False):
     """Compute the residual for two spicies"""
     try:
-        return residual_N_floating(
-            index, BB, Bp, B, p, pp, Npix, vary_offset)[0]
-    except BaseException as e:
+        return residual_N_floating(index, sum_matrices, vary_offset)[0]
+    except Exception:
         return np.nan
 
 
@@ -478,6 +516,20 @@ def get_zoom_indices(residual, indices, idx_min_mono, N, threshold):
     return zoom_indices, zoom_valid
 
 
+def get_sum_matrices(profiles, Basis):
+    """
+    Return all the summations over the pixels
+    """
+    matrices = {}
+    matrices['BB'] = np.einsum('ijk, ljk -> ilj', Basis, Basis)
+    matrices['Bp'] = np.einsum('ijk, jk -> ij', Basis, profiles)
+    matrices['B'] = np.einsum('ijk -> ij', Basis)
+    matrices['pp'] = np.einsum('ik, ik -> i', profiles, profiles)
+    matrices['p'] = np.einsum('ik -> i', profiles)
+    matrices['1'] = np.shape(Basis)[-1]
+    return matrices
+
+
 def fit_2(profiles, Basis, phi, vary_offset=False):
     """Find the best monodisperse radius
 
@@ -511,17 +563,9 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     # basis has phi. pos, pixel
 
     # Compute the matrices needed for res_interp_N
-    # equivalent to BB = np.einsum('jik, lik -> ijl', Basis, Basis)?
-    BB = np.empty((np.shape(Basis)[1], np.shape(Basis)[0], np.shape(Basis)[0]))
-    for i in range(np.shape(Basis)[-2]):
-        Bi = Basis[..., i, :]
-        BB[i] = (np.tensordot(Bi, Bi, (-1, -1)))
-    Bp = np.einsum('jik, ik -> ij', Basis, profiles)
-    B = np.einsum('jik -> ij', Basis)
-    pp = np.einsum('ik, ik -> i', profiles, profiles)
-    p = np.einsum('ik -> i', profiles)
+    sum_matrices = get_sum_matrices(profiles, Basis)
     Nb = np.shape(Basis)[0]
-    Npix = np.shape(Basis)[-1]
+
 
     # Get the distance from min_mono to the wall
     N = np.min([idx_min_mono, Nb - idx_min_mono])
@@ -535,10 +579,10 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     valid = np.logical_and(valid, np.all(indices > 0, axis=1))
     indices = indices[valid]
     # Compute diagonal
-    res_diag = res_interp_N(indices, BB, Bp, B, p, pp, Npix, vary_offset)
+    res_diag = res_interp_N(indices, sum_matrices, vary_offset)
 
     # If best position is mopnodisperse, stop fit
-    if np.min(res_diag) > mono_fit.residual:
+    if np.nanmin(res_diag) > mono_fit.residual:
         warnings.warn("Monodisperse")
         fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
         fit.dx = np.tile(fit.dx, 2)
@@ -549,7 +593,7 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
         return fit
 
     # Get curve to look at (Cte XY)
-    argmin_diag = np.argmin(res_diag) + 1
+    argmin_diag = np.nanargmin(res_diag) + 1
     XY = np.square(argmin_diag)
     factor = np.square(argmin_diag + 1) / XY * 2
 
@@ -571,11 +615,10 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     zoom_indices = indices[valid]
 
     # Get curve
-    zoom_residual = res_interp_N(
-        zoom_indices, BB, Bp, B, p, pp, Npix, vary_offset)
+    zoom_residual = res_interp_N(zoom_indices, sum_matrices, vary_offset)
 
     # Compute threshold
-    minres = np.min(zoom_residual[zoom_residual > 0])
+    minres = np.nanmin(zoom_residual[zoom_residual > 0])
     threshold = minres + 2 * np.sqrt(minres)
 
     indices_range = [np.min(zoom_indices[zoom_residual < threshold], axis=0),
@@ -584,11 +627,11 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
 
     # Zoom twice
     for i in range(2):
-        threshold = np.percentile(zoom_residual, 0.1)
+        threshold = np.nanpercentile(zoom_residual, 0.1)
         zoom_indices, zoom_valid = get_zoom_indices(
             zoom_residual, zoom_indices, idx_min_mono, Nb, threshold)
         zoom_residual = residual_N_floating(
-            zoom_indices, BB, Bp, B, p, pp, Npix, vary_offset)[0]
+            zoom_indices, sum_matrices, vary_offset)[0]
 
     # Get best
     idx = np.unravel_index(np.argmin(zoom_residual), np.shape(zoom_residual))
@@ -600,8 +643,7 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     index = np.squeeze(index)
 
     # Finalise
-    res_fit, coeff_a, _ = residual_N_floating(
-        index, BB, Bp, B, p, pp, Npix, vary_offset)
+    res_fit, coeff_a, _ = residual_N_floating(index, sum_matrices, vary_offset)
 
     # Get left and right index for interpolation of result
     C_interp, idx_min = get_idx(index - np.floor(index),
@@ -618,6 +660,7 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     phi_error = np.zeros(2)
     spectrum = np.zeros(Nb)
 
+    BB = sum_matrices['BB']
     for rn, i in enumerate(index):
         # Left
         i = int(np.floor(i))
@@ -627,8 +670,8 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
         if j == Nb:
             j = Nb - 2
         # Get local gradient
-        Bl_minus_Br_square = (BB[..., i, i] + BB[..., j, j]
-                              - BB[..., i, j] - BB[..., j, i])
+
+        Bl_minus_Br_square = (BB[i, i] + BB[j, j] - BB[i, j] - BB[j, i])
         Bl_minus_Br_square = np.sum(coeff_a[..., rn] * Bl_minus_Br_square)
         if Bl_minus_Br_square == 0:
             raise RuntimeError("No Gradient in Basis")
