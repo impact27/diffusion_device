@@ -71,7 +71,7 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
     if nspecies == 1 and phi is not None:
         return fit_monodisperse(profiles, Basis, phi, vary_offset)
 
-    if nspecies == 2:
+    if nspecies > 0:
         return fit_N_better(profiles, Basis, nspecies, phi, vary_offset)
         return fit_2(profiles, Basis, phi, vary_offset)
 
@@ -431,7 +431,7 @@ def residual_N_floating(index, sum_matrices, vary_offset=False):
 
     Fit = sum(ai * Bi + bi)
     """
-    N_index = len(index)
+    index_shape = np.shape(index)[:-1]
     BB_ijk, Bp_ik, B_ik = interpolate_sum_matrices(index, sum_matrices)
     pp, p, Npix = [sum_matrices[key] for key in ['pp', 'p', '1']]
     BB_ij = np.sum(BB_ijk, axis=-1)
@@ -440,7 +440,7 @@ def residual_N_floating(index, sum_matrices, vary_offset=False):
     if not vary_offset:
         BB_ij_m1 = myinverse(BB_ij)
         coeff_a = np.einsum('ij..., j... -> i...', BB_ij_m1, Bp_i)
-        coeff_b = np.zeros((N_index, len(p)))
+        coeff_b = np.zeros((*index_shape, len(p)))
     else:
         cov_BB_ij = np.sum(BB_ijk - 1 / Npix * B_ik[:, np.newaxis] * B_ik,
                            axis=-1)
@@ -469,7 +469,8 @@ def jac_interp_N(index, sum_matrices, vary_offset=False):
     """Jacobian function of res_interp_2"""
     # if np.min(index) < 0 or np.max(index) > len(Bp) - 1:
     #     return index * np.nan
-
+    if np.any(index < 0) or np.any(index > len(sum_matrices['B']) - 1):
+        return index * np.nan
     __, coeff_a, coeff_b = residual_N_floating(
         index, sum_matrices, vary_offset)
 
@@ -486,8 +487,12 @@ def jac_interp_N(index, sum_matrices, vary_offset=False):
 
 def res_interp_N(index, sum_matrices, vary_offset=False):
     """Compute the residual for two spicies"""
-    from matplotlib.pyplot import show, plot
-    plot(*index, 'x')
+    # from matplotlib.pyplot import show, plot
+    # plot(*index, 'x')
+    if np.any(index < 0):
+        return np.nan
+    if np.any(index > len(sum_matrices['B']) - 1):
+        return np.nan
     try:
         return residual_N_floating(index, sum_matrices, vary_offset)[0]
     except Exception:
@@ -631,9 +636,9 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     minres = np.nanmin(zoom_residual[zoom_residual > 0])
     threshold = minres + 2 * np.sqrt(minres)
 
-    indices_range = [np.min(zoom_indices[zoom_residual < threshold], axis=0),
-                     np.max(zoom_indices[zoom_residual < threshold], axis=0)]
-    phi_range = np.interp(indices_range, np.arange(len(phi)), phi)
+    # indices_range = [np.min(zoom_indices[zoom_residual < threshold], axis=0),
+    #                  np.max(zoom_indices[zoom_residual < threshold], axis=0)]
+    # phi_range = np.interp(indices_range, np.arange(len(phi)), phi)
 
     # Zoom twice
     for i in range(2):
@@ -651,7 +656,9 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
         raise RuntimeError("Fit out of range")
 
     index = np.squeeze(index)
+    return finalise(profiles, Basis, phi, index, sum_matrices, vary_offset)
 
+def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
     # Finalise
     res_fit, coeff_a, _ = residual_N_floating(index, sum_matrices, vary_offset)
 
@@ -661,13 +668,13 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     phi_res = np.exp((1 - C_interp) * np.log(phi[idx_min[:, 0]])
                      + C_interp * np.log(phi[idx_min[:, 1]]))
 
-    # Sort if needed
-    if phi_res[1] < phi_res[0]:
-        coeff_a = coeff_a[np.argsort(phi_res)]
-        phi_res = np.sort(phi_res)
+    # Sort phis
+    coeff_a = coeff_a[np.argsort(phi_res)]
+    phi_res = np.sort(phi_res)
 
+    Nb = np.shape(Basis)[0]
     # Get errors
-    phi_error = np.zeros(2)
+    phi_error = np.zeros(len(phi_res))
     spectrum = np.zeros(Nb)
 
     BB = sum_matrices['BB']
@@ -684,10 +691,12 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
         Bl_minus_Br_square = (BB[i, i] + BB[j, j] - BB[i, j] - BB[j, i])
         Bl_minus_Br_square = np.sum(coeff_a[..., rn] * Bl_minus_Br_square)
         if Bl_minus_Br_square == 0:
-            raise RuntimeError("No Gradient in Basis")
-        # Compute error
-        error = (np.sqrt((phi[i] - phi[j])**2
-                         / Bl_minus_Br_square))
+            # raise RuntimeError("No Gradient in Basis")
+            error = np.nan
+        else:
+            # Compute error
+            error = (np.sqrt((phi[i] - phi[j])**2
+                             / Bl_minus_Br_square))
         phi_error[rn] = error
 
     # phi_res = (1 - c) * phi[idx_min[:, 0]] + c * phi[idx_min[:, 1]]
@@ -699,7 +708,7 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
                     x_distribution=np.squeeze(distribution),
                     basis_spectrum=spectrum, residual=res_fit,
                     success=True, status=0, interp_coeff=C_interp)
-    fit.x_range = phi_range.T
+    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
 
     phi_background_error = error_on_fit(
         profiles, Basis, phi, spectrum, idx_min)
@@ -730,21 +739,12 @@ def fit_N_better(profiles, Basis, nspecies, phi, vary_offset):
     idx_min_mono = mono_fit.arg_x
 
     sum_matrices = get_sum_matrices(profiles, Basis)
-    C0 = np.ones(nspecies) * idx_min_mono
-    C0[0] += 3
-    C0[1] -= 3
+    C0 = np.arange(nspecies) + idx_min_mono - nspecies/2
 
-    res_interp_N(C0, sum_matrices, vary_offset)
-    # res = basinhopping(res_interp_N, C0, disp=True,
-    #                    minimizer_kwargs={'args': (sum_matrices, vary_offset),
-    #                                      # 'jac': jac_interp_N,
-    #                                      })
     min_res = minimize(res_interp_N, C0, args=(sum_matrices, vary_offset),
                     jac=jac_interp_N,
                    )
-    print(min_res.jac)
-    jac_interp_N(min_res.x, sum_matrices, vary_offset)
-    a = 0
+    return finalise(profiles, Basis, phi, min_res.x, sum_matrices, vary_offset)
 
 
 def res_polydisperse(C, M, b, psquare):
