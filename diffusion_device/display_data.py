@@ -101,7 +101,12 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
             plt.plot([0], [0], 'C0', label="Profiles")
             plt.plot([0], [0], 'C1', label="Fits")
             if radius_error_x is not None:
-                Y = dp.get_fax(gaussian_filter1d(radius_error_x, 4)) * 1e9
+                for i in range(len(radius_error_x)):
+                    radius_error_x[i, np.isfinite(radius_error_x[i])] = (
+                        gaussian_filter1d(
+                            radius_error_x[i, np.isfinite(radius_error_x[i])],
+                            4))
+                Y = dp.get_fax(radius_error_x) * 1e9
                 plt.fill_between(X, np.zeros_like(Y), Y, color='C2', alpha=0.4,
                                  label="Radius error", zorder=9)
                 plt.ylabel('Radius error / nm')

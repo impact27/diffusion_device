@@ -487,14 +487,14 @@ def jac_interp_N(index, sum_matrices, vary_offset=False):
 
 def res_interp_N(index, sum_matrices, vary_offset=False):
     """Compute the residual for two spicies"""
-    # from matplotlib.pyplot import show, plot
-    # plot(*index, 'x')
-    if np.any(index < 0):
-        return np.nan
-    if np.any(index > len(sum_matrices['B']) - 1):
+    if np.any(index < 0) or np.any(index > len(sum_matrices['B']) - 1):
         return np.nan
     try:
-        return residual_N_floating(index, sum_matrices, vary_offset)[0]
+        residual, coeff_a, _ = residual_N_floating(
+            index, sum_matrices, vary_offset)
+        if np.any(coeff_a < 0):
+            return np.nan
+        return residual
     except Exception:
         return np.nan
 
@@ -659,6 +659,7 @@ def fit_2(profiles, Basis, phi, vary_offset=False):
     return finalise(profiles, Basis, phi, index, sum_matrices, vary_offset)
 
 def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
+    index = np.sort(index)
     # Finalise
     res_fit, coeff_a, _ = residual_N_floating(index, sum_matrices, vary_offset)
 
@@ -669,9 +670,6 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
                      + C_interp * np.log(phi[idx_min[:, 1]]))
 
     # Sort phis
-    coeff_a = coeff_a[np.argsort(phi_res)]
-    phi_res = np.sort(phi_res)
-
     Nb = np.shape(Basis)[0]
     # Get errors
     phi_error = np.zeros(len(phi_res))
@@ -700,8 +698,10 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
         phi_error[rn] = error
 
     # phi_res = (1 - c) * phi[idx_min[:, 0]] + c * phi[idx_min[:, 1]]
-    spectrum[idx_min] = (np.array([1 - C_interp, C_interp]).T
+    spectrum_values = (np.array([1 - C_interp, C_interp]).T
                          * coeff_a[:, np.newaxis])
+    for idx, value in zip(idx_min, spectrum_values):
+        spectrum[idx] += value
 
     distribution = coeff_a / np.sum(coeff_a)
     fit = FitResult(x=phi_res, dx=phi_error,
@@ -738,12 +738,84 @@ def fit_N_better(profiles, Basis, nspecies, phi, vary_offset):
     mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
     idx_min_mono = mono_fit.arg_x
 
-    sum_matrices = get_sum_matrices(profiles, Basis)
-    C0 = np.arange(nspecies) + idx_min_mono - nspecies/2
+    # Check shape Basis
+    if len(Basis.shape) == 2:
+        # add axis for pos
+        Basis = Basis[:, np.newaxis]
+        profiles = profiles[np.newaxis, :]
 
+    sum_matrices = get_sum_matrices(profiles, Basis)
+    C0 = np.arange(nspecies) * 3 + idx_min_mono - 3 * nspecies / 2
+
+    constr = []
+    Nb = np.shape(Basis)[0]
+    # Need C[i]>0
+    for i in range(nspecies):
+        # > 0
+        def cfun(C, i=i):
+            return C[i]
+
+        def cjac(C, i=i):
+            ret = np.zeros_like(C)
+            ret[i] = 1
+            return ret
+
+        constr.append({
+            "type": "ineq",
+            "fun": cfun,
+            "jac": cjac
+        })
+
+        # < Nb - 1
+        def cfun(C, i=i):
+            return Nb - C[i] - 1
+
+        def cjac(C, i=i):
+            ret = np.zeros_like(C)
+            ret[i] = -1
+            return ret
+
+        constr.append({
+            "type": "ineq",
+            "fun": cfun,
+            "jac": cjac
+        })
+
+    # # Make sure the spicies are far from each other
+    # for i in range(1, nspecies):
+    #     # > 0
+    #     def cfun(C, i=i):
+    #         return C[i] - C[i - 1] - 1
+
+    #     def cjac(C, i=i):
+    #         ret = np.zeros_like(C)
+    #         ret[i - 1] = -1
+    #         ret[i] = 1
+    #         return ret
+
+    #     constr.append({
+    #         "type": "ineq",
+    #         "fun": cfun,
+    #         "jac": cjac
+    #     })
+
+    # def accept_test(f_new, x_new, f_old, x_old):
+    #     _, coeff_a, _ = residual_N_floating(
+    #         x_new, sum_matrices, vary_offset)
+    #     return np.all(coeff_a > 0)
+
+    if True:
+        min_res = basinhopping(
+            res_interp_N, C0, disp=False,
+            minimizer_kwargs={'args': (sum_matrices, vary_offset),
+                              'jac': jac_interp_N,
+                              'constraints': constr,
+                              })
     min_res = minimize(res_interp_N, C0, args=(sum_matrices, vary_offset),
-                    jac=jac_interp_N,
-                   )
+                        jac=jac_interp_N,
+                        constraints=constr,
+                        )
+    print(min_res)
     return finalise(profiles, Basis, phi, min_res.x, sum_matrices, vary_offset)
 
 
