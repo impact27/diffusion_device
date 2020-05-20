@@ -5,8 +5,7 @@ Created on Tue Apr 17 22:39:28 2018
 @author: quentinpeter
 """
 import numpy as np
-from scipy.optimize import basinhopping, minimize, OptimizeResult
-from itertools import combinations
+from scipy.optimize import basinhopping, OptimizeResult
 import warnings
 
 
@@ -47,7 +46,7 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
     phi: (M) 1d array of float
         The test parameters
     nspecies: int
-        Number of species to fit. 0=all.
+        Number of species to fit.
     prof_noise: float or 1d array
         The noise on the profiles
 
@@ -58,6 +57,9 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
         the fit results
 
     """
+    if phi is None:
+        raise RuntimeError('Phi is None')
+
     if np.shape(np.unique(phi)) != np.shape(phi):
         raise RuntimeError('duplicated phi')
 
@@ -68,20 +70,177 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
         profiles = np.square(profiles)
         Basis = np.square(Basis)
 
-    if nspecies == 1 and phi is not None:
+    if nspecies == 1:
         return fit_monodisperse(profiles, Basis, phi, vary_offset)
 
-    if nspecies > 0:
-        return fit_N_better(profiles, Basis, nspecies, phi, vary_offset)
-        return fit_2(profiles, Basis, phi, vary_offset)
-
-    if nspecies > 0:
-        return fit_N(profiles, Basis, nspecies, phi)
-
-    if nspecies == 0:
-        return fit_polydisperse(profiles, Basis, phi)
+    if nspecies > 1:
+        return fit_polydisperse(profiles, Basis, nspecies, phi, vary_offset)
 
     raise RuntimeError('Number of species negative!')
+
+
+def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
+    """Find the best monodisperse radius
+
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    phi:
+        MUST BE SORTED
+    Rs: 1d float
+        The test radii [m]
+
+    Returns
+    -------
+    radii: float
+        The best radius fit
+    """
+    if np.any(np.isnan(profiles)):
+        raise RuntimeError(f'Profiles can not be nan')
+
+    # Normalize the basis to fit profiles
+    Basis = normalise_basis(Basis, profiles, vary_offset)
+
+    # Get matrices to avoid recalculating
+    M_diag, M_udiag, b, psquare = get_matrices(
+        profiles, Basis, fullM=False)
+
+    # get best residual
+    res = psquare + M_diag - 2 * b
+    arg_cent = np.argmin(res)
+    if arg_cent == 0:
+        raise RuntimeError(f'Phi too large')
+    if arg_cent == len(b) - 1:
+        raise RuntimeError(f'Phi too small')
+
+    # Get Interpolated best result
+    arg_side = arg_cent + 1
+    coeff_basis, Bl_minus_Br_square = interpolate_1pos(
+        arg_cent, arg_side, M_diag, M_udiag, b)
+    arg_phi = arg_cent + coeff_basis
+
+    if coeff_basis < 0:
+        arg_side = arg_cent - 1
+        coeff_basis, Bl_minus_Br_square = interpolate_1pos(
+            arg_cent, arg_side, M_diag, M_udiag, b)
+        arg_phi = arg_cent - coeff_basis
+
+    if np.abs(coeff_basis) > 3:
+        warnings.warn("Interpolation failed: not smooth enough.")
+        coeff_basis = 0
+        arg_phi = arg_cent
+
+    best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
+                      + coeff_basis * np.log(phi[arg_side]))
+
+    # Save spectrum for consistent return
+    spectrum = np.zeros(len(b))
+    spectrum[arg_cent] = 1 - coeff_basis
+    spectrum[arg_side] = coeff_basis
+
+    # Get error
+    # sqrt(dR**2/np.sum((b1-b2)**2)*sigma
+    phi_error = (np.sqrt(np.square(phi[arg_cent] - phi[arg_side])
+                         / Bl_minus_Br_square))
+    # Get residual
+    # B = (1-c) B_0 + c B_1
+    Mij = M_udiag[np.min([arg_cent, arg_side])]
+    BB = ((1 - coeff_basis)**2 * M_diag[arg_cent]
+          + 2 * coeff_basis * (1 - coeff_basis) * Mij
+          + coeff_basis**2 * M_diag[arg_side])
+    By = (1 - coeff_basis) * b[arg_cent] + coeff_basis * b[arg_side]
+    residual = BB - 2 * By + psquare
+
+    # Get range (use delta xi^2)
+    minres = np.min(res[res > 0])
+    threshold = minres + 2 * np.sqrt(minres)
+    possible = res <= threshold
+
+    argmin = np.argwhere(possible)[0][0]
+    argmax = np.argwhere(possible)[-1][0]
+
+    if argmin > 0:
+        roots = np.roots(np.polyfit(phi[argmin - 1:argmin + 2],
+                                    res[argmin - 1:argmin + 2] - threshold,
+                                    2))
+        phi_min = np.min(roots)
+    else:
+        phi_min = phi[argmin]
+
+    if argmax < len(res) - 1:
+        roots = np.roots(np.polyfit(phi[argmax - 1:argmax + 2],
+                                    res[argmax - 1:argmax + 2] - threshold,
+                                    2))
+        phi_max = np.max(roots)
+
+    else:
+        phi_max = phi[argmax]
+
+    phiRange = [phi_min, phi_max]
+
+    fit = FitResult(x=best_phi, dx=phi_error, x_distribution=1,
+                    x_range=phiRange,
+                    interp_coeff=coeff_basis, basis_spectrum=spectrum,
+                    residual=residual, arg_x=arg_phi, success=True)
+
+    phi_background_error = error_on_fit_monodisperse(
+        profiles, Basis, phi, spectrum, (arg_cent, arg_side))
+    fit.phi_background_error = phi_background_error
+
+    return fit
+
+
+def fit_polydisperse(profiles, Basis, nspecies, phi, vary_offset):
+    """Find the best N-disperse radius
+
+    Parameters
+    ----------
+    M: 2d array
+        The basis matrix. Mij = sum(basisi*basisj)
+    b: 1d array
+        bi = sum(profile*basisi)
+    psquare: float
+        psquare = sum(profiles*profile)
+    nspecies: int
+        Number of species to fit.
+
+    Returns
+    -------
+    spectrum: 1d array
+        The best radius fit spectrum
+    """
+    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
+    idx_min_mono = mono_fit.arg_x
+
+    # Check shape Basis
+    if len(Basis.shape) == 2:
+        # add axis for pos
+        Basis = Basis[:, np.newaxis]
+        profiles = profiles[np.newaxis, :]
+
+    sum_matrices = get_sum_matrices(profiles, Basis)
+    C0 = np.arange(nspecies) * 3 + idx_min_mono - 3 * nspecies / 2
+
+    Nbasis = np.shape(Basis)[0]
+    constr = get_constraints(Nbasis, nspecies)
+
+    min_res = basinhopping(
+        residual_interpolated_polydisperse, C0, disp=False,
+        minimizer_kwargs={'args': (sum_matrices, vary_offset),
+                          'jac': jacobian_interpolated_polydisperse,
+                          'constraints': constr,
+                          })
+    # min_res = minimize(residual_interpolated_polydisperse, C0,
+    #                    args=(sum_matrices, vary_offset),
+    #                    jac=jacobian_interpolated_polydisperse,
+    #                    constraints=constr,
+    #                    )
+    return finalise(profiles, Basis, phi, min_res.x, sum_matrices, vary_offset)
 
 
 def normalise_basis_factor(Basis, profiles, vary_offset=False):
@@ -228,122 +387,6 @@ def error_on_fit(profiles, basis, phi, spectrum, arg_fits):
             profiles, basis, phi, spectrum, arg_fit) for arg_fit in arg_fits]
 
 
-def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
-    """Find the best monodisperse radius
-
-    Parameters
-    ----------
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-    phi:
-        MUST BE SORTED
-    Rs: 1d float
-        The test radii [m]
-
-    Returns
-    -------
-    radii: float
-        The best radius fit
-    """
-    if np.any(np.isnan(profiles)):
-        raise RuntimeError(f'Profiles can not be nan')
-
-    # Normalize the basis to fit profiles
-    Basis = normalise_basis(Basis, profiles, vary_offset)
-
-    # Get matrices to avoid recalculating
-    M_diag, M_udiag, b, psquare = get_matrices(
-        profiles, Basis, fullM=False)
-
-    # get best residual
-    res = psquare + M_diag - 2 * b
-    arg_cent = np.argmin(res)
-    if arg_cent == 0:
-        raise RuntimeError(f'Phi too large')
-    if arg_cent == len(b) - 1:
-        raise RuntimeError(f'Phi too small')
-
-    # Get Interpolated best result
-    arg_side = arg_cent + 1
-    coeff_basis, Bl_minus_Br_square = interpolate_1pos(
-        arg_cent, arg_side, M_diag, M_udiag, b)
-    arg_phi = arg_cent + coeff_basis
-
-    if coeff_basis < 0:
-        arg_side = arg_cent - 1
-        coeff_basis, Bl_minus_Br_square = interpolate_1pos(
-            arg_cent, arg_side, M_diag, M_udiag, b)
-        arg_phi = arg_cent - coeff_basis
-
-    if np.abs(coeff_basis) > 3:
-        warnings.warn("Interpolation failed: not smooth enough.")
-        coeff_basis = 0
-        arg_phi = arg_cent
-
-    best_phi = np.exp((1 - coeff_basis) * np.log(phi[arg_cent])
-                      + coeff_basis * np.log(phi[arg_side]))
-
-    # Save spectrum for consistent return
-    spectrum = np.zeros(len(b))
-    spectrum[arg_cent] = 1 - coeff_basis
-    spectrum[arg_side] = coeff_basis
-
-    # Get error
-    # sqrt(dR**2/np.sum((b1-b2)**2)*sigma
-    phi_error = (np.sqrt(np.square(phi[arg_cent] - phi[arg_side])
-                         / Bl_minus_Br_square))
-    # Get residual
-    # B = (1-c) B_0 + c B_1
-    Mij = M_udiag[np.min([arg_cent, arg_side])]
-    BB = ((1 - coeff_basis)**2 * M_diag[arg_cent]
-          + 2 * coeff_basis * (1 - coeff_basis) * Mij
-          + coeff_basis**2 * M_diag[arg_side])
-    By = (1 - coeff_basis) * b[arg_cent] + coeff_basis * b[arg_side]
-    residual = BB - 2 * By + psquare
-
-    # Get range (use delta xi^2)
-    minres = np.min(res[res > 0])
-    threshold = minres + 2 * np.sqrt(minres)
-    possible = res <= threshold
-
-    argmin = np.argwhere(possible)[0][0]
-    argmax = np.argwhere(possible)[-1][0]
-
-    if argmin > 0:
-        roots = np.roots(np.polyfit(phi[argmin - 1:argmin + 2],
-                                    res[argmin - 1:argmin + 2] - threshold,
-                                    2))
-        phi_min = np.min(roots)
-    else:
-        phi_min = phi[argmin]
-
-    if argmax < len(res) - 1:
-        roots = np.roots(np.polyfit(phi[argmax - 1:argmax + 2],
-                                    res[argmax - 1:argmax + 2] - threshold,
-                                    2))
-        phi_max = np.max(roots)
-
-    else:
-        phi_max = phi[argmax]
-
-    phiRange = [phi_min, phi_max]
-
-    fit = FitResult(x=best_phi, dx=phi_error, x_distribution=1,
-                    x_range=phiRange,
-                    interp_coeff=coeff_basis, basis_spectrum=spectrum,
-                    residual=residual, arg_x=arg_phi, success=True)
-
-    phi_background_error = error_on_fit_monodisperse(
-        profiles, Basis, phi, spectrum, (arg_cent, arg_side))
-    fit.phi_background_error = phi_background_error
-
-    return fit
-
-
 def get_idx(C_interp, idx):
     """Separate index into two"""
     idx = np.tile(idx, (2, 1)).T
@@ -465,7 +508,7 @@ def residual_N_floating(index, sum_matrices, vary_offset=False):
     return residual, coeff_a, coeff_b
 
 
-def jac_interp_N(index, sum_matrices, vary_offset=False):
+def jacobian_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
     """Jacobian function of res_interp_2"""
     # if np.min(index) < 0 or np.max(index) > len(Bp) - 1:
     #     return index * np.nan
@@ -485,7 +528,7 @@ def jac_interp_N(index, sum_matrices, vary_offset=False):
     return dres
 
 
-def res_interp_N(index, sum_matrices, vary_offset=False):
+def residual_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
     """Compute the residual for two spicies"""
     if np.any(index < 0) or np.any(index > len(sum_matrices['B']) - 1):
         return np.nan
@@ -497,38 +540,6 @@ def res_interp_N(index, sum_matrices, vary_offset=False):
         return residual
     except Exception:
         return np.nan
-
-
-def get_zoom_indices(residual, indices, idx_min_mono, N, threshold):
-    """Get the zoom indices"""
-    zoom_mask = residual <= threshold
-
-    zoom_x = (idx_min_mono - indices[..., 0])[zoom_mask]
-    zoom_y = (indices[..., 1] - idx_min_mono)[zoom_mask]
-
-    zoom_product = np.sqrt(zoom_x**2 * zoom_y**2)
-    zoom_ratio = np.sqrt(zoom_x**2 / zoom_y**2)
-
-    zoom_product = np.exp(np.linspace(
-        np.log(np.min(zoom_product)),
-        np.log(np.max(zoom_product)),
-        101))[np.newaxis, :]
-    zoom_ratio = np.tan(np.linspace(
-        np.arctan(np.min(zoom_ratio)),
-        np.arctan(np.max(zoom_ratio)),
-        101))[:, np.newaxis]
-
-    zoom_x = np.sqrt(zoom_product * zoom_ratio)
-    zoom_y = np.sqrt(zoom_product / zoom_ratio)
-
-    zoom_indices = np.asarray([idx_min_mono - zoom_x, zoom_y + idx_min_mono])
-    zoom_indices = np.moveaxis(zoom_indices, 0, -1)
-
-    zoom_valid = np.logical_and(zoom_indices > 0, zoom_indices < N - 1)
-    zoom_valid = np.logical_and(zoom_valid[..., 0], zoom_valid[..., 1])
-    zoom_indices = zoom_indices[zoom_valid]
-
-    return zoom_indices, zoom_valid
 
 
 def get_sum_matrices(profiles, Basis):
@@ -545,120 +556,8 @@ def get_sum_matrices(profiles, Basis):
     return matrices
 
 
-def fit_2(profiles, Basis, phi, vary_offset=False):
-    """Find the best monodisperse radius
-
-    Parameters
-    ----------
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-    phi:
-        MUST BE SORTED
-    Rs: 1d float
-        The test radii [m]
-
-    Returns
-    -------
-    radii: float
-        The best radius fit
-    """
-    # Fit monodisperse to get mid point
-    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
-    idx_min_mono = mono_fit.arg_x
-
-    # Check shape Basis
-    if len(Basis.shape) == 2:
-        # add axis for pos
-        Basis = Basis[:, np.newaxis]
-        profiles = profiles[np.newaxis, :]
-    # basis has phi. pos, pixel
-
-    # Compute the matrices needed for res_interp_N
-    sum_matrices = get_sum_matrices(profiles, Basis)
-    Nb = np.shape(Basis)[0]
-
-
-    # Get the distance from min_mono to the wall
-    N = np.min([idx_min_mono, Nb - idx_min_mono])
-
-    # Get indices for a diagonal
-    indices = np.array(
-        [np.arange(1, N), - np.arange(1, N)]) + idx_min_mono
-    indices = np.moveaxis(indices, 0, -1)
-    # Get valid indices
-    valid = np.all(indices < np.shape(Basis)[0] - 1, axis=1)
-    valid = np.logical_and(valid, np.all(indices > 0, axis=1))
-    indices = indices[valid]
-    # Compute diagonal
-    res_diag = res_interp_N(indices, sum_matrices, vary_offset)
-
-    # If best position is mopnodisperse, stop fit
-    if np.nanmin(res_diag) > mono_fit.residual:
-        warnings.warn("Monodisperse")
-        fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
-        fit.dx = np.tile(fit.dx, 2)
-        fit.x = np.tile(fit.x, 2)
-        fit.interp_coeff = np.tile(fit.interp_coeff, 2)
-        fit.x_distribution = np.array([1, 0])
-        fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
-        return fit
-
-    # Get curve to look at (Cte XY)
-    argmin_diag = np.nanargmin(res_diag) + 1
-    XY = np.square(argmin_diag)
-    factor = np.square(argmin_diag + 1) / XY * 2
-
-    ratio = np.tan(
-        np.linspace(0, np.pi / 2, 101)
-    )[1:-1, np.newaxis]
-    product = np.exp(np.linspace(np.log(XY / factor),
-                                 np.log(XY * factor),
-                                 101))[np.newaxis, :]
-    x = np.sqrt(product * ratio)
-    y = np.sqrt(product / ratio)
-
-    indices = np.asarray([idx_min_mono - x, y + idx_min_mono])
-    indices = np.moveaxis(indices, 0, -1)
-
-    # only select valid values
-    valid = np.logical_and(indices > 0, indices < Nb - 1)
-    valid = np.logical_and(valid[..., 0], valid[..., 1])
-    zoom_indices = indices[valid]
-
-    # Get curve
-    zoom_residual = res_interp_N(zoom_indices, sum_matrices, vary_offset)
-
-    # Compute threshold
-    minres = np.nanmin(zoom_residual[zoom_residual > 0])
-    threshold = minres + 2 * np.sqrt(minres)
-
-    # indices_range = [np.min(zoom_indices[zoom_residual < threshold], axis=0),
-    #                  np.max(zoom_indices[zoom_residual < threshold], axis=0)]
-    # phi_range = np.interp(indices_range, np.arange(len(phi)), phi)
-
-    # Zoom twice
-    for i in range(2):
-        threshold = np.nanpercentile(zoom_residual, 0.1)
-        zoom_indices, zoom_valid = get_zoom_indices(
-            zoom_residual, zoom_indices, idx_min_mono, Nb, threshold)
-        zoom_residual = residual_N_floating(
-            zoom_indices, sum_matrices, vary_offset)[0]
-
-    # Get best
-    idx = np.unravel_index(np.argmin(zoom_residual), np.shape(zoom_residual))
-    index = zoom_indices[idx]
-
-    if np.min(index) == 0 or np.max(index) == Nb - 1:
-        raise RuntimeError("Fit out of range")
-
-    index = np.squeeze(index)
-    return finalise(profiles, Basis, phi, index, sum_matrices, vary_offset)
-
 def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
+    """Finalise fit and return results"""
     index = np.sort(index)
     # Finalise
     res_fit, coeff_a, _ = residual_N_floating(index, sum_matrices, vary_offset)
@@ -699,7 +598,7 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
 
     # phi_res = (1 - c) * phi[idx_min[:, 0]] + c * phi[idx_min[:, 1]]
     spectrum_values = (np.array([1 - C_interp, C_interp]).T
-                         * coeff_a[:, np.newaxis])
+                       * coeff_a[:, np.newaxis])
     for idx, value in zip(idx_min, spectrum_values):
         spectrum[idx] += value
 
@@ -716,39 +615,23 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
 
     return fit
 
-def fit_N_better(profiles, Basis, nspecies, phi, vary_offset):
-    """Find the best N-disperse radius
+
+def get_constraints(Nbasis, nspecies):
+    """Get constraints such as C > 0 and C < 1
 
     Parameters
     ----------
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
+    Nbasis: int
+        number of coefficients
     nspecies: int
-        Number of species to fit.
+        the number of spicies
 
     Returns
     -------
-    spectrum: 1d array
-        The best radius fit spectrum
+    constr_dict: dict
+        dictionnary containing constraints
     """
-    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
-    idx_min_mono = mono_fit.arg_x
-
-    # Check shape Basis
-    if len(Basis.shape) == 2:
-        # add axis for pos
-        Basis = Basis[:, np.newaxis]
-        profiles = profiles[np.newaxis, :]
-
-    sum_matrices = get_sum_matrices(profiles, Basis)
-    C0 = np.arange(nspecies) * 3 + idx_min_mono - 3 * nspecies / 2
-
     constr = []
-    Nb = np.shape(Basis)[0]
     # Need C[i]>0
     for i in range(nspecies):
         # > 0
@@ -768,7 +651,7 @@ def fit_N_better(profiles, Basis, nspecies, phi, vary_offset):
 
         # < Nb - 1
         def cfun(C, i=i):
-            return Nb - C[i] - 1
+            return Nbasis - C[i] - 1
 
         def cjac(C, i=i):
             ret = np.zeros_like(C)
@@ -780,258 +663,4 @@ def fit_N_better(profiles, Basis, nspecies, phi, vary_offset):
             "fun": cfun,
             "jac": cjac
         })
-
-    # # Make sure the spicies are far from each other
-    # for i in range(1, nspecies):
-    #     # > 0
-    #     def cfun(C, i=i):
-    #         return C[i] - C[i - 1] - 1
-
-    #     def cjac(C, i=i):
-    #         ret = np.zeros_like(C)
-    #         ret[i - 1] = -1
-    #         ret[i] = 1
-    #         return ret
-
-    #     constr.append({
-    #         "type": "ineq",
-    #         "fun": cfun,
-    #         "jac": cjac
-    #     })
-
-    # def accept_test(f_new, x_new, f_old, x_old):
-    #     _, coeff_a, _ = residual_N_floating(
-    #         x_new, sum_matrices, vary_offset)
-    #     return np.all(coeff_a > 0)
-
-    if True:
-        min_res = basinhopping(
-            res_interp_N, C0, disp=False,
-            minimizer_kwargs={'args': (sum_matrices, vary_offset),
-                              'jac': jac_interp_N,
-                              'constraints': constr,
-                              })
-    min_res = minimize(res_interp_N, C0, args=(sum_matrices, vary_offset),
-                        jac=jac_interp_N,
-                        constraints=constr,
-                        )
-    print(min_res)
-    return finalise(profiles, Basis, phi, min_res.x, sum_matrices, vary_offset)
-
-
-def res_polydisperse(C, M, b, psquare):
-    """Residus of the fitting
-
-    Parameters
-    ----------
-    C: 1d array
-        Coefficient for the basis function
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-
-    Returns
-    -------
-    Residus: float
-        sum((d-p)^2)
-    """
-    return psquare + C@M@C - 2 * C@b
-
-
-def jac_polydisperse(C, M, b, psquare):
-    """Jacobian of the Residus function
-
-    Parameters
-    ----------
-    C: 1d array
-        Coefficient for the basis function
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-
-    Returns
-    -------
-    jacobian: 1d array
-        The jacobian of res_polydisperse
-    """
-    return 2 * C@M - 2 * b
-
-
-def hess_polydisperse(C, M, b, psquare):
-    """Hessian matrix of the Residus function
-
-    Parameters
-    ----------
-    C: 1d array
-        Coefficient for the basis function
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-
-    Returns
-    -------
-    hess: 2d array
-        The hessian matrix
-    """
-    return 2 * M
-
-
-def get_constraints(Nb):
-    """Get constraints such as C>0
-
-    Parameters
-    ----------
-    Nb: int
-        number of coefficients
-
-    Returns
-    -------
-    constr_dict: dict
-        dictionnary containing constraints
-    """
-    constr = []
-
-    # Need C[i]>0
-    for i in range(Nb):
-        def cfun(C, i=i):
-            return C[i]
-
-        def cjac(C, i=i):
-            ret = np.zeros_like(C)
-            ret[i] = 1
-            return ret
-
-        constr.append({
-
-            "type": "ineq",
-            "fun": cfun,
-            "jac": cjac
-
-        })
     return constr
-
-
-def fit_N(profiles, Basis, nspecies, phi):
-    """Find the best N-disperse radius
-
-    Parameters
-    ----------
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-    nspecies: int
-        Number of species to fit.
-
-    Returns
-    -------
-    spectrum: 1d array
-        The best radius fit spectrum
-    """
-
-    M, b, psquare = get_matrices(profiles, Basis)
-
-    NRs = len(b)
-    indices = np.asarray([i for i in combinations(range(NRs), nspecies)])
-    res = np.empty(len(indices))
-    C = np.empty((len(indices), nspecies))
-    C0 = np.ones(nspecies) / nspecies
-    best = psquare
-    for i, idx in enumerate(indices):
-        bi = b[idx]
-        Mi = M[idx][:, idx]
-        min_res = minimize(res_polydisperse, C0, args=(Mi, bi, psquare),
-                           jac=jac_polydisperse, hess=hess_polydisperse,
-                           constraints=get_constraints(nspecies))
-        if min_res.fun < best:
-            best = min_res.fun
-#            print('New best: ', best)
-        res[i] = min_res.fun
-        C[i] = min_res.x
-
-    bestidx = np.argmin(res)
-    idx = indices[bestidx]
-    spectrum = np.zeros(NRs)
-    spectrum[idx] = C[bestidx]
-
-    radius_error = np.zeros(nspecies)
-
-    for rn, i in enumerate(idx):
-        j = i + 1
-        if j == NRs:
-            j = NRs - 2
-        error = (np.sqrt((phi[i] - phi[j])**2
-                         / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-        radius_error[rn] = error
-
-    fit = FitResult(x=phi[idx], dx=radius_error, x_distribution=C[bestidx],
-                    basis_spectrum=spectrum, residual=np.min(res))
-    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
-
-    phi_background_error = error_on_fit(
-        profiles, Basis, phi, spectrum, idx)
-    fit.phi_background_error = phi_background_error
-
-    return fit
-
-
-def fit_polydisperse(profiles, Basis, phi):
-    """Find the best N-disperse radius
-
-    Parameters
-    ----------
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
-
-    Returns
-    -------
-    spectrum: 1d array
-        The best fit spectrum
-    """
-
-    M, b, psquare = get_matrices(profiles, Basis)
-
-    Nb = len(b)
-    C0 = np.zeros(Nb)
-    C0[np.argmin(psquare + np.diag(M) - 2 * b)] = 1
-
-    def fun2(C, M, b, psquare):
-        return res_polydisperse(np.abs(C), M, b, psquare)
-
-    def jac2(C, M, b, psquare):
-        return jac_polydisperse(np.abs(C), M, b, psquare) * np.sign(C)
-
-    res = basinhopping(fun2, C0, 100, disp=True,
-                       minimizer_kwargs={'args': (M, b, psquare),
-                                         'jac': jac2,
-                                         })
-    spectrum = np.abs(res.x)
-
-    radius_error = np.zeros(Nb)
-
-    for i in range(1, Nb):
-        j = i - 1
-        error = (np.sqrt((phi[i] - phi[j])**2
-                         / (M[i, i] + M[j, j] - M[i, j] - M[j, i])))
-        radius_error[i] = error
-    radius_error[0] = radius_error[1]
-
-    fit = FitResult(x=phi, dx=radius_error, x_distribution=spectrum,
-                    basis_spectrum=spectrum, residual=res.fun)
-    fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
-    return fit

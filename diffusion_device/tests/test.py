@@ -67,18 +67,6 @@ class TestImage(TestCase):
         self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
         self.assertLess(Rs[np.argmax(spectrum)], 5e-9)
 
-    def test_UV_bg_poly_all(self):
-        settingsfn = os.path.join(
-            folder, 'test_data/settings_poly_all.json')
-        metadatafn = os.path.join(
-            folder, 'test_data/UVim300ulph_Metadata.json')
-        tempdir = "Test_tempdir"
-        infos = full_fit(settingsfn, metadatafn, tempdir)
-        shutil.rmtree(tempdir)
-        Rs, spectrum = infos['Radius']
-        self.assertGreater(Rs[np.argmax(spectrum)], 2.5e-9)
-        self.assertLess(Rs[np.argmax(spectrum)], 5e-9)
-
     def test_bright(self):
         settingsfn = os.path.join(
             folder, 'test_data/settings.json')
