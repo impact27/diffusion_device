@@ -62,6 +62,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
             save_p = None
             if save_prefix:
                 save_p = save_prefix + f'_{i}'
+            figure()
             plot_single(
                 radius[i], profiles, fits, lse, pixel_size,
                 signal_noise, radius_range[i], f"({i + 1}/{N})" + prefix,
@@ -83,7 +84,7 @@ def plot_single(radius, profiles, fits, lse, pixel_size,
     # =========================================================================
     # Plot
     # =========================================================================
-    figure()
+
     plt.title(title)
 
     X = np.arange(len(dp.get_fax(profiles))) * pixel_size * 1e6
@@ -169,7 +170,7 @@ def plot_and_save(infos, settings, outpath=None):
         plt.title('; '.join([f"r= {r:.2f} [{rng[0]:.2f}; {rng[1]:.2f}]nm"
                              for r, rng in zip(radius * 1e9,
                                                np.asarray(radius_range)*1e9)]))
-
+    figure()
     plot_single(radius, profiles, fits, lse, pixel_size,
                 infos["Profiles noise std"], radius_range,
                 plot_error=settings['KEY_STG_PLOT_ERROR'],
@@ -381,7 +382,7 @@ def plot_and_save_stack(infos, settings, outpath=None):
             pixs = pixel_size
             if len(np.shape(pixel_size)) > 0:
                 pixs = pixel_size[pos]
-
+            figure()
             plot_single(radius[pos], profiles[pos], fits[pos], LSE[pos],
                         pixs, profiles_noise_std[pos],
                         radius_range[pos], prefix=f'{pos}: ',
@@ -448,15 +449,18 @@ def prepare_output(outpath, settingsfn, metadatafn):
     return base_name
 
 
-def plot_wide_profiles(infos, metadata, settings, save_prefix=None):
+def plot_wide_profiles(infos, metadata, settings, save_prefix=None,
+                       new_figure=False):
     """Print the profiles to check if they are correctly placed."""
+    if new_figure:
+        plt.figure()
     channel_width = metadata["KEY_MD_WY"]
-    plt.figure()
     N = len(infos["Wide Profiles"])
     for idx, (X, prof) in enumerate(infos["Wide Profiles"]):
-        plt.plot(X * 1e6, prof, c=plt.cm.viridis(idx / (N - 1)))
+        label = 'Profiles' if idx == 0 else None
+        plt.plot(X * 1e6, prof, c=plt.cm.plasma(idx / (N - 1)), label=label)
     ylim = plt.ylim()
-    plt.plot(np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--')
+    plt.plot(np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--', label='Walls')
     plt.plot(-np.ones(2) * channel_width / 2 * 1e6, ylim, 'r--')
     plt.xlabel('Position [um]')
     plt.title("Walls")
@@ -478,5 +482,6 @@ def plot_wide_profiles_stack(infos, metadata, settings, save_prefix=None):
         if pos not in infos["Wide Profiles"]:
             continue
         inf = {"Wide Profiles": infos["Wide Profiles"][pos]}
+        figure()
         plot_wide_profiles(inf, metadata, settings, prefix)
         plt.title(f'{pos}: Walls')

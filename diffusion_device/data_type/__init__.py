@@ -124,4 +124,5 @@ class DataType():
     def plot_wide_profiles(self, infos):
         """Print the profiles."""
         display_data.plot_wide_profiles(infos, self.metadata,
-                                        self.settings, self.outpath)
+                                        self.settings, self.outpath,
+                                        new_figure=True)
