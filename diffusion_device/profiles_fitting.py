@@ -354,7 +354,8 @@ def error_on_fit_monodisperse(profiles, basis, phi, spectrum, arg_fit):
     idx_a, idx_b = np.sort(arg_fit)
     dbasis = ((basis[idx_b] - basis[idx_a])
               / (phi[idx_b] - phi[idx_a]))
-    fits = np.sum(basis * spectrum[:, np.newaxis, np.newaxis],
+    fits = np.sum(basis[spectrum > 0]
+                  * spectrum[spectrum > 0, np.newaxis, np.newaxis],
                   axis=0)
     background = (profiles - fits)
     error_phi = (background * dbasis
