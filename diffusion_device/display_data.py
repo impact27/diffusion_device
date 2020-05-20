@@ -204,6 +204,7 @@ def plot_and_save(infos, settings, outpath=None):
             np.savetxt(f, profiles)
             f.write('Fits:\n'.encode())
             np.savetxt(f, fits)
+    return infos
 
 
 def plot_and_save_stack(infos, settings, outpath=None):
@@ -387,6 +388,7 @@ def plot_and_save_stack(infos, settings, outpath=None):
                         plot_error=settings['KEY_STG_PLOT_ERROR'],
                         radius_error_x=infos.at[pos, "Radius error x"],
                         save_prefix = outpath + '_{}'.format(pos))
+    return infos
 
 
 def prepare_output(outpath, settingsfn, metadatafn):

@@ -58,7 +58,7 @@ class DataType():
             raise
 
         if self.outpath is not None:
-            self.plot_and_save(infos)
+            infos = self.plot_and_save(infos)
 
         return infos
 
@@ -119,7 +119,7 @@ class DataType():
 
     def plot_and_save(self, infos):
         """plot_and_save"""
-        display_data.plot_and_save(infos, self.settings, self.outpath)
+        return display_data.plot_and_save(infos, self.settings, self.outpath)
 
     def plot_wide_profiles(self, infos):
         """Print the profiles."""

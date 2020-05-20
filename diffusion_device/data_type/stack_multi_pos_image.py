@@ -256,7 +256,7 @@ class StackMultiPosImage(MultiPosImage):
 
     def plot_and_save(self, infos):
         """Plot the sizing data"""
-        display_data.plot_and_save_stack(
+        return display_data.plot_and_save_stack(
             infos, self.settings, self.outpath)
 
     def plot_wide_profiles(self, infos):
