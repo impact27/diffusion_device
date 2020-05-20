@@ -405,6 +405,8 @@ def interpolate_sum_matrices(index, sum_matrices, derivative=False):
         BB: Npart, Npart, (index.shape[:-1]), Npos
         Bp and B: Npart, (index.shape[:-1]), Npos
     """
+    if np.any(np.isnan(index)):
+        raise RuntimeError("Can't have nan index")
     # Put the particle axis first as it is not present in all matrix
     index = np.rollaxis(index, -1)
     # Get the interpolation part
