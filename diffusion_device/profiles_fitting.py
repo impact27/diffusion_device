@@ -227,7 +227,7 @@ def fit_polydisperse(profiles, basis, nspecies, phi, vary_offset,
         basis = basis[:, np.newaxis]
         profiles = profiles[np.newaxis, :]
 
-    sum_matrices = get_sum_matrices(profiles, basis)
+    sum_matrices = SystemMatrices(profiles, basis)
     C0 = np.arange(nspecies) * 3 + idx_min_mono - 3 * nspecies / 2
 
     Nbasis = np.shape(basis)[0]
@@ -266,12 +266,12 @@ def normalise_basis_factor(basis, profiles, vary_offset=False):
     """
     # return np.mean(profiles, -1)/np.mean(basis, -1), 0
 
-    mean_p = np.mean(profiles, -1)
-    mean_basis = np.mean(basis, -1)
     mean_pbasis = np.mean(basis * profiles, -1)
     mean_Bsquare = np.mean(basis * basis, -1)
 
     if vary_offset:
+        mean_p = np.mean(profiles, -1)
+        mean_basis = np.mean(basis, -1)
         covBp = mean_pbasis - mean_p * mean_basis
         varB = mean_Bsquare - mean_basis * mean_basis
         fact_a = covBp / varB
@@ -403,70 +403,6 @@ def get_idx(C_interp, idx):
     return C_interp, idx
 
 
-def interpolate_sum_matrices(index, sum_matrices, derivative=False):
-    """
-    Get interpolated matrices and vector
-
-    Returned shape is:
-        BB: Npart, Npart, (index.shape[:-1]), Npos
-        Bp and B: Npart, (index.shape[:-1]), Npos
-    """
-    if np.any(np.isnan(index)):
-        raise RuntimeError("Can't have nan index")
-    # Put the particle axis first as it is not present in all matrix
-    index = np.rollaxis(index, -1)
-    # Get the interpolation part
-    # Add an axis for the position at the end
-    interp_coeff = (index - np.floor(index))[..., np.newaxis]
-    # i and j are symmetrical
-    C_i = interp_coeff[:, np.newaxis]
-    C_j = interp_coeff[np.newaxis]
-
-    # Get floor and ceiling index to apply to the sum matrices
-    index_floor = np.array(np.floor(index), int)
-    index_ceil = np.array(np.ceil(index), int)
-    i_idx_f = index_floor[:, np.newaxis]
-    j_idx_f = index_floor[np.newaxis]
-    i_idx_c = index_ceil[:, np.newaxis]
-    j_idx_c = index_ceil[np.newaxis]
-
-    BB, Bp, B = [sum_matrices[key] for key in ['BB', 'Bp', 'B']]
-
-    if not derivative:
-        # Simply interpolate BB matrix between neigboring index
-        interp_BB = ((BB[i_idx_f, j_idx_f] * (1 - C_j) +
-                      BB[i_idx_f, j_idx_c] * C_j) * (1 - C_i) +
-                     (BB[i_idx_c, j_idx_f] * (1 - C_j) +
-                      BB[i_idx_c, j_idx_c] * C_j) * C_i)
-
-        interp_Bp = ((1 - interp_coeff) * Bp[index_floor]
-                     + interp_coeff * Bp[index_ceil])
-
-        interp_B = ((1 - interp_coeff) * B[index_floor]
-                    + interp_coeff * B[index_ceil])
-
-        return interp_BB, interp_Bp, interp_B
-
-    # Derivative index is d. The index are packed in dij order
-    # Create delta functions with the correct shape
-    Ns = np.shape(index)[0]
-    delta_di = np.eye(Ns)[:, :, np.newaxis]
-    delta_dj = np.eye(Ns)[:, np.newaxis]
-    delta_di.shape = (*np.shape(delta_di), *np.ones(len(np.shape(index)), int))
-    delta_dj.shape = (*np.shape(delta_dj), *np.ones(len(np.shape(index)), int))
-
-    # axis are dij...k
-    dBB = (((BB[i_idx_c, j_idx_f] - BB[i_idx_f, j_idx_f]) * (1 - C_j) +
-            (BB[i_idx_c, j_idx_c] - BB[i_idx_f, j_idx_c]) * C_j) * delta_di +
-           ((BB[i_idx_f, j_idx_c] - BB[i_idx_f, j_idx_f]) * (1 - C_i) +
-            (BB[i_idx_c, j_idx_c] - BB[i_idx_c, j_idx_f]) * C_i) * delta_dj)
-
-    # axis are d...k
-    dBp = Bp[index_ceil] - Bp[index_floor]
-    dB = B[index_ceil] - B[index_floor]
-    return dBB, dBp, dB
-
-
 def myinverse(M):
     """Inverse or set to nan if det(M) = 0"""
     Mm1 = np.ones_like(M) * np.nan
@@ -477,73 +413,15 @@ def myinverse(M):
     return Mm1
 
 
-def residual_N_floating(index, sum_matrices, vary_offset=False):
-    """
-    Compute the residual and ratio for two spicies.
-
-    Fit = sum(ai * Bi + bi)
-    """
-    index_shape = np.shape(index)[:-1]
-    BB_ijk, Bp_ik, B_ik = interpolate_sum_matrices(index, sum_matrices)
-    pp, p, Npix = [sum_matrices[key] for key in ['pp', 'p', '1']]
-    BB_ij = np.sum(BB_ijk, axis=-1)
-    Bp_i = np.sum(Bp_ik, axis=-1)
-
-    if not vary_offset:
-        BB_ij_m1 = myinverse(BB_ij)
-        coeff_a = np.einsum('ij..., j... -> i...', BB_ij_m1, Bp_i)
-        coeff_b = np.zeros((*index_shape, len(p)))
-    else:
-        cov_BB_ij = np.sum(BB_ijk - 1 / Npix * B_ik[:, np.newaxis] * B_ik,
-                           axis=-1)
-        cov_Bp_i = np.sum(Bp_ik - 1 / Npix * (B_ik * p), axis=-1)
-
-        cov_BB_ij_m1 = myinverse(cov_BB_ij)
-        coeff_a = np.einsum('ij..., j... -> i...', cov_BB_ij_m1, cov_Bp_i)
-        coeff_b = 1 / Npix * (
-            p - np.einsum('i...k, i... -> ...k', B_ik, coeff_a))
-    # Can not have negative values
-    coeff_a[coeff_a < 0] = 0
-
-    residual = (np.einsum('i..., ij..., j... -> ...', coeff_a, BB_ij, coeff_a)
-                - 2 * np.einsum('i..., i... -> ...', coeff_a, Bp_i)
-                + np.sum(pp))
-    if vary_offset:
-        residual += (
-            Npix * np.sum(coeff_b**2, axis=-1)
-            + 2 * np.einsum('i..., ...k, i...k -> ...', coeff_a, coeff_b, B_ik)
-            - 2 * np.sum(coeff_b * p, axis=-1))
-
-    return residual, coeff_a, coeff_b
-
-
 def jacobian_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
     """Jacobian function of res_interp_2"""
-    # if np.min(index) < 0 or np.max(index) > len(Bp) - 1:
-    #     return index * np.nan
-    if np.any(index < 0) or np.any(index > len(sum_matrices['B']) - 1):
-        return index * np.nan
-    __, coeff_a, coeff_b = residual_N_floating(
-        index, sum_matrices, vary_offset)
-
-    dBB_dijk, dBp_dk, dB_dk = interpolate_sum_matrices(
-        index, sum_matrices, derivative=True)
-
-    dres = (
-        np.einsum('i..., j..., dij...k -> d...', coeff_a, coeff_a, dBB_dijk)
-        - 2 * np.einsum('d..., d...k -> d...', coeff_a, dBp_dk)
-        + 2 * np.einsum('d..., ...k, d...k -> d...', coeff_a, coeff_b, dB_dk))
-
-    return dres
+    return sum_matrices.jacobian(index, vary_offset)
 
 
 def residual_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
     """Compute the residual for two spicies"""
-    if np.any(index < 0) or np.any(index > len(sum_matrices['B']) - 1):
-        return np.nan
     try:
-        residual, coeff_a, _ = residual_N_floating(
-            index, sum_matrices, vary_offset)
+        residual, coeff_a, _ = sum_matrices.residual_coeffs(index, vary_offset)
         if np.any(coeff_a < 0):
             return np.nan
         return residual
@@ -551,33 +429,162 @@ def residual_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
         return np.nan
 
 
-def get_sum_matrices(profiles, basis):
-    """
-    Return all the summations over the pixels.
-    """
-    matrices = get_sum_basis_matrices(basis)
-    matrices['Bp'] = np.einsum('ijk, jk -> ij', basis, profiles)
-    matrices['pp'] = np.einsum('ik, ik -> i', profiles, profiles)
-    matrices['p'] = np.einsum('ik -> i', profiles)
-    return matrices
+class SystemMatrices():
+    """Representation of the system by matrices"""
 
+    def __init__(self, profiles, basis):
+        """
+        Sum over the pixels.
+        """
+        matrices = {}
+        matrices['BB'] = np.einsum('ijk, ljk -> ilj', basis, basis)
+        matrices['B'] = np.einsum('ijk -> ij', basis)
+        matrices['1'] = np.shape(basis)[-1]
+        matrices['Bp'] = np.einsum('ijk, jk -> ij', basis, profiles)
+        matrices['pp'] = np.einsum('ik, ik -> i', profiles, profiles)
+        matrices['p'] = np.einsum('ik -> i', profiles)
+        self._matrices = matrices
 
-def get_sum_basis_matrices(basis):
-    """
-    Return all the summations over the pixels
-    """
-    matrices = {}
-    matrices['BB'] = np.einsum('ijk, ljk -> ilj', basis, basis)
-    matrices['B'] = np.einsum('ijk -> ij', basis)
-    matrices['1'] = np.shape(basis)[-1]
-    return matrices
+    def interpolate(self, index, derivative=False):
+        """
+        Get interpolated matrices and vector
+
+        Returned shape is:
+            BB: Npart, Npart, (index.shape[:-1]), Npos
+            Bp and B: Npart, (index.shape[:-1]), Npos
+        """
+        if np.any(np.isnan(index)):
+            raise RuntimeError("Can't have nan index")
+        # Put the particle axis first as it is not present in all matrix
+        index = np.rollaxis(index, -1)
+        # Get the interpolation part
+        # Add an axis for the position at the end
+        interp_coeff = (index - np.floor(index))[..., np.newaxis]
+        # i and j are symmetrical
+        C_i = interp_coeff[:, np.newaxis]
+        C_j = interp_coeff[np.newaxis]
+
+        # Get floor and ceiling index to apply to the sum matrices
+        index_floor = np.array(np.floor(index), int)
+        index_ceil = np.array(np.ceil(index), int)
+        i_idx_f = index_floor[:, np.newaxis]
+        j_idx_f = index_floor[np.newaxis]
+        i_idx_c = index_ceil[:, np.newaxis]
+        j_idx_c = index_ceil[np.newaxis]
+
+        BB, Bp, B = [self._matrices[key] for key in ['BB', 'Bp', 'B']]
+
+        if not derivative:
+            # Simply interpolate BB matrix between neigboring index
+            interp_BB = ((BB[i_idx_f, j_idx_f] * (1 - C_j) +
+                          BB[i_idx_f, j_idx_c] * C_j) * (1 - C_i) +
+                         (BB[i_idx_c, j_idx_f] * (1 - C_j) +
+                          BB[i_idx_c, j_idx_c] * C_j) * C_i)
+
+            interp_Bp = ((1 - interp_coeff) * Bp[index_floor]
+                         + interp_coeff * Bp[index_ceil])
+
+            interp_B = ((1 - interp_coeff) * B[index_floor]
+                        + interp_coeff * B[index_ceil])
+
+            return interp_BB, interp_Bp, interp_B
+
+        # Derivative index is d. The index are packed in dij order
+        # Create delta functions with the correct shape
+        Ns = np.shape(index)[0]
+        delta_di = np.eye(Ns)[:, :, np.newaxis]
+        delta_dj = np.eye(Ns)[:, np.newaxis]
+        delta_di.shape = (*np.shape(delta_di),
+                          *np.ones(len(np.shape(index)), int))
+        delta_dj.shape = (*np.shape(delta_dj),
+                          *np.ones(len(np.shape(index)), int))
+
+        # axis are dij...k
+        dBB = (
+            ((BB[i_idx_c, j_idx_f] - BB[i_idx_f, j_idx_f]) * (1 - C_j) +
+             (BB[i_idx_c, j_idx_c] - BB[i_idx_f, j_idx_c]) * C_j) * delta_di +
+            ((BB[i_idx_f, j_idx_c] - BB[i_idx_f, j_idx_f]) * (1 - C_i) +
+             (BB[i_idx_c, j_idx_c] - BB[i_idx_c, j_idx_f]) * C_i) * delta_dj)
+
+        # axis are d...k
+        dBp = Bp[index_ceil] - Bp[index_floor]
+        dB = B[index_ceil] - B[index_floor]
+        return dBB, dBp, dB
+
+    def residual_coeffs(self, index, vary_offset=False, coeff_only=False):
+        """
+        Compute the residual and ratio for two spicies.
+
+        Fit = sum(ai * Bi + bi)
+        """
+        if np.any(index < 0) or np.any(index > len(self._matrices['B']) - 1):
+            return np.nan, np.nan, np.nan
+        index_shape = np.shape(index)[:-1]
+        BB_ijk, Bp_ik, B_ik = self.interpolate(index)
+        pp, p, Npix = [self._matrices[key] for key in ['pp', 'p', '1']]
+        BB_ij = np.sum(BB_ijk, axis=-1)
+        Bp_i = np.sum(Bp_ik, axis=-1)
+
+        if not vary_offset:
+            BB_ij_m1 = myinverse(BB_ij)
+            coeff_a = np.einsum('ij..., j... -> i...', BB_ij_m1, Bp_i)
+            coeff_b = np.zeros((*index_shape, len(p)))
+        else:
+            cov_BB_ij = np.sum(BB_ijk - 1 / Npix * B_ik[:, np.newaxis] * B_ik,
+                               axis=-1)
+            cov_Bp_i = np.sum(Bp_ik - 1 / Npix * (B_ik * p), axis=-1)
+
+            cov_BB_ij_m1 = myinverse(cov_BB_ij)
+            coeff_a = np.einsum('ij..., j... -> i...', cov_BB_ij_m1, cov_Bp_i)
+            coeff_b = 1 / Npix * (
+                p - np.einsum('i...k, i... -> ...k', B_ik, coeff_a))
+        # Can not have negative values
+        coeff_a[coeff_a < 0] = 0
+        if coeff_only:
+            return coeff_a, coeff_b
+
+        residual = (np.einsum('i..., ij..., j... -> ...',
+                              coeff_a, BB_ij, coeff_a)
+                    - 2 * np.einsum('i..., i... -> ...', coeff_a, Bp_i)
+                    + np.sum(pp))
+        if vary_offset:
+            residual += (
+                Npix * np.sum(coeff_b**2, axis=-1)
+                + 2 * np.einsum('i..., ...k, i...k -> ...',
+                                coeff_a, coeff_b, B_ik)
+                - 2 * np.sum(coeff_b * p, axis=-1))
+
+        return residual, coeff_a, coeff_b
+
+    def jacobian(self, index, vary_offset=False):
+        """Jacobian function of res_interp_2"""
+        if np.any(index < 0) or np.any(index > len(self._matrices['B']) - 1):
+            return index * np.nan
+        coeff_a, coeff_b = self.residual_coeffs(
+            index, vary_offset, coeff_only=True)
+
+        dBB_dijk, dBp_dk, dB_dk = self.interpolate(
+            index, derivative=True)
+
+        dres = (
+            np.einsum('i..., j..., dij...k -> d...',
+                      coeff_a, coeff_a, dBB_dijk)
+            - 2 * np.einsum('d..., d...k -> d...', coeff_a, dBp_dk)
+            + 2 * np.einsum('d..., ...k, d...k -> d...',
+                            coeff_a, coeff_b, dB_dk))
+
+        return dres
+
+    def __getitem__(self, key):
+        return self._matrices[key]
 
 
 def finalise(profiles, basis, phi, index, sum_matrices, vary_offset):
     """Finalise fit and return results"""
     index = np.sort(index)
     # Finalise
-    res_fit, coeff_a, _ = residual_N_floating(index, sum_matrices, vary_offset)
+    res_fit, coeff_a, _ = sum_matrices.residual_coeffs(
+        index, vary_offset)
 
     # Get left and right index for interpolation of result
     C_interp, idx_min = get_idx(index - np.floor(index),
