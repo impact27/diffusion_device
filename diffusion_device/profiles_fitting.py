@@ -33,9 +33,8 @@ class FitResult(OptimizeResult):
     """
 
 
-def fit_all(profiles, basis, phi, *, nspecies=1,
-            prof_noise, vary_offset=False, fit_square=False,
-            global_fitting=False):
+def fit_all(profiles, basis, phi, *,
+            nspecies=1, vary_offset=False, global_fitting=True):
     """Find the best radius for monodisperse/polydisperse solutions
 
     Parameters
@@ -57,19 +56,17 @@ def fit_all(profiles, basis, phi, *, nspecies=1,
     fit: FitResult object
         the fit results
 
+    Notes
+    -----
+    For better results, normalise the profiles and basis by the noise.
+
+
     """
     if phi is None:
         raise RuntimeError('Phi is None')
 
     if np.shape(np.unique(phi)) != np.shape(phi):
         raise RuntimeError('duplicated phi')
-
-    profiles = profiles / prof_noise
-    basis = basis / prof_noise
-
-    if fit_square:
-        profiles = np.square(profiles)
-        basis = np.square(basis)
 
     if nspecies == 1:
         return fit_monodisperse(profiles, basis, phi, vary_offset)

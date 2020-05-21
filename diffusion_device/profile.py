@@ -74,10 +74,21 @@ def size_profiles(infos, metadata, settings):
                         **profiles_arg_dir)
     fit_Basis = Basis[..., profile_slice]
 
+    fit_profiles = fit_profiles / fit_noise
+    fit_Basis = fit_Basis / fit_noise
+
+    if settings["KEY_STG_FIT_SQUARE"]:
+        fit_profiles = np.square(fit_profiles)
+        fit_Basis = np.square(fit_Basis)
+
     # Get best fit
-    fit = fit_all(fit_profiles, fit_Basis, test_radii, nspecies=nspecies,
-                  prof_noise=fit_noise, vary_offset=vary_offset,
-                  fit_square=settings["KEY_STG_FIT_SQUARE"])
+    fit = fit_all(
+        fit_profiles,
+        fit_Basis,
+        test_radii,
+        nspecies=nspecies,
+        vary_offset=vary_offset,
+    )
 
     infos["Radius error std"] = fit.dx
     infos["Radius range"] = fit.x_range
