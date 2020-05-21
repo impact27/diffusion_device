@@ -429,6 +429,21 @@ def residual_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
         return np.nan
 
 
+def cache_index(func):
+    """Cache previous call"""
+    def wrapper(self, index, *args, **kwargs):
+        if hasattr(wrapper, '_call_tuple'):
+            p_index, p_args, p_kwargs, p_ret = wrapper._call_tuple
+            if (np.all(index == p_index) and
+                    args == p_args and
+                    kwargs == p_kwargs):
+                return p_ret
+        ret = func(self, index, *args, **kwargs)
+        wrapper._call_tuple = index.copy(), args, kwargs, ret
+        return ret
+    return wrapper
+
+
 class SystemMatrices():
     """Representation of the system by matrices"""
 
@@ -445,6 +460,7 @@ class SystemMatrices():
         matrices['p'] = np.einsum('ik -> i', profiles)
         self._matrices = matrices
 
+    @cache_index
     def interpolate(self, index, derivative=False):
         """
         Get interpolated matrices and vector
@@ -511,12 +527,9 @@ class SystemMatrices():
         dB = B[index_ceil] - B[index_floor]
         return dBB, dBp, dB
 
-    def residual_coeffs(self, index, vary_offset=False, coeff_only=False):
-        """
-        Compute the residual and ratio for two spicies.
-
-        Fit = sum(ai * Bi + bi)
-        """
+    @cache_index
+    def best_coeffs(self, index, vary_offset=False):
+        '''Get best coeffs'''
         if np.any(index < 0) or np.any(index > len(self._matrices['B']) - 1):
             return np.nan, np.nan, np.nan
         index_shape = np.shape(index)[:-1]
@@ -540,9 +553,20 @@ class SystemMatrices():
                 p - np.einsum('i...k, i... -> ...k', B_ik, coeff_a))
         # Can not have negative values
         coeff_a[coeff_a < 0] = 0
-        if coeff_only:
-            return coeff_a, coeff_b
+        return coeff_a, coeff_b
 
+    @cache_index
+    def residual_coeffs(self, index, vary_offset=False, coeff_only=False):
+        """
+        Compute the residual and ratio for two spicies.
+
+        Fit = sum(ai * Bi + bi)
+        """
+        BB_ijk, Bp_ik, B_ik = self.interpolate(index)
+        BB_ij = np.sum(BB_ijk, axis=-1)
+        Bp_i = np.sum(Bp_ik, axis=-1)
+        pp, p, Npix = [self._matrices[key] for key in ['pp', 'p', '1']]
+        coeff_a, coeff_b = self.best_coeffs(index, vary_offset)
         residual = (np.einsum('i..., ij..., j... -> ...',
                               coeff_a, BB_ij, coeff_a)
                     - 2 * np.einsum('i..., i... -> ...', coeff_a, Bp_i)
@@ -556,12 +580,12 @@ class SystemMatrices():
 
         return residual, coeff_a, coeff_b
 
+    @cache_index
     def jacobian(self, index, vary_offset=False):
         """Jacobian function of res_interp_2"""
         if np.any(index < 0) or np.any(index > len(self._matrices['B']) - 1):
             return index * np.nan
-        coeff_a, coeff_b = self.residual_coeffs(
-            index, vary_offset, coeff_only=True)
+        coeff_a, coeff_b = self.best_coeffs(index, vary_offset)
 
         dBB_dijk, dBp_dk, dB_dk = self.interpolate(
             index, derivative=True)
