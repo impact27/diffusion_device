@@ -5,7 +5,7 @@ Created on Tue Apr 17 22:39:28 2018
 @author: quentinpeter
 """
 import numpy as np
-from scipy.optimize import basinhopping, OptimizeResult
+from scipy.optimize import basinhopping, minimize, OptimizeResult
 import warnings
 
 
@@ -33,15 +33,16 @@ class FitResult(OptimizeResult):
     """
 
 
-def fit_all(profiles, Basis, phi, *, nspecies=1,
-            prof_noise, vary_offset=False, fit_square=False):
+def fit_all(profiles, basis, phi, *, nspecies=1,
+            prof_noise, vary_offset=False, fit_square=False,
+            global_fitting=False):
     """Find the best radius for monodisperse/polydisperse solutions
 
     Parameters
     ----------
     profiles: (N x L) / (L) 1/2d array of float
         List of profiles to fit
-    Basis: (M x N x L) / (M x L) 2/3d array of float
+    basis: (M x N x L) / (M x L) 2/3d array of float
         List of basis to fit
     phi: (M) 1d array of float
         The test parameters
@@ -64,22 +65,23 @@ def fit_all(profiles, Basis, phi, *, nspecies=1,
         raise RuntimeError('duplicated phi')
 
     profiles = profiles / prof_noise
-    Basis = Basis / prof_noise
+    basis = basis / prof_noise
 
     if fit_square:
         profiles = np.square(profiles)
-        Basis = np.square(Basis)
+        basis = np.square(basis)
 
     if nspecies == 1:
-        return fit_monodisperse(profiles, Basis, phi, vary_offset)
+        return fit_monodisperse(profiles, basis, phi, vary_offset)
 
     if nspecies > 1:
-        return fit_polydisperse(profiles, Basis, nspecies, phi, vary_offset)
+        return fit_polydisperse(profiles, basis, nspecies, phi, vary_offset,
+                                global_fitting=global_fitting)
 
     raise RuntimeError('Number of species negative!')
 
 
-def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
+def fit_monodisperse(profiles, basis, phi, vary_offset=False):
     """Find the best monodisperse radius
 
     Parameters
@@ -104,11 +106,11 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
         raise RuntimeError(f'Profiles can not be nan')
 
     # Normalize the basis to fit profiles
-    Basis = normalise_basis(Basis, profiles, vary_offset)
+    basis = normalise_basis(basis, profiles, vary_offset)
 
     # Get matrices to avoid recalculating
     M_diag, M_udiag, b, psquare = get_matrices(
-        profiles, Basis, fullM=False)
+        profiles, basis, fullM=False)
 
     # get best residual
     res = psquare + M_diag - 2 * b
@@ -189,91 +191,98 @@ def fit_monodisperse(profiles, Basis, phi, vary_offset=False):
                     residual=residual, arg_x=arg_phi, success=True)
 
     phi_background_error = error_on_fit_monodisperse(
-        profiles, Basis, phi, spectrum, (arg_cent, arg_side))
+        profiles, basis, phi, spectrum, (arg_cent, arg_side))
     fit.phi_background_error = phi_background_error
 
     return fit
 
 
-def fit_polydisperse(profiles, Basis, nspecies, phi, vary_offset):
+def fit_polydisperse(profiles, basis, nspecies, phi, vary_offset,
+                     global_fitting=True):
     """Find the best N-disperse radius
 
     Parameters
     ----------
-    M: 2d array
-        The basis matrix. Mij = sum(basisi*basisj)
-    b: 1d array
-        bi = sum(profile*basisi)
-    psquare: float
-        psquare = sum(profiles*profile)
+    profiles: 2d array
+        The profiles matrix
+    basis: 3d array
+        The basis to fit the profiles to
     nspecies: int
         Number of species to fit.
+    phi: 1d array
+        The phi values corresponding to the basis
+    vary_offset: bool
+        should the offset be varied
+    global_fitting: bool
+        Should the fitting use Basinhopping
 
     Returns
     -------
     spectrum: 1d array
         The best radius fit spectrum
     """
-    mono_fit = fit_monodisperse(profiles, Basis, phi, vary_offset)
+    mono_fit = fit_monodisperse(profiles, basis, phi, vary_offset)
     idx_min_mono = mono_fit.arg_x
 
-    # Check shape Basis
-    if len(Basis.shape) == 2:
+    # Check shape basis
+    if len(basis.shape) == 2:
         # add axis for pos
-        Basis = Basis[:, np.newaxis]
+        basis = basis[:, np.newaxis]
         profiles = profiles[np.newaxis, :]
 
-    sum_matrices = get_sum_matrices(profiles, Basis)
+    sum_matrices = get_sum_matrices(profiles, basis)
     C0 = np.arange(nspecies) * 3 + idx_min_mono - 3 * nspecies / 2
 
-    Nbasis = np.shape(Basis)[0]
+    Nbasis = np.shape(basis)[0]
     constr = get_constraints(Nbasis, nspecies)
 
-    min_res = basinhopping(
-        residual_interpolated_polydisperse, C0, disp=False,
-        minimizer_kwargs={'args': (sum_matrices, vary_offset),
-                          'jac': jacobian_interpolated_polydisperse,
-                          'constraints': constr,
-                          })
-    # min_res = minimize(residual_interpolated_polydisperse, C0,
-    #                    args=(sum_matrices, vary_offset),
-    #                    jac=jacobian_interpolated_polydisperse,
-    #                    constraints=constr,
-    #                    )
-    return finalise(profiles, Basis, phi, min_res.x, sum_matrices, vary_offset)
+    if global_fitting:
+        min_res = basinhopping(
+            residual_interpolated_polydisperse, C0, disp=False,
+            minimizer_kwargs={'args': (sum_matrices, vary_offset),
+                              'jac': jacobian_interpolated_polydisperse,
+                              'constraints': constr,
+                              })
+    else:
+        min_res = minimize(residual_interpolated_polydisperse, C0,
+                           args=(sum_matrices, vary_offset),
+                           jac=jacobian_interpolated_polydisperse,
+                           constraints=constr,
+                           )
+    return finalise(profiles, basis, phi, min_res.x, sum_matrices, vary_offset)
 
 
-def normalise_basis_factor(Basis, profiles, vary_offset=False):
+def normalise_basis_factor(basis, profiles, vary_offset=False):
     """Normalise basis so they correspond to profiles
 
     Parameters
     ----------
-    Basis: (M x N x L) / (M x L) 2/3d array of float
+    basis: (M x N x L) / (M x L) 2/3d array of float
         List of basis to normalise
     profiles: (N x L) / (L) 1/2d array of float
         List of reference profiles
 
     Returns
     -------
-    Basis: (M x N x L) / (M x L) 2/3d array of float
+    basis: (M x N x L) / (M x L) 2/3d array of float
         the normalised basis factors
     """
-    # return np.mean(profiles, -1)/np.mean(Basis, -1), 0
+    # return np.mean(profiles, -1)/np.mean(basis, -1), 0
 
     mean_p = np.mean(profiles, -1)
-    mean_Basis = np.mean(Basis, -1)
-    mean_pBasis = np.mean(Basis * profiles, -1)
-    mean_Bsquare = np.mean(Basis * Basis, -1)
+    mean_basis = np.mean(basis, -1)
+    mean_pbasis = np.mean(basis * profiles, -1)
+    mean_Bsquare = np.mean(basis * basis, -1)
 
     if vary_offset:
-        covBp = mean_pBasis - mean_p * mean_Basis
-        varB = mean_Bsquare - mean_Basis * mean_Basis
+        covBp = mean_pbasis - mean_p * mean_basis
+        varB = mean_Bsquare - mean_basis * mean_basis
         fact_a = covBp / varB
         fact_a[varB < 1e-15] = 0
-        fact_b = mean_p - fact_a * mean_Basis
+        fact_b = mean_p - fact_a * mean_basis
         return fact_a, fact_b
     else:
-        return mean_pBasis / mean_Bsquare, 0
+        return mean_pbasis / mean_Bsquare, 0
 
 
 def normalise_basis(basis, profiles, vary_offset):
@@ -281,28 +290,28 @@ def normalise_basis(basis, profiles, vary_offset):
 
     Parameters
     ----------
-    Basis: (M x N x L) / (M x L) 2/3d array of float
+    basis: (M x N x L) / (M x L) 2/3d array of float
         List of basis to normalise
     profiles: (N x L) / (L) 1/2d array of float
         List of reference profiles
 
     Returns
     -------
-    Basis: (M x N x L) / (M x L) 2/3d array of float
+    basis: (M x N x L) / (M x L) 2/3d array of float
         the normalised basis
     """
     fact_a, fact_b = normalise_basis_factor(basis, profiles, vary_offset)
     return basis * fact_a[..., np.newaxis] + np.array(fact_b)[..., np.newaxis]
 
 
-def get_matrices(profiles, Basis, fullM=True):
+def get_matrices(profiles, basis, fullM=True):
     """Return matrix representation of sums
 
      Parameters
     ----------
     profiles: 2d array
         List of profiles to fit
-    Basis: 3d array
+    basis: 3d array
         List of basis to fit. The first dimention must correspond to Rs
     ignore: int, default 0
         Ignore on the sides [px]
@@ -317,8 +326,8 @@ def get_matrices(profiles, Basis, fullM=True):
     psquare: float
         psquare = sum(profiles*profile)
     """
-    Nb = len(Basis)
-    flatbasis = np.reshape(Basis, (Nb, -1))
+    Nb = len(basis)
+    flatbasis = np.reshape(basis, (Nb, -1))
     flatprofs = np.ravel(profiles)
 
     psquare = np.sum(flatprofs * flatprofs)
@@ -340,7 +349,7 @@ def interpolate_1pos(arg_cent, arg_side, M_diag, M_udiag, b):
                           - 2 * Mij)
     # If no diff
     if Bl_minus_Br_square == 0:
-        raise RuntimeError("No Gradient in Basis")
+        raise RuntimeError("No Gradient in basis")
     # np.sum((b1-b2)*(p0-b2))/np.sum((b1-b2)**2)
     coeff_basis = (
         (b[arg_side] - b[arg_cent]
@@ -545,21 +554,29 @@ def residual_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
         return np.nan
 
 
-def get_sum_matrices(profiles, Basis):
+def get_sum_matrices(profiles, basis):
+    """
+    Return all the summations over the pixels.
+    """
+    matrices = get_sum_basis_matrices(basis)
+    matrices['Bp'] = np.einsum('ijk, jk -> ij', basis, profiles)
+    matrices['pp'] = np.einsum('ik, ik -> i', profiles, profiles)
+    matrices['p'] = np.einsum('ik -> i', profiles)
+    return matrices
+
+
+def get_sum_basis_matrices(basis):
     """
     Return all the summations over the pixels
     """
     matrices = {}
-    matrices['BB'] = np.einsum('ijk, ljk -> ilj', Basis, Basis)
-    matrices['Bp'] = np.einsum('ijk, jk -> ij', Basis, profiles)
-    matrices['B'] = np.einsum('ijk -> ij', Basis)
-    matrices['pp'] = np.einsum('ik, ik -> i', profiles, profiles)
-    matrices['p'] = np.einsum('ik -> i', profiles)
-    matrices['1'] = np.shape(Basis)[-1]
+    matrices['BB'] = np.einsum('ijk, ljk -> ilj', basis, basis)
+    matrices['B'] = np.einsum('ijk -> ij', basis)
+    matrices['1'] = np.shape(basis)[-1]
     return matrices
 
 
-def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
+def finalise(profiles, basis, phi, index, sum_matrices, vary_offset):
     """Finalise fit and return results"""
     index = np.sort(index)
     # Finalise
@@ -572,7 +589,7 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
                      + C_interp * np.log(phi[idx_min[:, 1]]))
 
     # Sort phis
-    Nb = np.shape(Basis)[0]
+    Nb = np.shape(basis)[0]
     # Get errors
     phi_error = np.zeros(len(phi_res))
     spectrum = np.zeros(Nb)
@@ -591,7 +608,7 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
         Bl_minus_Br_square = (BB[i, i] + BB[j, j] - BB[i, j] - BB[j, i])
         Bl_minus_Br_square = np.sum(coeff_a[..., rn] * Bl_minus_Br_square)
         if Bl_minus_Br_square == 0:
-            # raise RuntimeError("No Gradient in Basis")
+            # raise RuntimeError("No Gradient in basis")
             error = np.nan
         else:
             # Compute error
@@ -613,7 +630,7 @@ def finalise(profiles, Basis, phi, index, sum_matrices, vary_offset):
     fit.x_range = [[x - dx, x + dx] for x, dx in zip(fit.x, fit.dx)]
 
     phi_background_error = error_on_fit(
-        profiles, Basis, phi, spectrum, idx_min)
+        profiles, basis, phi, spectrum, idx_min)
     fit.phi_background_error = phi_background_error
 
     return fit
