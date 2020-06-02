@@ -231,20 +231,19 @@ def fit_polydisperse(profiles, basis, nspecies, phi, vary_offset,
     C0 = np.arange(nspecies) * 3 + idx_min_mono - 3 * nspecies / 2
 
     Nbasis = np.shape(basis)[0]
-    constr = get_constraints(Nbasis, nspecies)
 
     if global_fitting:
         min_res = basinhopping(
             residual_interpolated_polydisperse, C0, disp=False,
             minimizer_kwargs={'args': (sum_matrices, vary_offset),
                               'jac': jacobian_interpolated_polydisperse,
-                              'constraints': constr,
+                              'bounds': nspecies * [(0, Nbasis-1)],
                               })
     else:
         min_res = minimize(residual_interpolated_polydisperse, C0,
                            args=(sum_matrices, vary_offset),
                            jac=jacobian_interpolated_polydisperse,
-                           constraints=constr,
+                           bounds=nspecies * [(0, Nbasis-1)],
                            )
     return finalise(profiles, basis, phi, min_res.x, sum_matrices, vary_offset)
 
@@ -662,53 +661,3 @@ def finalise(profiles, basis, phi, index, sum_matrices, vary_offset):
     fit.phi_background_error = phi_background_error
 
     return fit
-
-
-def get_constraints(Nbasis, nspecies):
-    """Get constraints such as C > 0 and C < 1
-
-    Parameters
-    ----------
-    Nbasis: int
-        number of coefficients
-    nspecies: int
-        the number of spicies
-
-    Returns
-    -------
-    constr_dict: dict
-        dictionnary containing constraints
-    """
-    constr = []
-    # Need C[i]>0
-    for i in range(nspecies):
-        # > 0
-        def cfun(C, i=i):
-            return C[i]
-
-        def cjac(C, i=i):
-            ret = np.zeros_like(C)
-            ret[i] = 1
-            return ret
-
-        constr.append({
-            "type": "ineq",
-            "fun": cfun,
-            "jac": cjac
-        })
-
-        # < Nb - 1
-        def cfun(C, i=i):
-            return Nbasis - C[i] - 1
-
-        def cjac(C, i=i):
-            ret = np.zeros_like(C)
-            ret[i] = -1
-            return ret
-
-        constr.append({
-            "type": "ineq",
-            "fun": cfun,
-            "jac": cjac
-        })
-    return constr
