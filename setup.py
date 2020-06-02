@@ -23,11 +23,12 @@ def readme():
 
 
 setup(name='diffusion_device',
-      version='0.1.2',
+      version='1.0.0',
       description='Image processing on diffusion device images',
       long_description=readme(),
+      long_description_content_type='text/markdown',
       classifiers=[
-          'Development Status :: 4 - Beta',
+          'Development Status :: 5 - Production/Stable',
           'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
           'Programming Language :: Python :: 3 :: Only',
           'Topic :: Scientific/Engineering',
