@@ -238,3 +238,14 @@ class TestImage(TestCase):
         shutil.rmtree(tempdir)
         self.assertGreater(infos['Radius'][0], 2.5e-9)
         self.assertLess(infos['Radius'][0], 4e-9)
+
+    def test_bin_prof(self):
+        settingsfn = os.path.join(
+            folder, 'test_data/settings_1.json')
+        metadatafn = os.path.join(
+            folder, 'test_data/2uM_aS_Fibrils_Disagg_Buffer_0p05%Tween_Chip5_360uW_-100ulh_50ums_7_cont_metadata.json')
+        tempdir = "Test_tempdir"
+        infos = full_fit(settingsfn, metadatafn, tempdir)
+        shutil.rmtree(tempdir)
+        self.assertGreater(infos['Radius'], 150e-9)
+        self.assertLess(infos['Radius'], 200e-9)

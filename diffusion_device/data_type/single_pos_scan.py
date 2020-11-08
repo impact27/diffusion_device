@@ -51,12 +51,17 @@ class SinglePosScan(DataType):
         """
         filename = self.metadata["KEY_MD_FN"]
         data = load_file(filename, **self.metadata["KEY_MD_SCAN_STRUCT"])
-        return data
+        pixel_size = self.metadata["KEY_MD_PIXSIZE"]
+        if "rebin" in self.metadata["KEY_MD_SCAN_STRUCT"]:
+            pixel_size *= self.metadata["KEY_MD_SCAN_STRUCT"]["rebin"]
+        infos = {"raw_data": data,
+                 "Pixel size": pixel_size}
+        return infos
 
     def savedata(self, infos):
         save_file(self.outpath + '_scans.cvs', infos['Data'])
 
-    def process_data(self, data):
+    def process_data(self, infos):
         """Do some data processing
 
         Parameters
@@ -75,6 +80,7 @@ class SinglePosScan(DataType):
         data: array
             The processed data
         """
+        data = infos["raw_data"]
         flow_dir = self.metadata["KEY_MD_FLOWDIR"]
 
         # put scans in the correct order
@@ -85,8 +91,6 @@ class SinglePosScan(DataType):
                 elif o != 'd':
                     raise RuntimeError(
                         'Flow direction must be up or down for scans.')
-        infos = {}
-        infos["Pixel size"] = self.metadata["KEY_MD_PIXSIZE"]
         infos['Data'] = data
         return infos
 

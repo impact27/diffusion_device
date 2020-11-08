@@ -63,13 +63,18 @@ class MultiPosScan(DataType):
         scan_slice = self.settings["KEY_SET_SCAN_SLICE"]
         if scan_slice is not None:
             data = data[scan_slice[0]:scan_slice[1]]
-        return data
+        pixel_size = self.metadata["KEY_MD_PIXSIZE"]
+        if "rebin" in self.metadata["KEY_MD_SCAN_STRUCT"]:
+            pixel_size *= self.metadata["KEY_MD_SCAN_STRUCT"]["rebin"]
+        infos = {"raw_data": data,
+                 "Pixel size": pixel_size}
+        return infos
 
     def savedata(self, infos):
         """Save the data"""
         save_file(self.outpath + '_scan.csv', infos['Data'])
 
-    def process_data(self, raw_data):
+    def process_data(self, infos):
         """Do some data processing
 
         Parameters
@@ -88,11 +93,12 @@ class MultiPosScan(DataType):
         data: array
             The processed data
         """
+        raw_data = infos["raw_data"]
         background_fn = self.metadata["KEY_MD_BGFN"]
 
         # Find centers for processing
-        centers, pixel_size = self.get_scan_centers(raw_data)
-        infos = {}
+        centers, pixel_size = self.get_scan_centers(
+            raw_data, infos["Pixel size"])
         infos["Pixel size"] = pixel_size
         infos["Centers"] = centers
         infos["flow direction"] = self.metadata["KEY_MD_FLOWDIR"]
@@ -102,7 +108,7 @@ class MultiPosScan(DataType):
         if background_fn is None and not self.metadata["KEY_MD_BRIGHTWALL"]:
             data = self.flatten_scan(raw_data, infos)
         elif background_fn is not None:
-            bg = self.load_data(background_fn)
+            bg = self.load_data(background_fn)["raw_data"]
             data = self.remove_scan_background(raw_data, bg, infos)
         else:
             data = raw_data
@@ -254,18 +260,17 @@ class MultiPosScan(DataType):
 
         return centers, pixel_size
 
-    def get_scan_centers(self, profiles):
+    def get_scan_centers(self, profiles, pixel_size):
         """Get centers from a single scan"""
 
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
         brightwalls = self.metadata["KEY_MD_BRIGHTWALL"]
         wall_width_m = self.metadata["KEY_MD_WALLWIDTH"]
         channel_width_m = self.metadata["KEY_MD_WY"]
-        pix_size_init = self.metadata["KEY_MD_PIXSIZE"]
 
         n_pixel_estimated = (
             ((wall_width_m + channel_width_m) * number_profiles - wall_width_m)
-            / pix_size_init)
+            / pixel_size)
 
         def plot_pixel_size_helper():
             import matplotlib.pyplot as plt
@@ -299,17 +304,17 @@ class MultiPosScan(DataType):
         profiles[np.isnan(profiles)] = 0
 
         if brightwalls:
-            centers, pix_size = self.find_center_brightwall(profiles)
+            centers, pixel_size = self.find_center_brightwall(profiles, pixel_size)
         else:
-            centers, pix_size = self.find_center_by_mask(profiles)
-        return self.correlate_profiles(profiles, centers, pix_size)
+            centers, pixel_size = self.find_center_by_mask(profiles, pixel_size)
+        return self.correlate_profiles(profiles, centers, pixel_size)
 
-    def find_center_by_mask(self, profiles):
+    def find_center_by_mask(self, profiles, pix_size):
         """Find the center and pixel sixe by estimating the mass."""
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
         wall_width_m = self.metadata["KEY_MD_WALLWIDTH"]
         channel_width_m = self.metadata["KEY_MD_WY"]
-        pix_size_init = self.metadata["KEY_MD_PIXSIZE"]
+        pix_size_init = pix_size
 
         def find_channels(profiles, pix_size):
             """
@@ -480,7 +485,7 @@ class MultiPosScan(DataType):
             result = np.max(x)
         return result
 
-    def find_center_brightwall(self, profiles):
+    def find_center_brightwall(self, profiles, pixel_size):
         """Find center of brightwalls assuming a central injection."""
         number_profiles = self.metadata["KEY_MD_NCHANNELS"]
 
@@ -509,7 +514,7 @@ class MultiPosScan(DataType):
 
         expected_dist = (
             self.metadata["KEY_MD_WALLWIDTH"] + self.metadata["KEY_MD_WY"]
-            ) / self.metadata["KEY_MD_PIXSIZE"]
+            ) / pixel_size
         distances = np.diff(maxs) / expected_dist
         idx = 0
         # make sure all walls and peaks are detected

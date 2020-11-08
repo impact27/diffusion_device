@@ -7,9 +7,10 @@ Created on Wed Aug 29 14:13:33 2018
 """
 import csv
 import numpy as np
+from ..profile import rebin_profiles
 
 
-def load_file(fn, delimiter, skiprows, index, transpose=True):
+def load_file(fn, delimiter, skiprows, index, transpose=True, rebin=None):
 
     if not isinstance(fn, str):
         return np.asarray([load_file(
@@ -20,7 +21,11 @@ def load_file(fn, delimiter, skiprows, index, transpose=True):
     value = np.loadtxt(fn, delimiter=delimiter, skiprows=skiprows)[index]
     if transpose:
         value = value.T
-    return np.squeeze(value)
+
+    profiles = np.squeeze(value)
+    if rebin:
+        profiles = rebin_profiles(profiles.T, rebin).T
+    return profiles
 
 
 def save_file(fn, scan):

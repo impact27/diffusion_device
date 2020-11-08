@@ -38,8 +38,8 @@ class DataType():
 
     def full_fit(self):
         """Perform a fit with the imformations found in the settings file"""
-        raw_data = self.load_data()
-        infos = self.process_data(raw_data)
+        infos = self.load_data()
+        infos = self.process_data(infos)
 
         if self.outpath is not None:
             self.savedata(infos)
@@ -72,7 +72,7 @@ class DataType():
         """
         raise NotImplementedError
 
-    def process_data(self, data):
+    def process_data(self, infos):
         """Do some data processing
 
         Parameters
@@ -85,8 +85,6 @@ class DataType():
         data: array
             The processed data
         """
-        infos = {}
-        infos['Data'] = data
         return infos
 
     def savedata(self, infos):

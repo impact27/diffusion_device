@@ -57,9 +57,10 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         data = self.load_image(filename)
         if len(np.shape(data)) > 2:
             raise RuntimeError("Too many dimentions for single image data.")
-        return data
+        infos = {"raw_data": data}
+        return infos
 
-    def process_data(self, raw_data):
+    def process_data(self, infos):
         """Do some data processing
 
         Parameters
@@ -78,9 +79,10 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         data: array
             The processed data
         """
+        raw_data = infos["raw_data"]
         overexposed = is_overexposed(raw_data)
         data, background = self.process_background(raw_data)
-        infos = {}
+        infos = {"Pixel size": self.metadata["KEY_MD_PIXSIZE"]}
         data, infos = self.process_image(data, background, infos)
         infos['Data'] = data
         infos["Overexposed"] = overexposed
@@ -271,7 +273,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             raise RuntimeError("Poorly defined slice")
         return np.nanmean(image[..., amin:amax, :], -2)
 
-    def image_infos(self, image):
+    def image_infos(self, image, pixel_size):
         """
         Get the image angle, channel width, proteind offset, and origin
 
@@ -292,7 +294,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         angle = dp.image_angle(image)
         image = self.rotate_image(image, -angle)
         # Get channels infos
-        centers, pixel_size = self.straight_image_infos(image)
+        centers, pixel_size = self.straight_image_infos(image, pixel_size)
 
         retdict = {
             'angle': angle,
@@ -300,7 +302,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             'pixel_size': pixel_size}
         return retdict
 
-    def straight_image_infos(self, image):
+    def straight_image_infos(self, image, pixel_size):
         """
         Get the channel width, proteind offset, and origin from a
         straight image
@@ -325,7 +327,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         # Get profile
         profiles = np.nanmean(image - np.nanmedian(image), 0)
 
-        return self.get_scan_centers(profiles)
+        return self.get_scan_centers(profiles, pixel_size)
 
     def flat_image(self, image, rep_image, infos, *, frac=.6, subtract=False):
         """
@@ -427,7 +429,8 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         infos["image_angle"] = angle
 
         # Get channels infos
-        centers, pixel_size = self.straight_image_infos(rep_image)
+        centers, pixel_size = self.straight_image_infos(
+            rep_image, infos["Pixel size"])
         infos["Pixel size"] = pixel_size
         infos["Centers"] = centers
 
@@ -549,6 +552,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         image_coord = self.settings["KEY_STG_IMAGE_COORD"]
         align_background = self.settings["KEY_ALIGN_BACKGROUND"]
         channel_width = self.metadata["KEY_MD_WY"]
+        pixel_size = infos["Pixel size"]
 
         # Get brightest image if stack
         if len(np.shape(im)) == 3:
@@ -579,7 +583,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
         data_tmp = self.rotate_image(data_tmp, -angle)
 
         # Get current centers
-        bright_infos = self.image_infos(data_tmp)
+        bright_infos = self.image_infos(data_tmp, pixel_size)
         pixel_size = bright_infos['pixel_size']
         centers = bright_infos['centers']
 
@@ -636,7 +640,7 @@ class MultiPosImage(MultiPosScan, ImagesFile):
             im = ret
             if len(np.shape(im)) == 3:
                 im = im[np.argmax(np.nanmean(im, axis=(1, 2)))]
-            centersOut[:] = self.image_infos(im)['centers']
+            centersOut[:] = self.image_infos(im, pixel_size)['centers']
         return ret
 
     def bg_extract_data(self, im, bg, infos):

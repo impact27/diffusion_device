@@ -58,9 +58,10 @@ class SinglePosImage(ImagesFile):
         """
         filename = self.metadata["KEY_MD_FN"]
         data = self.load_images(filename)
-        return data
+        infos = {"raw_data": data}
+        return infos
 
-    def process_data(self, data):
+    def process_data(self, infos):
         """Do some data processing
 
         Parameters
@@ -79,9 +80,10 @@ class SinglePosImage(ImagesFile):
         data: array
             The processed data
         """
-        overexposed = is_overexposed(data)
-        data, backgrounds = self.process_background(data)
-        data, pixel_size = self.process_images(data, backgrounds)
+        raw_data = infos["raw_data"]
+        overexposed = is_overexposed(raw_data)
+        raw_data, backgrounds = self.process_background(raw_data)
+        data, pixel_size = self.process_images(raw_data, backgrounds)
         infos = {}
         infos["Overexposed"] = overexposed
         infos["Pixel size"] = pixel_size

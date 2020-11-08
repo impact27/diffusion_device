@@ -414,7 +414,10 @@ def myinverse(M):
 
 def jacobian_interpolated_polydisperse(index, sum_matrices, vary_offset=False):
     """Jacobian function of res_interp_2"""
-    return sum_matrices.jacobian(index, vary_offset)
+    try:
+        return sum_matrices.jacobian(index, vary_offset)
+    except Exception:
+        return np.nan * index
 
 
 def residual_interpolated_polydisperse(index, sum_matrices, vary_offset=False):

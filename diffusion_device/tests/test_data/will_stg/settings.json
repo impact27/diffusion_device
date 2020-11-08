@@ -2,7 +2,7 @@
     "Radii[m] (min, max, number)": [
         500e-12,
         10e-9,
-        1e3
+        1000
     ],
     "Radii in log": false,
     "Number of species to fit": 1,

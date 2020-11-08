@@ -58,9 +58,10 @@ class StackMultiPosImage(MultiPosImage):
         """
         filename = self.metadata["KEY_MD_FN"]
         data = self.load_images(filename)
-        return data
+        infos = {"raw_data": data}
+        return infos
 
-    def process_data(self, data):
+    def process_data(self, infos):
         """Do some data processing
 
         Parameters
@@ -79,6 +80,7 @@ class StackMultiPosImage(MultiPosImage):
         data: array
             The processed data
         """
+        data = infos["raw_data"]
         Nchannel = self.metadata['KEY_MD_NCHANNELS']
         framesslices = slice(*self.settings["KEY_STG_STACK_FRAMESSLICES"])
         rebin = self.settings["KEY_STG_STACK_REBIN"]
@@ -120,7 +122,7 @@ class StackMultiPosImage(MultiPosImage):
                 else:
                     self.metadata["KEY_MD_EXP"] = self.metadata["KEY_MD_EXP"][0]
 
-            super_infos = super().process_data(data)
+            super_infos = super().process_data({"raw_data": data})
             super_infos['Error'] = False
             for data_idx, i in enumerate(infos.index):
                 infos_i = super_infos.copy()
@@ -139,7 +141,7 @@ class StackMultiPosImage(MultiPosImage):
                 if isinstance(metadata_stack["KEY_MD_EXP"], list):
                     self.metadata["KEY_MD_EXP"] = (
                         np.asarray(metadata_stack["KEY_MD_EXP"])[framesslices][i])
-                infos_i = super().process_data(frame)
+                infos_i = super().process_data({"raw_data": frame})
                 infos_i['Error'] = False
                 infos = self.add_to_line(infos, i, infos_i)
 
